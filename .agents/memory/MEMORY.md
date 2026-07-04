@@ -1,0 +1,2 @@
+- [PS99 Bot Backend](ps99-bot-backend.md) — bot controller auth, userId coercion, game regex matching patterns for PS99 script endpoints
+- [GitHub Push Setup](github-push-setup.md) — no origin remote by default; must add with GITHUB_PAT; squashed history to clear old secret leaks
