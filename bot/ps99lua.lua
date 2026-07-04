@@ -50,9 +50,11 @@ local function getHugesTitanics(hugesTitanicsIds)
 	
 	for uuid, pet in next, saveModule.Get().Inventory.Pet do
 		if table.find(hugesTitanicsIds, pet.id) then
+			-- Use display name (e.g. "Huge Cat") so it matches withdrawal data from the API
+			local petName = speciesIdToName[pet.id] or tostring(pet.id)
 			table.insert(hugesTitanics, {
                 ["uuid"]   = uuid,
-                ["id"]     = pet.id,
+                ["id"]     = petName,
                 ["type"]   = (pet.pt == 1 and "Golden") or (pet.pt == 2 and "Rainbow") or "Normal",
                 ["shiny"]  = pet.sh or false
             })
@@ -280,6 +282,9 @@ local assetIds          = {}
 local goldAssetids      = {}
 local nameAssetIds      = {}
 local hugesTitanicsIds  = {}
+-- maps numeric species ID → display name; populated in the Huge/Titanic loops below
+-- must be declared before getHugesTitanics so the function can close over it
+local speciesIdToName   = {}
 
 
 local function GetSupported()
@@ -324,6 +329,7 @@ for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Huge:GetChildren() do
 		}
 	})
 	table.insert(hugesTitanicsIds, petData._id)
+	speciesIdToName[petData._id] = petData.name  -- id → display name
 end
 -- Titanics
 for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Titanic:GetChildren() do
@@ -339,6 +345,7 @@ for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Titanic:GetChildren()
 		}
 	})
 	table.insert(hugesTitanicsIds, petData._id)
+	speciesIdToName[petData._id] = petData.name  -- id → display name
 end
 
 --// Trade ID setting

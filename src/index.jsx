@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
@@ -29,7 +29,12 @@ const BACKEND_URL = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/api$/, "")
   : "https://ps99bet-backend.onrender.com";
 
-const socket = io(BACKEND_URL, { path: "/socket.io", transports: ["websocket"], autoConnect: true });
+const socket = io(BACKEND_URL, {
+  path: "/socket.io",
+  transports: ["websocket"],
+  autoConnect: true,
+  auth: { token: getauth() },
+});
 
 function ModalRenderer() {
   const { modalState } = useModal();
@@ -52,6 +57,20 @@ function App() {
       })
       .catch(() => {});
   }, []);
+
+  // Re-authenticate the socket only when the logged-in user actually changes
+  // (not on every UPDATE_ME, which would cause an infinite reconnect loop)
+  const prevUserIdRef = useRef(null);
+  useEffect(() => {
+    if (!userData) return;
+    if (userData.userid === prevUserIdRef.current) return;
+    prevUserIdRef.current = userData.userid;
+    const token = getauth();
+    if (!token) return;
+    socket.auth = { token };
+    socket.disconnect();
+    socket.connect();
+  }, [userData]);
 
   return (
     <UserContext.Provider value={{ userData, setUserData }}>

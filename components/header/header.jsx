@@ -50,16 +50,15 @@ export default function Header() {
   }, [userData]);
 
   useEffect(() => {
-    if (socket?.connected) {
-      const handleUpdate = (data) => {
-        setUserData(data);
-        setBalance(data.value);
-        setProfileImage(data.thumbnail || Undefinded);
-        setLevel(data.level || 0);
-      };
-      socket.on("UPDATE_ME", handleUpdate);
-      return () => { socket.off("UPDATE_ME", handleUpdate); };
-    }
+    if (!socket) return;
+    const handleUpdate = (data) => {
+      setUserData(data);
+      setBalance(data.value);
+      setProfileImage(data.thumbnail || Undefinded);
+      setLevel(data.level || 0);
+    };
+    socket.on("UPDATE_ME", handleUpdate);
+    return () => { socket.off("UPDATE_ME", handleUpdate); };
   }, [socket, setUserData]);
 
   const handleLogout = () => {
