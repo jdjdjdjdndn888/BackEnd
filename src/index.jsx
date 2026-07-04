@@ -27,7 +27,7 @@ import Trades from "../components/trades/Trades.jsx";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/api$/, "")
-  : "";
+  : "https://ps99bet-backend.onrender.com";
 
 const socket = io(BACKEND_URL, { path: "/socket.io", transports: ["websocket"], autoConnect: true });
 
