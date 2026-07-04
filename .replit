@@ -1,0 +1,67 @@
+modules = ["nodejs-20", "python-3.11"]
+[nix]
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend API"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Backend API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd api && node server.js"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3001
+
+[userenv]
+
+[userenv.shared]
+DISCORD_CLIENT_ID = "1522604409669025793"
+DISCORD_REDIRECT_URI = "https://2f3bf731-3fb0-4d13-abaf-582016465d3e-00-2by5f5cwxr8ic.picard.replit.dev/discord/linked"
+VITE_DISCORD_CLIENT_ID = "1522604409669025793"
+VITE_DISCORD_REDIRECT_URI = "https://2f3bf731-3fb0-4d13-abaf-582016465d3e-00-2by5f5cwxr8ic.picard.replit.dev/discord/linked"
+TAXER_USER_ID = "4144534949"

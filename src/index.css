@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+  --header-height: 4rem;
+  --footer-height: 3.5rem;
+  --brand: #8B5CF6;
+  --brand-hover: #7C3AED;
+  --background: 237 35% 8%;
+  --foreground: 210 40% 98%;
+  --card: 237 35% 8%;
+  --card-foreground: 210 40% 98%;
+  --popover: 237 30% 10%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 263 70% 63%;
+  --primary-foreground: 237 35% 8%;
+  --secondary: 237 25% 14%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 237 25% 14%;
+  --muted-foreground: 215 20% 55%;
+  --accent: 237 25% 14%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 237 20% 14%;
+  --input: 237 20% 14%;
+  --ring: 263 70% 63%;
+  --radius: 0.5rem;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #0a0b14;
+  color: #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+/* ─── Global button classes ────────────────────────────────────────────── */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  text-decoration: none;
+}
+
+.button:hover { opacity: 0.9; }
+.button:active { transform: scale(0.97); opacity: 1; }
+.button:disabled { opacity: 0.5; cursor: not-allowed; }
+.button.loading { opacity: 0.75; cursor: not-allowed; }
+
+.buttoncolorful {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #a855f7, #7C3AED);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+}
+
+.buttoncolorful:hover { opacity: 0.9; }
+.buttoncolorful:active { transform: scale(0.97); }
+.buttoncolorful:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Logout hover ──────────────────────────────────────────────────────── */
+.logoutbtn:hover {
+  background-color: rgba(255, 71, 87, 0.1) !important;
+}

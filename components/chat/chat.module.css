@@ -1,0 +1,11 @@
+.emojiPickerContainer {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+}
+
+.emojiPickerContainer button:hover {
+  background-color: #181a28;
+  color: white;
+}

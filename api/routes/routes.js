@@ -1,0 +1,117 @@
+const express = require("express");
+const os = require("os");
+const router = express.Router();
+const accountController = require("../controllers/account/index.js");
+const chatController = require("../controllers/chat/index.js");
+const coinflipController = require("../controllers/coinflip/index.js");
+const bothandler = require("../controllers/bot/index.js");
+const giveawayController = require("../controllers/giveaway/index.js");
+const gamesController = require("../controllers/games/index.js");
+const jackpotController = require("../controllers/jackpot/index.js");
+const adminController = require("../controllers/admin/index.js");
+const tradesController = require("../controllers/trades/index.js");
+
+router.use(express.json());
+
+router.get("/", (req, res) => {
+  const uptime = process.uptime();
+  const systemUptime = os.uptime();
+  const ping = Date.now() - req.startTime;
+
+  const info = {
+    ping: `${ping}ms`,
+    uptime: `${uptime} seconds`,
+    systemUptime: `${systemUptime} seconds`,
+    cpuCores: "...",
+    loadAverage: os.loadavg(),
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json({
+    success: true,
+    message: "sucessfuly pinged the spiney api.",
+    data: info,
+  });
+});
+
+router.post("/me", accountController.verifyToken, accountController.me);
+router.post("/users/profile", accountController.profile);
+router.post("/login", accountController.login);
+router.post("/me/inventory", accountController.verifyToken, accountController.inventory);
+router.post("/me/withdraw", accountController.verifyToken, accountController.withdraw);
+router.post("/me/discord", accountController.verifyToken, accountController.linkdiscord);
+router.post("/me/discord/unlink", accountController.verifyToken, accountController.unlinkdiscord);
+
+router.post("/users/tip", accountController.verifyToken, accountController.tip);
+router.get("/users/leaderboard", accountController.getleaderboard);
+
+router.post("/items/all", bothandler.GetSupported);
+router.get("/items/all", bothandler.GetSupported);
+
+router.post("/chat/send", accountController.verifyToken, (req, res, next) => {
+  const io = req.app.get('io');
+  chatController.sendchat(req, res, next, io);
+});
+router.post("/chat/latest", chatController.latestmessages);
+
+router.get("/coinflips/flips", coinflipController.getcoinflips);
+router.post("/coinflips/create", accountController.verifyToken, coinflipController.creatematch);
+router.post("/coinflips/join", accountController.verifyToken, coinflipController.joinmatch);
+router.post("/coinflips/cancel", accountController.verifyToken, accountController.verifyToken, coinflipController.cancelcoinflip);
+router.post("/coinflips/history/me", accountController.verifyToken, coinflipController.historyme);
+
+router.post("/withdraw/method", bothandler.real, bothandler.Getmethod);
+router.post("/withdraw/withdrawed", bothandler.real, bothandler.withdrawed);
+
+router.post("/deposit/deposit", bothandler.real, bothandler.Deposit);
+
+router.post("/trading/items/check-pending", bothandler.realBody, bothandler.checkPending);
+router.post("/trading/items/confirm-ps99-deposit", bothandler.real, bothandler.Deposit);
+router.post("/trading/items/confirm-withdraw", bothandler.real, bothandler.confirmWithdrawAll);
+
+router.post("/bots/:game", accountController.verifyToken, bothandler.bots);
+
+router.get("/giveaways/latest", giveawayController.getgiveaways);
+router.post("/giveaways/create", accountController.verifyToken, giveawayController.giveaway);
+router.post("/giveaways/join", accountController.verifyToken, giveawayController.joingiveaway);
+
+router.get("/stats/all", gamesController.getvalue);
+
+router.get("/jackpot", jackpotController.get_jackpot);
+router.post("/jackpot/join", accountController.verifyToken, jackpotController.join_jackpot);
+
+router.get("/admin/stats", accountController.verifyToken, adminController.isAdmin, adminController.stats);
+router.get("/admin/users", accountController.verifyToken, adminController.isAdmin, adminController.getUsers);
+router.post("/admin/ban", accountController.verifyToken, adminController.isAdmin, adminController.banUser);
+router.post("/admin/setrank", accountController.verifyToken, adminController.isAdmin, adminController.setRank);
+router.get("/admin/items", accountController.verifyToken, adminController.isAdmin, adminController.listItems);
+router.post("/admin/items/create", accountController.verifyToken, adminController.isAdmin, adminController.createItem);
+router.put("/admin/items/:itemid", accountController.verifyToken, adminController.isAdmin, adminController.updateItem);
+router.delete("/admin/items/:itemid", accountController.verifyToken, adminController.isAdmin, adminController.deleteItem);
+router.post("/admin/items/give", accountController.verifyToken, adminController.isAdmin, adminController.giveItem);
+router.post("/admin/items/:itemid/fetchimage", accountController.verifyToken, adminController.isAdmin, adminController.fetchItemImage);
+router.get("/trades", tradesController.getListings);
+router.get("/trades/mine", accountController.verifyToken, tradesController.getMyListings);
+router.post("/trades/create", accountController.verifyToken, tradesController.createListing);
+router.post("/trades/cancel", accountController.verifyToken, tradesController.cancelListing);
+router.post("/trades/request", accountController.verifyToken, tradesController.sendRequest);
+router.post("/trades/respond", accountController.verifyToken, tradesController.respondRequest);
+router.post("/trades/request/cancel", accountController.verifyToken, tradesController.cancelRequest);
+
+router.get("/admin/bots", accountController.verifyToken, adminController.isAdmin, adminController.getBots);
+router.post("/admin/bots/toggle", accountController.verifyToken, adminController.isAdmin, adminController.toggleBot);
+router.post("/admin/bots/create", accountController.verifyToken, adminController.isAdmin, adminController.createBot);
+router.post("/admin/bots/delete", accountController.verifyToken, adminController.isAdmin, adminController.deleteBot);
+router.post("/admin/notify", accountController.verifyToken, adminController.isAdmin, adminController.notify);
+router.post("/admin/reset", accountController.verifyToken, adminController.isAdmin, adminController.resetDB);
+router.post("/admin/scrape", accountController.verifyToken, adminController.isAdmin, adminController.scrapeItems);
+
+router.all("*", (req, res) => {
+  const rayId = req.headers['cf-ray'] || 'Unavailable';
+  res.status(404).json({
+    success: false,
+    message: `ERROR: NO ROUTER FOUND, RAY ID: ${rayId}`,
+  });
+});
+
+module.exports = router;

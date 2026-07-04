@@ -1,0 +1,13 @@
+uploads = []
+
+[[generated]]
+id = "UV7eo2ZWtvRF0seWF7cHJ"
+uri = "file://public/discord.png"
+type = "image"
+title = "Discord logo icon"
+
+[[outputs]]
+id = "wO6YCVAT6Zs0N0qWTORId"
+uri = "file://attached_assets/text_(2)_(1)_1783083557697.txt"
+type = "text"
+title = "Updated Trade Bot Script"
