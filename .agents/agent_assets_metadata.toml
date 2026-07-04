@@ -11,3 +11,9 @@ id = "wO6YCVAT6Zs0N0qWTORId"
 uri = "file://attached_assets/text_(2)_(1)_1783083557697.txt"
 type = "text"
 title = "Updated Trade Bot Script"
+
+[[outputs]]
+id = "ehT-2_sU-TokOcjWG-uHi"
+uri = "file://attached_assets/ps99bet_bot_updated.lua"
+type = "unspecified"
+title = "PS99Bet Bot — Updated Script"
