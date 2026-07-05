@@ -138,15 +138,35 @@ local function confirmTrade()
     return tradingCommands.SetConfirmed(true) 
 end
 
--- Dismisses the "Hey! X cancelled the trade!" / "Trade completed!" popup by clicking Ok!
+-- Dismisses the "Hey! X cancelled/completed the trade!" popup by clicking Ok!
+-- Polls up to 3 s so UI timing doesn't matter; tries firebutton() first (executor
+-- global), then MouseButton1Down+Up as fallback. Only targets visible buttons to
+-- avoid hitting unrelated dialogs.
 local function dismissTradeDialog()
     task.spawn(function()
-        task.wait(0.6)
-        for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
-            if desc:IsA("TextButton") and (desc.Text == "Ok!" or desc.Text == "Ok") then
-                pcall(function() desc.MouseButton1Click:Fire() end)
+        local deadline = tick() + 3
+        while tick() < deadline do
+            -- Prefer the button inside tradingMessage itself
+            local ok = tradingMessage:FindFirstChild("Ok", true)
+                     or tradingMessage:FindFirstChild("Ok!", true)
+            -- Fallback: any visible Ok button anywhere in PlayerGui
+            if not ok then
+                for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
+                    if desc:IsA("TextButton")
+                        and (desc.Text == "Ok!" or desc.Text == "Ok")
+                        and desc.Visible then
+                        ok = desc
+                        break
+                    end
+                end
+            end
+            if ok then
+                pcall(function() firebutton(ok) end)            -- executor global
+                pcall(function() ok.MouseButton1Down:Fire() end) -- fallback sequence
+                pcall(function() ok.MouseButton1Up:Fire()   end)
                 return
             end
+            task.wait(0.2)
         end
     end)
 end
