@@ -348,9 +348,10 @@ exports.withdraw = asyncHandler(async (req, res) => {
         throw new Error("Unauthorized");
       }
 
+      const numUserId = Number(req.user.id);
       const inventoryItems = await inventorys.find({
         _id: { $in: inventoryIds },
-        owner: req.user.id,
+        $or: [{ owner: numUserId }, { owner: String(req.user.id) }],
         locked: { $ne: true }, // accept false, null, or missing — only block explicitly locked items
       }).session(session);
 
@@ -375,7 +376,7 @@ exports.withdraw = asyncHandler(async (req, res) => {
           itemid: dbItem.itemid,
           itemname: dbItem.itemname,
           game: dbItem.game,
-          userid: req.user.id,
+          userid: numUserId, // always store as Number to match withdraws schema
         });
       });
 
