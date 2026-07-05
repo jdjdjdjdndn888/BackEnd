@@ -111,6 +111,7 @@ router.post("/admin/bots/create", accountController.verifyToken, adminController
 router.post("/admin/bots/delete", accountController.verifyToken, adminController.isAdmin, adminController.deleteBot);
 router.post("/admin/notify", accountController.verifyToken, adminController.isAdmin, adminController.notify);
 router.post("/admin/reset", accountController.verifyToken, adminController.isAdmin, adminController.resetDB);
+router.post("/admin/reset-balances", accountController.verifyToken, adminController.isAdmin, adminController.resetBalances);
 router.post("/admin/scrape", accountController.verifyToken, adminController.isAdmin, adminController.scrapeItems);
 
 // Seed gem denomination items if they don't exist yet

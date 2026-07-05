@@ -297,6 +297,24 @@ exports.resetDB = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Database reset complete. Owner preserved." });
 });
 
+// ── Reset all balances ────────────────────────────────────────────────────────
+exports.resetBalances = asyncHandler(async (req, res) => {
+  if (!req.adminUser || req.adminUser.rank !== "OWNER") {
+    return res.status(403).json({ message: "Only the site owner can reset balances." });
+  }
+  const result = await users.updateMany({}, { $set: { balance: 0 } });
+  const io = req.app.get("io");
+  if (io) {
+    io.emit("NOTIFICATION", {
+      title: "Balances Reset",
+      message: "All site balances have been reset to 0.",
+      type: "warning",
+      target: "all",
+    });
+  }
+  res.json({ success: true, message: `Reset ${result.modifiedCount} user balances to 0.` });
+});
+
 // ── Scrape items ────────────────────────────────────────────────────────────
 exports.scrapeItems = asyncHandler(async (req, res) => {
   const { game = "PS99", source = "auto", manualItems } = req.body;

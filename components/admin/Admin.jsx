@@ -78,25 +78,59 @@ export default function Admin() {
 
 // ── Overview ─────────────────────────────────────────────────────────────────
 function OverviewTab() {
+  const { userData } = useContext(UserContext);
   const [stats, setStats] = useState(null);
+  const [resetting, setResetting] = useState(false);
+
   useEffect(() => {
     fetch(`${api}/admin/stats`, { headers: { authorization: `Bearer ${getauth()}` } })
       .then(r => r.json()).then(d => setStats(d.data)).catch(() => {});
   }, []);
+
+  const resetBalances = async () => {
+    if (!confirm("⚠️ RESET ALL BALANCES\n\nThis will set every user's balance to 0R$.\n\nThis cannot be undone. Proceed?")) return;
+    setResetting(true);
+    try {
+      const res = await fetch(`${api}/admin/reset-balances`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      res.ok ? toast.success(d.message) : toast.error(d.message || "Reset failed");
+    } catch { toast.error("Network error"); }
+    finally { setResetting(false); }
+  };
+
   const cards = [
     { label: "Total Users",      value: stats?.totalUsers     ?? "—", icon: "👥" },
     { label: "Items in DB",      value: stats?.totalItems     ?? "—", icon: "📦" },
     { label: "Inventory Entries", value: stats?.totalInventory ?? "—", icon: "🎒" },
   ];
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {cards.map(s => (
-        <div key={s.label} className="rounded-xl bg-[#13151f] border border-[#1e2035] p-5">
-          <div className="text-2xl mb-2">{s.icon}</div>
-          <p className="text-2xl font-bold">{s.value}</p>
-          <p className="text-sm text-[#6B7280] mt-1">{s.label}</p>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {cards.map(s => (
+          <div key={s.label} className="rounded-xl bg-[#13151f] border border-[#1e2035] p-5">
+            <div className="text-2xl mb-2">{s.icon}</div>
+            <p className="text-2xl font-bold">{s.value}</p>
+            <p className="text-sm text-[#6B7280] mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
+      {userData?.rank === "OWNER" && (
+        <div className="rounded-xl bg-[#13151f] border border-[#EF444440] p-5">
+          <p className="text-sm font-bold text-red-400 mb-1">🔴 Owner Actions</p>
+          <p className="text-xs text-[#6B7280] mb-3">Destructive actions — owner only. Cannot be undone.</p>
+          <button
+            onClick={resetBalances}
+            disabled={resetting}
+            className="px-5 py-2.5 rounded-lg border-none text-white text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}
+          >
+            {resetting ? "Resetting..." : "💰 Reset All Balances to 0"}
+          </button>
         </div>
-      ))}
+      )}
     </div>
   );
 }
