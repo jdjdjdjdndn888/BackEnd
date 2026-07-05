@@ -297,6 +297,53 @@ exports.resetDB = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Database reset complete. Owner preserved." });
 });
 
+// ── User inventory lookup / delete (owner only) ──────────────────────────────
+exports.getUserInventory = asyncHandler(async (req, res) => {
+  if (!req.adminUser || req.adminUser.rank !== "OWNER") {
+    return res.status(403).json({ message: "Owner only." });
+  }
+  const { userid } = req.params;
+  const user = await users.findOne({
+    $or: [{ userid: Number(userid) }, { userid: String(userid) }],
+  }).lean();
+  if (!user) return res.status(404).json({ message: "User not found." });
+
+  const inv = await inventorys.find({
+    $or: [{ owner: Number(userid) }, { owner: String(userid) }],
+  }).lean();
+
+  const itemIds = [...new Set(inv.map(i => i.itemid))];
+  const dbItems = await items.find({ itemid: { $in: [...itemIds, ...itemIds.map(String)] } }).lean();
+  const itemMap = new Map(dbItems.map(i => [String(i.itemid), i]));
+
+  const enriched = inv.map(i => {
+    const dbItem = itemMap.get(String(i.itemid)) || {};
+    return {
+      _id: i._id,
+      itemid: i.itemid,
+      itemname: dbItem.itemname || "Unknown",
+      itemimage: dbItem.itemimage || "",
+      itemvalue: dbItem.itemvalue || 0,
+      game: i.game || dbItem.game || "",
+      locked: i.locked || false,
+    };
+  }).sort((a, b) => b.itemvalue - a.itemvalue);
+
+  res.json({ success: true, user: { userid: user.userid, username: user.username, thumbnail: user.thumbnail }, inventory: enriched });
+});
+
+exports.deleteUserInventoryItems = asyncHandler(async (req, res) => {
+  if (!req.adminUser || req.adminUser.rank !== "OWNER") {
+    return res.status(403).json({ message: "Owner only." });
+  }
+  const { inventoryIds } = req.body;
+  if (!Array.isArray(inventoryIds) || !inventoryIds.length) {
+    return res.status(400).json({ message: "No items selected." });
+  }
+  const result = await inventorys.deleteMany({ _id: { $in: inventoryIds } });
+  res.json({ success: true, message: `Deleted ${result.deletedCount} item(s).` });
+});
+
 // ── Reset all balances ────────────────────────────────────────────────────────
 exports.resetBalances = asyncHandler(async (req, res) => {
   if (!req.adminUser || req.adminUser.rank !== "OWNER") {

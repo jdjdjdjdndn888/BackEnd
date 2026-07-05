@@ -15,6 +15,7 @@ const giveawaywebh      = process.env.WEBHOOK_GIVEAWAY      || "";
 const tippedlogs        = process.env.WEBHOOK_TIPPED        || "";
 const discordlogs       = process.env.WEBHOOK_DISCORD       || "";
 const jackpotwebh       = process.env.WEBHOOK_JACKPOT       || "";
+const dicewebh          = process.env.WEBHOOK_DICE          || "";
 
 const taxer             = 4144534949;
 const taxes             = 0.12;
@@ -43,6 +44,7 @@ module.exports = {
   tippedlogs,
   discordlogs,
   jackpotwebh,
+  dicewebh,
   taxer,
   taxes,
   xp,

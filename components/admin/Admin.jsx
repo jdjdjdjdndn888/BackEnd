@@ -6,7 +6,7 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
-const TABS = ["Overview", "Users", "Items", "Bots"];
+const TABS = ["Overview", "Users", "Items", "Bots", "Inventory"];
 const GAMES = ["PS99", "MM2"];
 
 // ── Value helpers ────────────────────────────────────────────────────────────
@@ -67,10 +67,11 @@ export default function Admin() {
           ))}
         </div>
 
-        {tab === "Overview" && <OverviewTab />}
-        {tab === "Users"    && <UsersTab />}
-        {tab === "Items"    && <ItemsTab />}
-        {tab === "Bots"     && <BotsTab />}
+        {tab === "Overview"   && <OverviewTab />}
+        {tab === "Users"      && <UsersTab />}
+        {tab === "Items"      && <ItemsTab />}
+        {tab === "Bots"       && <BotsTab />}
+        {tab === "Inventory"  && <InventoryTab />}
       </div>
     </div>
   );
@@ -788,5 +789,175 @@ function Badge({ active, label, color }) {
       style={{ color: c, borderColor: c + "50", background: c + "15" }}>
       {active ? "✓" : "✗"} {label}
     </span>
+  );
+}
+
+// ── Inventory (owner only) ────────────────────────────────────────────────────
+function InventoryTab() {
+  const { userData } = useContext(UserContext);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null); // { user, inventory }
+  const [selected, setSelected] = useState(new Set());
+  const [deleting, setDeleting] = useState(false);
+
+  if (userData?.rank !== "OWNER") {
+    return (
+      <div className="flex items-center justify-center py-16 text-[#6B7280] text-sm">
+        🔒 Owner only
+      </div>
+    );
+  }
+
+  const lookup = async () => {
+    if (!search.trim()) return;
+    setLoading(true);
+    setResult(null);
+    setSelected(new Set());
+    try {
+      const res = await fetch(`${api}/admin/user-inventory/${encodeURIComponent(search.trim())}`, {
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      if (res.ok) setResult(d);
+      else toast.error(d.message || "Not found");
+    } catch { toast.error("Network error"); }
+    finally { setLoading(false); }
+  };
+
+  const toggleItem = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (!result) return;
+    if (selected.size === result.inventory.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(result.inventory.map(i => String(i._id))));
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (!selected.size) return;
+    if (!confirm(`Delete ${selected.size} item(s) from ${result.user.username}'s inventory? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${api}/admin/user-inventory/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ inventoryIds: [...selected] }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        toast.success(d.message);
+        setResult(prev => ({
+          ...prev,
+          inventory: prev.inventory.filter(i => !selected.has(String(i._id))),
+        }));
+        setSelected(new Set());
+      } else toast.error(d.message || "Delete failed");
+    } catch { toast.error("Network error"); }
+    finally { setDeleting(false); }
+  };
+
+  const totalSelected = result?.inventory
+    .filter(i => selected.has(String(i._id)))
+    .reduce((s, i) => s + (i.itemvalue || 0), 0) ?? 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Search */}
+      <div className="rounded-xl bg-[#13151f] border border-[#1e2035] p-5">
+        <p className="text-sm font-bold mb-3">🔍 View User Inventory</p>
+        <div className="flex gap-2">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && lookup()}
+            placeholder="Enter Roblox User ID…"
+            className="flex-1 rounded-lg px-4 py-2.5 text-sm bg-[#0a0b14] border border-[#1e2035] text-white placeholder-[#42496B] outline-none focus:border-[#8B5CF6]"
+          />
+          <button
+            onClick={lookup}
+            disabled={loading}
+            className="px-5 py-2.5 rounded-lg border-none text-white text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}
+          >
+            {loading ? "Loading…" : "Lookup"}
+          </button>
+        </div>
+      </div>
+
+      {/* Results */}
+      {result && (
+        <div className="rounded-xl bg-[#13151f] border border-[#1e2035] p-5 space-y-4">
+          {/* User header */}
+          <div className="flex items-center gap-3">
+            {result.user.thumbnail && (
+              <img src={result.user.thumbnail} alt="" className="w-10 h-10 rounded-full" />
+            )}
+            <div>
+              <p className="font-bold">{result.user.username}</p>
+              <p className="text-xs text-[#6B7280]">ID: {result.user.userid} · {result.inventory.length} items</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              {selected.size > 0 && (
+                <span className="text-xs text-[#6B7280]">
+                  {selected.size} selected · R${fmtVal(totalSelected)}
+                </span>
+              )}
+              <button
+                onClick={toggleAll}
+                className="px-3 py-1.5 rounded-lg border border-[#1e2035] text-xs text-[#6B7280] hover:text-white cursor-pointer bg-transparent"
+              >
+                {selected.size === result.inventory.length ? "Deselect All" : "Select All"}
+              </button>
+              <button
+                onClick={deleteSelected}
+                disabled={!selected.size || deleting}
+                className="px-4 py-1.5 rounded-lg border-none text-white text-xs font-semibold cursor-pointer hover:opacity-90 disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}
+              >
+                {deleting ? "Deleting…" : `🗑 Delete (${selected.size})`}
+              </button>
+            </div>
+          </div>
+
+          {/* Item grid */}
+          {result.inventory.length === 0 ? (
+            <p className="text-sm text-[#6B7280] text-center py-8">Inventory is empty.</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-[600px] overflow-y-auto pr-1">
+              {result.inventory.map(item => {
+                const sel = selected.has(String(item._id));
+                return (
+                  <button
+                    key={String(item._id)}
+                    onClick={() => toggleItem(String(item._id))}
+                    className="rounded-xl p-2 text-left cursor-pointer border transition-all"
+                    style={{
+                      background: sel ? "#8B5CF620" : "#0a0b14",
+                      borderColor: sel ? "#8B5CF6" : "#1e2035",
+                    }}
+                  >
+                    {item.itemimage && (
+                      <img src={item.itemimage} alt="" className="w-full aspect-square object-contain rounded-lg mb-1" />
+                    )}
+                    <p className="text-[10px] font-semibold text-white truncate">{item.itemname}</p>
+                    <p className="text-[10px] text-[#6B7280]">R${fmtVal(item.itemvalue)}</p>
+                    {item.locked && <p className="text-[9px] text-yellow-400">🔒 locked</p>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

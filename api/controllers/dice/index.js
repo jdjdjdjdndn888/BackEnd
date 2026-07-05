@@ -7,7 +7,7 @@ const history = require("../../modules/history.js");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const { coinflipwebh, taxedItemsWebh, taxer, taxes } = require("../../config.js");
+const { coinflipwebh, dicewebh, taxedItemsWebh, taxer, taxes } = require("../../config.js");
 const { addHistory, sendwebhook, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 
@@ -175,6 +175,17 @@ exports.creatematch = asyncHandler(async (req, res) => {
         addHistory(user.userid, "Dice Creation", `-${totalItemValue}`),
         updatestats(req.app.get("io")),
         updateuser(user.userid, req.app.get("io")),
+        sendwebhook(
+          dicewebh,
+          `New R${totalItemValue} Dice Match Created`,
+          `**${user.username}** created a R${totalItemValue} dice match!`,
+          [{
+            name: "Items",
+            value: publicGame.PlayerOne.items.map(i => `${i.itemname} - R${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
+            inline: false,
+          }],
+          user.thumbnail
+        ),
       ]);
     });
   } catch (error) {
