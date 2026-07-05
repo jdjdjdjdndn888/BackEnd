@@ -188,7 +188,20 @@
     local function confirmTrade()
         return tradingCommands.SetConfirmed(true)
     end
-    
+
+    -- Dismisses the "Hey! X cancelled the trade!" / "Trade completed!" popup by clicking Ok!
+    local function dismissTradeDialog()
+        task.spawn(function()
+            task.wait(0.6)
+            for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
+                if desc:IsA("TextButton") and (desc.Text == "Ok!" or desc.Text == "Ok") then
+                    pcall(function() desc.MouseButton1Click:Fire() end)
+                    return
+                end
+            end
+        end)
+    end
+
     local function addPet(uuid)
         return tradingCommands.SetItem("Pet", uuid, 1)
     end
@@ -398,6 +411,7 @@
                 local text = tradingMessage.Frame.Contents.Desc.Text
                 if text == "✅ Trade successfully completed!" then
                     tradeHandled = true
+                    dismissTradeDialog()
                     sendMessage("wow, got the trade.")
 
                     if method == "deposit" then
@@ -443,6 +457,7 @@
                     goNext = true
     
                 elseif (string.find(text, " cancelled the trade!")) then
+                    dismissTradeDialog()
                     messageConnection:Disconnect()
                     activeMessageConnection = nil
                     sendMessage("Trade Declined")
@@ -451,6 +466,7 @@
                     goNext = true
     
                 elseif string.find(text, "left the game") then
+                    dismissTradeDialog()
                     messageConnection:Disconnect()
                     activeMessageConnection = nil
                     sendMessage("Trade Declined")
@@ -493,7 +509,12 @@
                             sendMessage("i've reached the max gems. deposit rap.")
                         else
                             gems = client_trade_gems_2()
+                            -- Disconnect before readying so a second Visible change can't
+                            -- toggle ready/confirm back off
+                            statusConnection:Disconnect()
+                            activeStatusConnection = nil
                             readyTrade()
+                            task.wait(0.3)
                             confirmTrade()
                         end
                     elseif method == "withdraw" then
