@@ -18,9 +18,7 @@ const OWNER_DISCORD_ID = ownerDiscordId;
 
 const intents = [
   GatewayIntentBits.Guilds,
-  GatewayIntentBits.GuildMembers,
   GatewayIntentBits.GuildMessages,
-  GatewayIntentBits.MessageContent,
   GatewayIntentBits.GuildMessageReactions,
 ];
 
