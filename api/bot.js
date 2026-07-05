@@ -870,7 +870,7 @@ async function handleGiveawayEnter(interaction, giveawayId) {
 if (BOT_TOKEN) {
   console.log("Bot: attempting Discord login...");
   const loginTimeout = setTimeout(() => {
-    console.error("Bot login timed out after 30s — check DISCORD_BOT_TOKEN or HARD_CODED_BOT_TOKEN.");
+    console.error("Bot login timed out after 30s — check your token in HARD_CODED_BOT_TOKEN or DISCORD_BOT_TOKEN env var.");
   }, 30000);
   client.once("ready", () => clearTimeout(loginTimeout));
   client.login(BOT_TOKEN).catch((err) => {
