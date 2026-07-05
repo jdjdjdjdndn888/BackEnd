@@ -9,6 +9,18 @@ const SITE_URL              = process.env.SITE_URL || ""; // ← your Vercel fro
 const BANNER_URL           = process.env.BANNER_URL || (SITE_URL ? `${SITE_URL}/banner/1.png` : "https://ps99bet.vercel.app");
 // ═══════════════════════════════════════════════════════════════════════
 
+const mongoose = require("mongoose");
+const { mongoUri: envMongoUri } = require("./config.js");
+const mongoUri = HARD_CODED_MONGO_URI || envMongoUri;
+if (mongoUri) {
+  mongoose
+    .connect(mongoUri, { dbName: "petflippy" })
+    .then(() => console.log("[bot] MongoDB connected"))
+    .catch((err) => console.error("[bot] MongoDB failed:", err.message));
+} else {
+  console.warn("[bot] No MONGODB_URI set — DB commands will fail");
+}
+
 const {
   Client,
   GatewayIntentBits,
