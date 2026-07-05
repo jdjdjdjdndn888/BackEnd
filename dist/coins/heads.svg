@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="coinGold" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#FFE566"/>
+      <stop offset="40%" stop-color="#F5C518"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </radialGradient>
+    <radialGradient id="coinEdge" cx="50%" cy="50%" r="50%">
+      <stop offset="85%" stop-color="transparent"/>
+      <stop offset="100%" stop-color="#8B6914" stop-opacity="0.6"/>
+    </radialGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#00000066"/>
+    </filter>
+    <radialGradient id="shine" cx="30%" cy="25%" r="40%">
+      <stop offset="0%" stop-color="#FFFDE0" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#FFFDE0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Coin body -->
+  <circle cx="50" cy="50" r="46" fill="#B8860B" filter="url(#shadow)"/>
+  <circle cx="50" cy="50" r="44" fill="url(#coinGold)"/>
+  <!-- Rim -->
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#F5C518" stroke-width="2.5" opacity="0.5"/>
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#8B6914" stroke-width="1" opacity="0.4"/>
+  <!-- Crown -->
+  <g transform="translate(50,50)">
+    <!-- Crown base -->
+    <rect x="-16" y="4" width="32" height="9" rx="2" fill="#7C3AED" opacity="0.95"/>
+    <!-- Crown points -->
+    <polygon points="-16,-8 -10,6 -4,-4 2,8 8,-6 14,6 20,-8 20,4 -16,4" fill="#8B5CF6"/>
+    <!-- Crown gems -->
+    <circle cx="-10" cy="-6" r="2.5" fill="#FFD700"/>
+    <circle cx="2" cy="8" r="2" fill="#FF69B4"/>
+    <circle cx="14" cy="6" r="2.5" fill="#00E5FF"/>
+    <!-- Stars -->
+    <text x="-4" y="12" font-size="7" fill="#FFE566" text-anchor="middle" font-family="Arial">★ ★</text>
+  </g>
+  <!-- Shine overlay -->
+  <circle cx="50" cy="50" r="44" fill="url(#shine)"/>
+</svg>
