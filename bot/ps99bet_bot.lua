@@ -539,16 +539,20 @@
                         end
                     elseif method == "withdraw" then
                         -- Player readied up — confirm our side once and stop listening.
-                        -- Do NOT call readyTrade() here; the bot already called it when
-                        -- it added items. Calling it again toggles ready state OFF.
-                        -- Do NOT call checkItems — the player isn't supposed to add anything.
                         if client_trade_gems_2() > 0 then
                             sendMessage("Please don't add diamonds while withdrawing!")
                         else
                             -- Disconnect first so a second Visible change can't re-fire this
                             statusConnection:Disconnect()
                             activeStatusConnection = nil
-                            confirmTrade()
+                            -- Retry confirmTrade in case the first call is ignored
+                            task.spawn(function()
+                                for i = 1, 3 do
+                                    if tradeId ~= localId then break end
+                                    pcall(confirmTrade)
+                                    task.wait(2)
+                                end
+                            end)
                         end
                     end
                 end
@@ -622,7 +626,10 @@
                             rejectTradeRequest(trade)
                         end)
                     end
-    
+
+                    -- Wait for the trade window to fully open before touching it
+                    task.wait(1.5)
+
                     local localId  = getTradeId()
                     tradeId        = localId
                     method = response["method"]
@@ -704,10 +711,12 @@
                             end
                         end
     
-                        task.wait(0.3)
+                        -- Wait for all addPet() calls to commit to the server
+                        task.wait(1.5)
                         if response["gems"] and response["gems"] >= 1 then
                             gems = response["gems"]
                             addGems(response["gems"])
+                            task.wait(0.5)
                         end
     
                         if #tradingItems == 0 and (not response["gems"] or response["gems"] == 0) then
@@ -733,16 +742,30 @@
                             if #missingPets > 0 then
                                 sendMessage("Missing stock, join another bot to receive your other pets!")
                             end
-                            readyTrade()  -- mark bot as ready; connectStatus will confirmTrade when player readies
                             connectMessage(localId, "withdraw", tradingItems)
                             connectStatus(localId, "withdraw")
                             goNext = false
+                            -- Retry readyTrade so it sticks even if the first fires too early
+                            task.spawn(function()
+                                for i = 1, 5 do
+                                    if tradeId ~= localId then break end
+                                    pcall(readyTrade)
+                                    task.wait(2)
+                                end
+                            end)
                         elseif #tradingItems == #withdrawData then
                             sendMessage("Please accept to receive your pets!")
-                            readyTrade()  -- mark bot as ready; connectStatus will confirmTrade when player readies
                             connectMessage(localId, "withdraw", tradingItems)
                             connectStatus(localId, "withdraw")
                             goNext = false
+                            -- Retry readyTrade so it sticks even if the first fires too early
+                            task.spawn(function()
+                                for i = 1, 5 do
+                                    if tradeId ~= localId then break end
+                                    pcall(readyTrade)
+                                    task.wait(2)
+                                end
+                            end)
                         end
     
                     else -- Deposit

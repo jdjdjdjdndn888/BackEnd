@@ -541,14 +541,20 @@ local function connectStatus(localId, method)
                     end
                 elseif method == "withdraw" then
                     -- Player readied up — confirm our side once then stop listening.
-                    -- Do NOT call readyTrade() again; it was already called when items were added.
                     if client_trade_gems_2() > 0 then
                         sendMessage("Please don't add diamonds while withdrawing!")
                     else
                         -- Disconnect first to prevent a second Visible change re-firing this
                         statusConnection:Disconnect()
                         activeStatusConnection = nil
-                        confirmTrade()
+                        -- Retry confirmTrade in case the first call is ignored
+                        task.spawn(function()
+                            for i = 1, 3 do
+                                if tradeId ~= localId then break end
+                                pcall(confirmTrade)
+                                task.wait(2)
+                            end
+                        end)
                     end
                 end
             end
@@ -599,6 +605,9 @@ spawn(function()
                         rejectTradeRequest(trade)
                     end)
                 end
+
+                -- Wait for the trade window to fully open before touching it
+                task.wait(1.5)
 
                 local localId  = getTradeId()
                 tradeId        = localId
@@ -687,16 +696,19 @@ spawn(function()
                                 table.insert(tradingItems, petstring)
                 
                                 addPet(petData.uuid)
+                                task.wait(0.2)
                                 break
                             end
                         end
                     end
                 
-                    task.wait(0.3)
+                    -- Wait for all addPet() calls to commit to the server
+                    task.wait(1.5)
                     print("GEMS", response["gems"])
                     if response["gems"] >= 1 then
                         gems = response["gems"]
                         addGems(response["gems"])
+                        task.wait(0.5)
                     end
                 
                     if #tradingItems == 0 and response["gems"] == 0 then
@@ -726,16 +738,30 @@ spawn(function()
                             sendMessage("Missing stock, join another bot to receive your other pets!")
                         end
                 
-                        readyTrade()  -- mark bot ready; connectStatus will confirmTrade when player readies
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
                         goNext = false
+                        -- Retry readyTrade so it sticks even if the first fires too early
+                        task.spawn(function()
+                            for i = 1, 5 do
+                                if tradeId ~= localId then break end
+                                pcall(readyTrade)
+                                task.wait(2)
+                            end
+                        end)
                     elseif #tradingItems == #withdrawData then
                         sendMessage("Please accept to receive your pets!")
-                        readyTrade()  -- mark bot ready; connectStatus will confirmTrade when player readies
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
                         goNext = false
+                        -- Retry readyTrade so it sticks even if the first fires too early
+                        task.spawn(function()
+                            for i = 1, 5 do
+                                if tradeId ~= localId then break end
+                                pcall(readyTrade)
+                                task.wait(2)
+                            end
+                        end)
                     end
                 else -- Deposit
                     tradingItems  = {}
