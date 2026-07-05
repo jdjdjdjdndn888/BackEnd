@@ -421,6 +421,39 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       level(winnerId, totalJoinerValue),
       level(loserId, totalJoinerValue),
       updatestats(req.app.get("io")),
+      sendwebhook(
+        dicewebh,
+        "Dice Game Completed 🎲",
+        `${game.PlayerOne.username} vs ${user.username} — match finished!`,
+        [
+          {
+            name: "Result",
+            value: `${finalUpdate.PlayerOne.username} ${winner === "PlayerOne" ? "🥳 Won" : "😭 Lost"}\n${user.username} ${winner === "PlayerTwo" ? "🥳 Won" : "😭 Lost"}`,
+            inline: false,
+          },
+          {
+            name: "Items",
+            value: allItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
+            inline: false,
+          },
+        ],
+        "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
+      ),
+      ...(taxedItems.length > 0 ? [
+        sendwebhook(
+          taxedItemsWebh,
+          "Tax Collected 💰 (DICE)",
+          `Taxed items from ${game.PlayerOne.username} vs ${user.username} match`,
+          [
+            {
+              name: "Taxed Items",
+              value: taxedItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024),
+              inline: false,
+            },
+          ],
+          "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
+        ),
+      ] : []),
     ]);
   } catch (error) {
     if (error.message?.includes("Write conflict")) {
