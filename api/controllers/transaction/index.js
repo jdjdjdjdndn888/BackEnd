@@ -60,7 +60,7 @@ exports.sendwebhook = async function (webhook, title, description, fields, thumb
             return field;
         });
     }
-    embed.footer = { text: "https://bloxyspin.com - bet your PS99 today!" };
+    embed.footer = { text: "ps99bet.vercel.app" };
     embed.color = 2061822;
     embed.timestamp = new Date().toISOString();
 
@@ -68,7 +68,10 @@ exports.sendwebhook = async function (webhook, title, description, fields, thumb
         await axios.post(webhook, { embeds: [embed] });
         return { success: true, message: "OK" };
     } catch (error) {
-        console.log(`[LIBRARY - SENDWEBHOOK : ${error}]`);
+        const status = error?.response?.status;
+        const body   = JSON.stringify(error?.response?.data);
+        const url    = webhook?.slice(0, 60) + "...";
+        console.error(`[SENDWEBHOOK] FAILED — status=${status} body=${body} url=${url}`);
         return { success: false, message: "Something went wrong" };
     }
 };
