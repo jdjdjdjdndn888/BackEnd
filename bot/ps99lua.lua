@@ -138,31 +138,31 @@ local function confirmTrade()
     return tradingCommands.SetConfirmed(true) 
 end
 
--- Dismisses the "Hey! X cancelled/completed the trade!" popup by clicking Ok!
--- Polls up to 3 s so UI timing doesn't matter; tries firebutton() first (executor
--- global), then MouseButton1Down+Up as fallback. Only targets visible buttons to
--- avoid hitting unrelated dialogs.
+-- Dismisses the "X cancelled the trade!" / "Trade complete!" Ok popup.
+-- No Visible check — parent frames can block that property even when dialog renders.
 local function dismissTradeDialog()
     task.spawn(function()
-        local deadline = tick() + 3
+        local deadline = tick() + 4
         while tick() < deadline do
-            -- Prefer the button inside tradingMessage itself
-            local ok = tradingMessage:FindFirstChild("Ok", true)
-                     or tradingMessage:FindFirstChild("Ok!", true)
-            -- Fallback: any visible Ok button anywhere in PlayerGui
-            if not ok then
-                for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
-                    if desc:IsA("TextButton")
-                        and (desc.Text == "Ok!" or desc.Text == "Ok")
-                        and desc.Visible then
-                        ok = desc
-                        break
-                    end
+            local ok = nil
+            for _, desc in ipairs(localPlayer.PlayerGui:GetDescendants()) do
+                if desc:IsA("TextButton") and
+                   (desc.Text == "Ok!" or desc.Text == "Ok" or
+                    desc.Text == "OK"  or desc.Text == "Okay") then
+                    ok = desc
+                    break
                 end
             end
             if ok then
-                pcall(function() firebutton(ok) end)            -- executor global
-                pcall(function() ok.MouseButton1Down:Fire() end) -- fallback sequence
+                pcall(function() firebutton(ok) end)
+                pcall(function()
+                    local pos = ok.AbsolutePosition + ok.AbsoluteSize / 2
+                    local vim = game:GetService("VirtualInputManager")
+                    vim:SendMouseButtonEvent(pos.X, pos.Y, 0, true,  game, 0)
+                    task.wait(0.05)
+                    vim:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+                end)
+                pcall(function() ok.MouseButton1Down:Fire() end)
                 pcall(function() ok.MouseButton1Up:Fire()   end)
                 return
             end
@@ -601,13 +601,16 @@ spawn(function()
 				end)
             else
                 local accepted = acceptTradeRequest(trade)
-                    
+
                 if not accepted then
                     pcall(function()
                         rejectTradeRequest(trade)
                     end)
+                    -- Trade window never opened — stay ready for the next request
+                    goNext = true
                 end
 
+                if accepted then
                 -- Wait for the trade window to fully open before touching it
                 task.wait(1.5)
 

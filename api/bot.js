@@ -70,6 +70,13 @@ client.once("clientReady", async () => {
       .setDescription("Cancel all your pending withdrawals on PS99Bet"),
 
     new SlashCommandBuilder()
+      .setName("listalllinked")
+      .setDescription("Owner only — list all users with linked Discord accounts")
+      .addIntegerOption((o) =>
+        o.setName("page").setDescription("Page number (default 1)").setRequired(false)
+      ),
+
+    new SlashCommandBuilder()
       .setName("locktipping")
       .setDescription("Owner only — enable or disable tipping for all users")
       .addStringOption((o) =>
@@ -465,6 +472,45 @@ client.on("interactionCreate", async (interaction) => {
       });
 
       await interaction.editReply(`Cancel Withdrawals is now **${state}**.`);
+    }
+
+  // ── /listalllinked ────────────────────────────────────────────────────────
+  } else if (commandName === "listalllinked") {
+    // Strict owner-only: only the OWNER_DISCORD_ID may run this
+    if (!OWNER_DISCORD_ID || interaction.user.id !== OWNER_DISCORD_ID) {
+      return interaction.editReply({ content: "❌ Only the site owner can use this command.", ephemeral: true });
+    }
+
+    try {
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 15;
+      const skip = (page - 1) * perPage;
+
+      const linkedFilter = { discordid: { $exists: true, $nin: [null, ""] } };
+      const [linked, total] = await Promise.all([
+        users.find(linkedFilter).skip(skip).limit(perPage),
+        users.countDocuments(linkedFilter),
+      ]);
+
+      if (!linked.length) {
+        return interaction.editReply(`No linked accounts found${page > 1 ? ` on page ${page}` : ""}.`);
+      }
+
+      const totalPages = Math.ceil(total / perPage);
+      const rows = linked.map((u, i) =>
+        `**${skip + i + 1}.** ${u.username} ↔ @${u.discordusername || "?"} (\`${u.discordid}\`)`
+      );
+
+      const embed = new EmbedBuilder()
+        .setColor(0x8b5cf6)
+        .setTitle(`🔗 Linked Discord Accounts (${total} total)`)
+        .setDescription(rows.join("\n"))
+        .setFooter({ text: `Page ${page} / ${totalPages} • PS99Bet` });
+
+      await interaction.editReply({ embeds: [embed], ephemeral: true });
+    } catch (e) {
+      console.error(e);
+      await interaction.editReply({ content: "Something went wrong fetching linked accounts.", ephemeral: true });
     }
 
   // ── /locktipping ──────────────────────────────────────────────────────────

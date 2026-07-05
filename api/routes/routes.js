@@ -10,6 +10,7 @@ const gamesController = require("../controllers/games/index.js");
 const jackpotController = require("../controllers/jackpot/index.js");
 const adminController = require("../controllers/admin/index.js");
 const tradesController = require("../controllers/trades/index.js");
+const diceController = require("../controllers/dice/index.js");
 
 router.use(express.json());
 
@@ -79,6 +80,12 @@ router.get("/stats/all", gamesController.getvalue);
 
 router.get("/jackpot", jackpotController.get_jackpot);
 router.post("/jackpot/join", accountController.verifyToken, jackpotController.join_jackpot);
+
+router.get("/dice/games", diceController.getdice);
+router.post("/dice/create", accountController.verifyToken, diceController.creatematch);
+router.post("/dice/join", accountController.verifyToken, diceController.joinmatch);
+router.post("/dice/cancel", accountController.verifyToken, diceController.cancelmatch);
+router.post("/dice/history/me", accountController.verifyToken, diceController.historyme);
 
 router.get("/admin/stats", accountController.verifyToken, adminController.isAdmin, adminController.stats);
 router.get("/admin/users", accountController.verifyToken, adminController.isAdmin, adminController.getUsers);

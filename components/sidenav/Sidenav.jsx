@@ -18,6 +18,7 @@ import Logo from "@/components/logo/Logo";
 const navItems = [
   { label: "Home", icon: HomeIcon, href: "/" },
   { label: "Coinflip", icon: () => <Coins className="w-5 h-5" />, href: "/coinflip" },
+  { label: "Dice", icon: () => <Dices className="w-5 h-5" />, href: "/dice" },
   { label: "Jackpot", icon: () => <Dices className="w-5 h-5" />, href: "/jackpot" },
   { label: "Upgrader", icon: () => <TrendingUp className="w-5 h-5" />, href: "/upgrader" },
   { label: "Trades", icon: MarketPlaceIcon, href: "/trades" },

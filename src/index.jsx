@@ -24,6 +24,8 @@ import Upgrader from "../components/upgrader/Upgrader.jsx";
 import Chat from "../components/chat/Chat.jsx";
 import Admin from "../components/admin/Admin.jsx";
 import Trades from "../components/trades/Trades.jsx";
+import DicePage from "../components/dice/layout.jsx";
+import MobileChat from "../components/chat/mobilechat.jsx";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/api$/, "")
@@ -43,6 +45,7 @@ function ModalRenderer() {
 
 function App() {
   const [userData, setUserData] = useState(null);
+  const [showMobileChat, setShowMobileChat] = useState(false);
 
   useEffect(() => {
     const token = getauth();
@@ -93,6 +96,7 @@ function App() {
                         <Route path="/discord/linked" element={<LinkDiscord />} />
                         <Route path="/admin" element={<Admin />} />
                         <Route path="/trades" element={<Trades />} />
+                        <Route path="/dice" element={<DicePage />} />
                       </Routes>
                     </div>
                     <aside className="hidden lg:flex flex-col w-[17rem] shrink-0 border-l border-[#252839] bg-[#171925] overflow-hidden">
@@ -100,6 +104,24 @@ function App() {
                     </aside>
                   </main>
                   <Footer />
+                  {/* Mobile floating chat button */}
+                  <button
+                    onClick={() => setShowMobileChat((v) => !v)}
+                    className="lg:hidden fixed bottom-5 right-5 z-40 flex items-center justify-center w-14 h-14 rounded-full border-none cursor-pointer shadow-lg transition-transform hover:scale-105 active:scale-95"
+                    style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}
+                    aria-label="Toggle Chat"
+                  >
+                    {showMobileChat ? (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    ) : (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    )}
+                  </button>
+                  {showMobileChat && (
+                    <div className="lg:hidden">
+                      <MobileChat />
+                    </div>
+                  )}
                 </div>
               </div>
               <ModalRenderer />

@@ -36,7 +36,7 @@ export default function Giveaway() {
   const [selectedGame, setSelectedGame] = useState("all");
   const [isClosing, setIsClosing] = useState(false);
   const [withdraw, setWithdraw] = useState(false);
-  const [time, setTime] = useState(null);
+  const [time, setTime] = useState(10);
 
   const loadInventory = useCallback(async () => {
     if (!userData) {

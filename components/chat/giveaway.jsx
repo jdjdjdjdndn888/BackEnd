@@ -142,7 +142,7 @@ export default function Giveaways() {
                   <p
                     className={GiveawayStyles.starterusername}
                     onClick={() =>
-                      setModalState(<Profile userid={giveaway.starterid} />)
+                      setModalState(<Profile userId={giveaway.starterid} />)
                     }
                   >
                     {giveaway.starterusername}

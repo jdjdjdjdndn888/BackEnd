@@ -155,7 +155,7 @@ const Player = ({ choice, imgUrl, status, userid }) => {
     >
       <button
         className={`block h-full w-full overflow-hidden rounded-[inherit] border-none bg-transparent ${userid ? "cursor-pointer" : "cursor-help"}`}
-        onClick={() => userid && setModalState(<Profile userid={userid} />)}
+        onClick={() => userid && setModalState(<Profile userId={userid} />)}
       >
         <img
           loading="lazy"
