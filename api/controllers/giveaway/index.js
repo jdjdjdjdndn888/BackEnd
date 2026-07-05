@@ -224,13 +224,13 @@ exports.giveaway = asyncHandler(async (req, res) => {
             starterid: req.user.id,
             starterusername: user.username,
             entries: 0,
-            item: {
+            item: [{
               id: validatedItem.id,
               itemname: validatedItem.itemname,
               itemimage: validatedItem.itemimage || " ",
               itemvalue: validatedItem.itemvalue,
               itemid: validatedItem.itemid,
-            },
+            }],
             winner: null,
             winnerid: null,
             complete: false,

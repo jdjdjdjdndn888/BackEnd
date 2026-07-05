@@ -14,6 +14,7 @@ const BetIcon = () => (
 
 const GAMES = [
   { label: "Coinflip",  href: "/coinflip",  banner: "/coinflip-banner.png" },
+  { label: "Dice Roll", href: "/dice",      banner: "/dice-banner.png" },
   { label: "Jackpot",   href: "/jackpot",   banner: "/jackpot-banner.png" },
   { label: "Upgrader",  href: "/upgrader",  banner: "/upgrader-banner.png" },
   { label: "Trades",    href: "/trades",    banner: "/trades-banner.png" },
