@@ -338,20 +338,23 @@ exports.withdrawed = asyncHandler(async (req, res) => {
       if (count > 0) unmatchedPets.push(`${pet} x${count}`);
     }
 
-    // Consume gem withdrawal records — try largest denominations first
+    // Consume gem withdrawal records — match by itemid first (reliable), name fallback
     const GEM_DENOMS_WITHDRAW = [
-      { name: "100m gems", value: 100_000_000 },
-      { name: "50m gems",  value:  50_000_000 },
-      { name: "25m gems",  value:  25_000_000 },
-      { name: "10m gems",  value:  10_000_000 },
-      { name: "5m gems",   value:   5_000_000 },
-      { name: "1m gems",   value:   1_000_000 },
+      { name: "100m gems", id: 9000100, value: 100_000_000 },
+      { name: "50m gems",  id: 9000050, value:  50_000_000 },
+      { name: "25m gems",  id: 9000025, value:  25_000_000 },
+      { name: "10m gems",  id: 9000010, value:  10_000_000 },
+      { name: "5m gems",   id: 9000005, value:   5_000_000 },
+      { name: "1m gems",   id: 9000001, value:   1_000_000 },
     ];
     let totalGemsToRemove = gems; // raw gem count
     const processedGemCounts = {};
 
-    for (const { name, value } of GEM_DENOMS_WITHDRAW) {
-      const pool = remainingWithdrawals.filter((w) => w.itemname === name);
+    for (const { name, id, value } of GEM_DENOMS_WITHDRAW) {
+      // Match by itemid first; fall back to case-insensitive name match
+      const pool = remainingWithdrawals.filter(
+        (w) => w.itemid === id || (w.itemname || "").toLowerCase() === name
+      );
       while (totalGemsToRemove >= value && pool.length > 0) {
         idsToDelete.push(pool.pop()._id);
         totalGemsToRemove -= value;

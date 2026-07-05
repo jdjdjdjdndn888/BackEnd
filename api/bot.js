@@ -45,7 +45,9 @@ client.once("clientReady", async () => {
 
   logger.init(client);
 
-  const commands = [
+  let commands;
+  try {
+  commands = [
     new SlashCommandBuilder()
       .setName("profile")
       .setDescription("Check the site profile of a Discord user")
@@ -159,12 +161,17 @@ client.once("clientReady", async () => {
           )
       ),
   ].map((c) => c.toJSON());
-
-  try {
-    await client.application.commands.set(commands);
-    console.log("Slash commands registered.");
   } catch (e) {
-    console.error("Failed to register slash commands:", e.message);
+    console.error("Failed to build slash commands:", e.message);
+  }
+
+  if (commands) {
+    try {
+      await client.application.commands.set(commands);
+      console.log("Slash commands registered.");
+    } catch (e) {
+      console.error("Failed to register slash commands:", e.message);
+    }
   }
 });
 
