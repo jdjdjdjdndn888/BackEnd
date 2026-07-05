@@ -11,7 +11,7 @@ local textChatService    = game:GetService("TextChatService")
 local localPlayer        = players.LocalPlayer
 local playerGUI          = localPlayer:WaitForChild("PlayerGui")
 local tradingWindow      = playerGUI:WaitForChild("TradeWindow")
-local tradingMessage     = playerGUI:WaitForChild("Message")
+local tradingMessage  wh   = playerGUI:WaitForChild("Message")
 local tradingStatus      = tradingWindow:WaitForChild("Frame"):WaitForChild("PlayerItems"):WaitForChild("Status")
 local tradingMessages    = tradingWindow:WaitForChild("Frame"):WaitForChild("ChatOverlay"):WaitForChild("Messages")
 
