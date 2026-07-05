@@ -299,8 +299,6 @@ exports.giveaway = asyncHandler(async (req, res) => {
           }, time * 60000);
         });
 
-        await session.commitTransaction()
-
         await addHistory(user.userid, "Giveaway", `-${totalItemValue}`);
         await updateuser(user.userid, req.app.get("io"));
   
