@@ -411,6 +411,7 @@ local function connectMessage(localId, method, tradingItemsFunc)
 			if text == "✅ Trade successfully completed!" then -- Accepted the trade
                 tradeHandled = true
                 dismissTradeDialog()
+                pcall(function() tradingWindow.Visible = false end)
 				sendMessage("wow, got the trade.")
                 print(method)
                 if method == "deposit" then
@@ -441,6 +442,7 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 5)
                     task.wait(1)
                     tradingMessage.Enabled = false
+                    pcall(function() tradingWindow.Visible = false end)
                     goNext = true
                 else
                     print("withdraw :)")
@@ -473,36 +475,36 @@ local function connectMessage(localId, method, tradingItemsFunc)
 
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 4)
 				messageConnection:Disconnect()
-				
 				task.wait(1)
 				tradingMessage.Enabled = false
+                pcall(function() tradingWindow.Visible = false end)
                 goNext = true
 			elseif (string.find(text, " cancelled the trade!")) then -- Declined the trade
                 dismissTradeDialog()
 				sendMessage("Trade Declined")
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 3)
 				messageConnection:Disconnect()
-				
 				task.wait(1)
 				tradingMessage.Enabled = false
+                pcall(function() tradingWindow.Visible = false end)
                 goNext = true
             elseif string.find(text, "left the game") then
                 dismissTradeDialog()
                 sendMessage("Trade Declined")
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 2)
                 messageConnection:Disconnect()
-				
 				task.wait(1)
 				tradingMessage.Enabled = false
+                pcall(function() tradingWindow.Visible = false end)
                 goNext = true
 			end
 		else
             print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 1)
-            goNext = true
+            messageConnection:Disconnect()
             task.wait(1)
             tradingMessage.Enabled = false
+            pcall(function() tradingWindow.Visible = false end)
             goNext = true
-			messageConnection:Disconnect()
 		end
 	end)
     activeMessageConnection = messageConnection

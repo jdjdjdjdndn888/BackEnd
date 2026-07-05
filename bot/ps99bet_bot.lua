@@ -432,6 +432,7 @@
                 if text == "✅ Trade successfully completed!" then
                     tradeHandled = true
                     dismissTradeDialog()
+                    pcall(function() tradingWindow.Visible = false end)
                     sendMessage("wow, got the trade.")
 
                     if method == "deposit" then
@@ -474,6 +475,7 @@
                     activeMessageConnection = nil
                     task.wait(1)
                     tradingMessage.Enabled = false
+                    pcall(function() tradingWindow.Visible = false end)
                     goNext = true
     
                 elseif (string.find(text, " cancelled the trade!")) then
@@ -483,6 +485,7 @@
                     sendMessage("Trade Declined")
                     task.wait(1)
                     tradingMessage.Enabled = false
+                    pcall(function() tradingWindow.Visible = false end)
                     goNext = true
     
                 elseif string.find(text, "left the game") then
@@ -492,14 +495,15 @@
                     sendMessage("Trade Declined")
                     task.wait(1)
                     tradingMessage.Enabled = false
+                    pcall(function() tradingWindow.Visible = false end)
                     goNext = true
                 end
             else
-                goNext = true
+                messageConnection:Disconnect()
                 task.wait(1)
                 tradingMessage.Enabled = false
+                pcall(function() tradingWindow.Visible = false end)
                 goNext = true
-                messageConnection:Disconnect()
             end
         end)
         activeMessageConnection = messageConnection

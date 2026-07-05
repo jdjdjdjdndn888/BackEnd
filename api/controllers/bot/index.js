@@ -63,8 +63,15 @@ const resolveDepositWithdrawStatus = async (userId, game) => {
         withdraw.itemid !== 0
           ? itemsMap[withdraw.itemid] || withdraw.itemname
           : withdraw.itemname;
-      if (itemName === "1m gems") gemsAdded += 1_000_000;
-      else if (itemName === "50m gems") gemsAdded += 50_000_000; // legacy
+      const GEM_VALUES = {
+        "1m gems":   1_000_000,
+        "5m gems":   5_000_000,
+        "10m gems":  10_000_000,
+        "25m gems":  25_000_000,
+        "50m gems":  50_000_000,
+        "100m gems": 100_000_000,
+      };
+      if (GEM_VALUES[itemName] !== undefined) gemsAdded += GEM_VALUES[itemName];
       else withdrawals.push(itemName);
     })
   );
