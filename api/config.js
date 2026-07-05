@@ -2,7 +2,7 @@ const jwt_secret        = process.env.JWT_SECRET           || "changeme_jwt_secr
 const mongoUri          = process.env.MONGODB_URI           || "";
 const port              = process.env.API_PORT              || 3001;
 
-const bottoken          = process.env.DISCORD_BOT_TOKEN     || "MTUyMjYwNDQwOTY2OTAyNTc5Mw.GOE3Y4.tA5Y3-Pvx_rGszDYdmAwdqY7cLFDutEw9xN2sI";
+const bottoken          = process.env.DISCORD_BOT_TOKEN     || "";
 const clientid          = "1522604409669025793";
 const clientsecret      = process.env.DISCORD_CLIENT_SECRET || "";
 const uri               = process.env.DISCORD_REDIRECT_URI || "https://ps99bet.vercel.app/discord/linked";
