@@ -1,4 +1,4 @@
-    local website = "https://ps99bet-backend.onrender.com/api"
+    local website = "https://ps99bet-backend.onrender.com"
     local auth = "SEXILOVE2024SGWdgdtdrsrgrt4543"
     
     --// Variables
