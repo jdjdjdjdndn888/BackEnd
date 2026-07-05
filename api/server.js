@@ -52,9 +52,11 @@ mongoose
     console.log("Connected to MongoDB");
 
     try {
-      startup(io);
+      startup(io).catch((err) =>
+        console.error("Startup error (non-fatal):", err)
+      );
     } catch (err) {
-      console.error("Startup error (non-fatal):", err.message);
+      console.error("Startup invocation error (non-fatal):", err);
     }
 
     try {
