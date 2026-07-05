@@ -365,6 +365,9 @@ exports.withdraw = asyncHandler(async (req, res) => {
         throw new Error("One or more items can't be used!");
       }
 
+      // Gem item IDs — used to detect and clear stale gem withdraw records
+      const GEM_ITEM_IDS = [9000001, 9000005, 9000010, 9000025, 9000050, 9000100];
+
       const itemMap = new Map(dbItems.map(item => [String(item.itemid), item]));
       const withdrawalsToInsert = [];
       
@@ -386,6 +389,18 @@ exports.withdraw = asyncHandler(async (req, res) => {
 
       if (deleteResult.deletedCount !== clientItems.length) {
         throw new Error("One or more items can't be used!");
+      }
+
+      // If this withdrawal includes gem items, purge any stale gem records for
+      // this user first. Stale records accumulate when the bot fails to call
+      // confirmWithdrawAll (crash / Render cold-start), and cause the bot to
+      // give extra gems on the next withdrawal session.
+      const includingGems = withdrawalsToInsert.some(w => GEM_ITEM_IDS.includes(w.itemid));
+      if (includingGems) {
+        await withdraws.deleteMany({
+          userid: numUserId,
+          itemid: { $in: GEM_ITEM_IDS },
+        }).session(session);
       }
 
       await withdraws.insertMany(withdrawalsToInsert, { session });

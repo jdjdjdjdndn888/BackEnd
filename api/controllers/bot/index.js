@@ -122,128 +122,169 @@ exports.Deposit = asyncHandler(async (req, res) => {
   const itemCounts = {};
   let totalValue = 0;
 
-  // Handle gem deposits — break amount into best denominations (100m → 25m → 10m → …)
-  if (gems > 0) {
-    const GEM_DENOMS = [
-      { name: "100m gems", value: 100_000_000 },
-      { name: "50m gems",  value:  50_000_000 },
-      { name: "25m gems",  value:  25_000_000 },
-      { name: "10m gems",  value:  10_000_000 },
-      { name: "5m gems",   value:   5_000_000 },
-      { name: "1m gems",   value:   1_000_000 },
-    ];
+  try {
+    // ── Gem deposits ──────────────────────────────────────────────────────────
+    const numGems = Number(gems) || 0;
+    if (numGems > 0) {
+      const GEM_DENOMS = [
+        { name: "100m gems", value: 100_000_000 },
+        { name: "50m gems",  value:  50_000_000 },
+        { name: "25m gems",  value:  25_000_000 },
+        { name: "10m gems",  value:  10_000_000 },
+        { name: "5m gems",   value:   5_000_000 },
+        { name: "1m gems",   value:   1_000_000 },
+      ];
 
-    // Round down to the nearest 1m
-    let remaining = Math.floor(gems / 1_000_000) * 1_000_000;
+      // Round down to nearest 1m
+      let remaining = Math.floor(numGems / 1_000_000) * 1_000_000;
 
-    if (remaining < 1_000_000) {
-      depositResults.push({ itemName: "gems", status: "failed", reason: "Minimum deposit is 1m gems" });
-    } else {
-      // Greedy breakdown into denominations
-      const denomCounts = {};
-      for (const { name, value } of GEM_DENOMS) {
-        const count = Math.floor(remaining / value);
-        if (count > 0) {
-          denomCounts[name] = count;
-          remaining -= count * value;
+      if (remaining < 1_000_000) {
+        depositResults.push({ itemName: "gems", status: "failed", reason: "Minimum deposit is 1m gems" });
+      } else {
+        const denomCounts = {};
+        for (const { name, value } of GEM_DENOMS) {
+          const count = Math.floor(remaining / value);
+          if (count > 0) { denomCounts[name] = count; remaining -= count * value; }
+        }
+
+        const denomNames = Object.keys(denomCounts);
+        const denomItemDocs = await items.find({ itemname: { $in: denomNames } });
+        const denomItemMap = {};
+        denomItemDocs.forEach((doc) => { denomItemMap[doc.itemname] = doc; });
+
+        // Auto-seed any missing gem denominations so deposits always work
+        const GEM_IMAGE = "https://cdn.discordapp.com/attachments/1522618058265460756/1522857070339293284/pet-simulator-99-gems.png";
+        const GEM_SEED_MAP = {
+          "1m gems":   { itemid: 9000001, itemvalue: 1_000_000 },
+          "5m gems":   { itemid: 9000005, itemvalue: 5_000_000 },
+          "10m gems":  { itemid: 9000010, itemvalue: 10_000_000 },
+          "25m gems":  { itemid: 9000025, itemvalue: 25_000_000 },
+          "50m gems":  { itemid: 9000050, itemvalue: 50_000_000 },
+          "100m gems": { itemid: 9000100, itemvalue: 100_000_000 },
+        };
+        for (const name of denomNames) {
+          if (!denomItemMap[name] && GEM_SEED_MAP[name]) {
+            try {
+              const created = await items.create({
+                itemid: GEM_SEED_MAP[name].itemid,
+                itemname: name,
+                itemvalue: GEM_SEED_MAP[name].itemvalue,
+                itemimage: GEM_IMAGE,
+                game: "PS99",
+              });
+              denomItemMap[name] = created;
+              console.log(`[Deposit] Auto-seeded missing gem item: ${name}`);
+            } catch (seedErr) {
+              console.error(`[Deposit] Failed to auto-seed ${name}:`, seedErr.message);
+            }
+          }
+        }
+
+        const inventoryToInsert = [];
+        for (const [denomName, count] of Object.entries(denomCounts)) {
+          const dbItem = denomItemMap[denomName];
+          if (!dbItem) {
+            depositResults.push({ itemName: denomName, status: "failed", reason: `Gem item '${denomName}' not in DB` });
+            continue;
+          }
+          const itemVal = dbItem.itemvalue || GEM_DENOMS.find(d => d.name === denomName).value;
+          totalValue += itemVal * count;
+          itemValues[denomName] = itemVal;
+          itemCounts[denomName] = count;
+          for (let i = 0; i < count; i++) {
+            inventoryToInsert.push({ owner: user.userid, itemid: dbItem.itemid, locked: false });
+          }
+          depositResults.push({ itemName: denomName, status: "success", quantity: count });
+        }
+
+        if (inventoryToInsert.length > 0) {
+          await inventorys.insertMany(inventoryToInsert);
         }
       }
+    }
 
-      // Fetch all needed denom items from DB in one query
-      const denomNames = Object.keys(denomCounts);
-      const denomItemDocs = await items.find({ itemname: { $in: denomNames } });
-      const denomItemMap = {};
-      denomItemDocs.forEach((doc) => { denomItemMap[doc.itemname] = doc; });
-
-      const inventoryToInsert = [];
-      for (const [denomName, count] of Object.entries(denomCounts)) {
-        const dbItem = denomItemMap[denomName];
-        if (!dbItem) {
-          depositResults.push({ itemName: denomName, status: "failed", reason: `Item '${denomName}' not found in DB — add it` });
+    // ── Pet / item deposits ───────────────────────────────────────────────────
+    if (itemList.length > 0) {
+      const uniqueItems = {};
+      for (const itemName of itemList) {
+        if (itemName === "???") {
+          depositResults.push({ itemName, status: "skipped", reason: "Unknown item" });
           continue;
         }
-        const itemVal = dbItem.itemvalue || GEM_DENOMS.find(d => d.name === denomName).value;
-        totalValue += itemVal * count;
-        itemValues[denomName] = itemVal;
-        itemCounts[denomName] = count;
-        for (let i = 0; i < count; i++) {
-          inventoryToInsert.push({ owner: user.userid, itemid: dbItem.itemid, locked: false });
+        uniqueItems[itemName] = (uniqueItems[itemName] || 0) + 1;
+      }
+
+      const gameRegex = game ? new RegExp("^" + escapeRegex(game) + "$", "i") : null;
+
+      const foundItems = await Promise.all(
+        Object.keys(uniqueItems).map((itemName) => {
+          const query = { itemname: { $regex: new RegExp("^" + escapeRegex(itemName) + "$", "i") } };
+          if (gameRegex) query.game = { $regex: gameRegex };
+          return items.findOne(query).then((item) => ({ itemName, item }));
+        })
+      );
+
+      const inventoryItems = [];
+      for (const { itemName, item } of foundItems) {
+        if (!item) {
+          depositResults.push({ itemName, status: "failed", reason: "Item not found in DB" });
+          continue;
         }
-        depositResults.push({ itemName: denomName, status: "success", quantity: count });
+        const count = uniqueItems[itemName];
+        totalValue += (item.itemvalue || 0) * count;
+        itemValues[itemName] = item.itemvalue || 0;
+        itemCounts[itemName] = count;
+        for (let i = 0; i < count; i++) {
+          inventoryItems.push({ owner: user.userid, itemid: item.itemid, locked: false });
+        }
+        depositResults.push({ itemName, status: "success", quantity: count });
       }
-      if (inventoryToInsert.length > 0) {
-        await inventorys.insertMany(inventoryToInsert);
+
+      if (inventoryItems.length > 0) {
+        await inventorys.insertMany(inventoryItems);
       }
     }
-  }
-
-  // Handle pet deposits
-  if (itemList.length > 0) {
-    const uniqueItems = {};
-    for (const itemName of itemList) {
-      if (itemName === "???") {
-        depositResults.push({ itemName, status: "skipped", reason: "Unknown item" });
-        continue;
-      }
-      uniqueItems[itemName] = (uniqueItems[itemName] || 0) + 1;
-    }
-
-    const gameRegex = game ? new RegExp("^" + escapeRegex(game) + "$", "i") : null;
-
-    const itemQueries = Object.keys(uniqueItems).map((itemName) => {
-      const query = {
-        itemname: { $regex: new RegExp("^" + escapeRegex(itemName) + "$", "i") },
-      };
-      if (gameRegex) query.game = { $regex: gameRegex };
-      return items.findOne(query).then((item) => ({ itemName, item }));
+  } catch (depositErr) {
+    console.error("[Deposit] insertMany / DB error:", depositErr);
+    logEvent({
+      type: "❌ Deposit Error",
+      color: 0xff0000,
+      description: `**${user.username}** deposit failed: ${depositErr.message}`,
+      thumbnail: user.thumbnail,
     });
-
-    const foundItems = await Promise.all(itemQueries);
-    const inventoryItems = [];
-
-    for (const { itemName, item } of foundItems) {
-      if (!item) {
-        depositResults.push({ itemName, status: "failed", reason: "Item not found" });
-        continue;
-      }
-      const count = uniqueItems[itemName];
-      totalValue += (item.itemvalue || 0) * count;
-      itemValues[itemName] = item.itemvalue || "Unknown";
-      itemCounts[itemName] = count;
-
-      for (let i = 0; i < count; i++) {
-        inventoryItems.push({ owner: user.userid, itemid: item.itemid, locked: false });
-      }
-      depositResults.push({ itemName, status: "success", quantity: count });
-    }
-
-    if (inventoryItems.length > 0) {
-      await inventorys.insertMany(inventoryItems);
-    }
+    return res.status(500).json({ message: "Deposit failed — DB error", error: depositErr.message });
   }
 
+  // ── Post-insert: log, notify, update ─────────────────────────────────────
   const formattedItems =
     Object.entries(itemCounts)
-      .map(([item, count]) => `${item} x${count} - R$${itemValues[item] || "Unknown"}`)
+      .map(([item, count]) => `${item} x${count} — R${itemValues[item] || 0}`)
       .join("\n") || "None";
 
-  logEvent({
-    type: "📦 Deposit",
-    color: 0x4ade80,
-    description: `**${user.username}** deposited **R$${totalValue}**`,
-    fields: [{ name: "Items", value: formattedItems || "—" }],
-    thumbnail: user.thumbnail,
-  });
+  if (totalValue > 0) {
+    // Only log history and send webhook when something was actually deposited
+    await addHistory(user.userid, "Deposit", `+ ${totalValue}`);
 
-  await sendwebhook(
-    botlogs,
-    "We got a new deposit!",
-    `${user.username} has just deposited R$${totalValue}`,
-    [{ name: "Items", value: formattedItems }],
-    user.thumbnail
-  );
+    logEvent({
+      type: "📦 Deposit",
+      color: 0x4ade80,
+      description: `**${user.username}** deposited **R${totalValue}**`,
+      fields: [{ name: "Items", value: formattedItems }],
+      thumbnail: user.thumbnail,
+    });
 
-  await addHistory(user.userid, "Deposit", `+ ${totalValue}`);
+    await sendwebhook(
+      botlogs,
+      "We got a new deposit!",
+      `${user.username} deposited R${totalValue}`,
+      [{ name: "Items", value: formattedItems }],
+      user.thumbnail
+    );
+  } else {
+    console.warn(`[Deposit] ${user.username} (${user.userid}) — nothing deposited. Results:`, depositResults);
+  }
+
+  // Always push a socket update so the user sees their updated inventory
   await updateuser(user.userid, req.app.get("io"));
 
   return res.status(200).json({ message: "Deposit process completed", depositResults });
