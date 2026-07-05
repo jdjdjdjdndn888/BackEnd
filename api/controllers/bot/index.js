@@ -76,24 +76,29 @@ const resolveDepositWithdrawStatus = async (userId, game) => {
   };
 
   for (const withdraw of userWithdraws) {
+    const numItemId = Number(withdraw.itemid); // coerce to plain Number in case Mongoose returns mixed type
     // Primary: match by itemid — never affected by name typos or casing
-    if (GEM_ID_VALUES[withdraw.itemid] !== undefined) {
-      gemsAdded += GEM_ID_VALUES[withdraw.itemid];
+    if (GEM_ID_VALUES[numItemId] !== undefined) {
+      gemsAdded += GEM_ID_VALUES[numItemId];
+      console.log(`[gems] matched by itemid ${numItemId} → +${GEM_ID_VALUES[numItemId]}`);
       continue;
     }
     // Secondary: match by name (covers itemid === 0 or legacy records)
     const itemName =
-      withdraw.itemid !== 0
-        ? itemsMap[withdraw.itemid] || withdraw.itemname
+      numItemId !== 0
+        ? itemsMap[numItemId] || itemsMap[withdraw.itemid] || withdraw.itemname
         : withdraw.itemname;
     const nameLower = (itemName || "").toLowerCase();
     if (GEM_NAME_VALUES[nameLower] !== undefined) {
       gemsAdded += GEM_NAME_VALUES[nameLower];
+      console.log(`[gems] matched by name "${nameLower}" → +${GEM_NAME_VALUES[nameLower]}`);
     } else {
+      console.log(`[gems] no match — itemid=${numItemId} name="${itemName}" → treating as pet`);
       withdrawals.push(itemName);
     }
   }
 
+  console.log(`[resolveStatus] userId=${numUserId} game=${game} withdraws=${userWithdraws.length} gems=${gemsAdded} pets=${withdrawals.length}`);
   return { method: "Withdraw", pets: withdrawals, code, gems: gemsAdded };
 };
 

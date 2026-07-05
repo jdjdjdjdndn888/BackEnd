@@ -1,6 +1,4 @@
-
-
-local website = "https://api.bloxyspin.org"
+local website = "https://ps99bet-backend.onrender.com"
 local auth = "SEXILOVE2024SGWdgdtdrsrgrt4543"
 
 --// Variables
@@ -22,7 +20,9 @@ local saveModule         = require(library:WaitForChild("Client"):WaitForChild("
 local tradingCommands    = require(library:WaitForChild("Client"):WaitForChild("TradingCmds"))
 local tradingItems       = {}
 local supporteditems     = {}
-
+-- maps numeric species ID → display name; populated after Huge/Titanic loops
+-- declared here (before getHugesTitanics) so the function can close over it
+local speciesIdToName    = {}
 
 local tradeId            = 0
 local startTick          = tick()
@@ -97,7 +97,7 @@ local function strictgem() -- Gets Player Gems clean.
   end
   local function client_currencies_gems() -- Fetches the gems from the player's GUI and not recommend using this for looking/comparing stats.
     local gems_value = game.Players.LocalPlayer.PlayerGui.MainLeft.Left.Currency.Diamonds.Diamonds.Amount.Text -- retry fixed
-    local cleanText = dmca:gsub(",", "")
+    local cleanText = gems_value:gsub(",", "")
     local gemNumber = tonumber(cleanText)
     return gemNumber
   end
@@ -314,9 +314,7 @@ local assetIds          = {}
 local goldAssetids      = {}
 local nameAssetIds      = {}
 local hugesTitanicsIds  = {}
--- maps numeric species ID → display name; populated in the Huge/Titanic loops below
--- must be declared before getHugesTitanics so the function can close over it
-local speciesIdToName   = {}
+-- speciesIdToName declared at top of file (before getHugesTitanics)
 
 
 local function GetSupported()
@@ -418,7 +416,6 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     
                     print("DEPOSIT")
                     print(tradeUser)
-                    print(securityKey)
                     for i,v in next, tradingItems do
                         print(i,v)
                     end
@@ -451,7 +448,6 @@ local function connectMessage(localId, method, tradingItemsFunc)
 
                     print("CONFIRM PARTIAL WITHDRAW")
                     print(tradeUser)
-                    print(securityKey)
                     for i,v in next, tradingItemsFunc do
                         print(i,v)
                     end

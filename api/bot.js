@@ -547,7 +547,15 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 if (bottoken) {
-  client.login(bottoken).catch((err) => console.error("Bot login failed:", err.message));
+  console.log("Bot: attempting Discord login...");
+  const loginTimeout = setTimeout(() => {
+    console.error("Bot login timed out after 30s — token may be invalid or network is blocked. Check DISCORD_BOT_TOKEN on Render.");
+  }, 30000);
+  client.once("ready", () => clearTimeout(loginTimeout));
+  client.login(bottoken).catch((err) => {
+    clearTimeout(loginTimeout);
+    console.error("Bot login failed:", err.message);
+  });
 } else {
   console.warn("DISCORD_BOT_TOKEN not set — bot will not start.");
 }
