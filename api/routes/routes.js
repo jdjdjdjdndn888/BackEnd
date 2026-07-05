@@ -114,4 +114,29 @@ router.all("*", (req, res) => {
   });
 });
 
+// TEMPORARY SEED ROUTE — remove after running
+router.get("/__seed-gems", async (req, res) => {
+  const items = require("../modules/items.js");
+  const GEM_IMAGE = "https://cdn.discordapp.com/attachments/1522618058265460756/1522857070339293284/pet-simulator-99-gems.png?ex=6a49feaa&is=6a48ad2a&hm=7151b70be01d2a47bbe9063bf6c5e1d9067668dc79aecdee8556c81d135bff3e&";
+  const GEM_ITEMS = [
+    { itemid: 9000001, itemname: "1m gems",   itemvalue: 1_000_000,   itemimage: GEM_IMAGE, game: "PS99" },
+    { itemid: 9000005, itemname: "5m gems",   itemvalue: 5_000_000,   itemimage: GEM_IMAGE, game: "PS99" },
+    { itemid: 9000010, itemname: "10m gems",  itemvalue: 10_000_000,  itemimage: GEM_IMAGE, game: "PS99" },
+    { itemid: 9000025, itemname: "25m gems",  itemvalue: 25_000_000,  itemimage: GEM_IMAGE, game: "PS99" },
+    { itemid: 9000050, itemname: "50m gems",  itemvalue: 50_000_000,  itemimage: GEM_IMAGE, game: "PS99" },
+    { itemid: 9000100, itemname: "100m gems", itemvalue: 100_000_000, itemimage: GEM_IMAGE, game: "PS99" },
+  ];
+  const results = [];
+  for (const gem of GEM_ITEMS) {
+    const existing = await items.findOne({ itemname: gem.itemname });
+    if (existing) {
+      results.push({ name: gem.itemname, status: "skipped" });
+    } else {
+      await items.create(gem);
+      results.push({ name: gem.itemname, status: "created" });
+    }
+  }
+  res.json({ ok: true, results });
+});
+
 module.exports = router;
