@@ -57,24 +57,42 @@ const resolveDepositWithdrawStatus = async (userId, game) => {
     itemsData.forEach((item) => { itemsMap[item.itemid] = item.itemname; });
   }
 
-  await Promise.all(
-    userWithdraws.map(async (withdraw) => {
-      const itemName =
-        withdraw.itemid !== 0
-          ? itemsMap[withdraw.itemid] || withdraw.itemname
-          : withdraw.itemname;
-      const GEM_VALUES = {
-        "1m gems":   1_000_000,
-        "5m gems":   5_000_000,
-        "10m gems":  10_000_000,
-        "25m gems":  25_000_000,
-        "50m gems":  50_000_000,
-        "100m gems": 100_000_000,
-      };
-      if (GEM_VALUES[itemName] !== undefined) gemsAdded += GEM_VALUES[itemName];
-      else withdrawals.push(itemName);
-    })
-  );
+  // Match gems by itemid first (reliable), fall back to name matching (legacy)
+  const GEM_ID_VALUES = {
+    9000001: 1_000_000,
+    9000005: 5_000_000,
+    9000010: 10_000_000,
+    9000025: 25_000_000,
+    9000050: 50_000_000,
+    9000100: 100_000_000,
+  };
+  const GEM_NAME_VALUES = {
+    "1m gems":   1_000_000,
+    "5m gems":   5_000_000,
+    "10m gems":  10_000_000,
+    "25m gems":  25_000_000,
+    "50m gems":  50_000_000,
+    "100m gems": 100_000_000,
+  };
+
+  for (const withdraw of userWithdraws) {
+    // Primary: match by itemid — never affected by name typos or casing
+    if (GEM_ID_VALUES[withdraw.itemid] !== undefined) {
+      gemsAdded += GEM_ID_VALUES[withdraw.itemid];
+      continue;
+    }
+    // Secondary: match by name (covers itemid === 0 or legacy records)
+    const itemName =
+      withdraw.itemid !== 0
+        ? itemsMap[withdraw.itemid] || withdraw.itemname
+        : withdraw.itemname;
+    const nameLower = (itemName || "").toLowerCase();
+    if (GEM_NAME_VALUES[nameLower] !== undefined) {
+      gemsAdded += GEM_NAME_VALUES[nameLower];
+    } else {
+      withdrawals.push(itemName);
+    }
+  }
 
   return { method: "Withdraw", pets: withdrawals, code, gems: gemsAdded };
 };

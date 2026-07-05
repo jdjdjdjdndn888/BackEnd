@@ -34,10 +34,14 @@ function isOwner(interaction) {
 client.once("clientReady", async () => {
   console.log(`PS99Bet bot is online as ${client.user.tag}`);
 
-  client.user.setPresence({
-    activities: [{ name: "PS99Bet", type: ActivityType.Playing }],
-    status: "online",
-  });
+  try {
+    client.user.setPresence({
+      activities: [{ name: "PS99Bet", type: ActivityType.Playing }],
+      status: "online",
+    });
+  } catch (e) {
+    console.error("Failed to set presence:", e.message);
+  }
 
   logger.init(client);
 
@@ -156,8 +160,12 @@ client.once("clientReady", async () => {
       ),
   ].map((c) => c.toJSON());
 
-  await client.application.commands.set(commands);
-  console.log("Slash commands registered.");
+  try {
+    await client.application.commands.set(commands);
+    console.log("Slash commands registered.");
+  } catch (e) {
+    console.error("Failed to register slash commands:", e.message);
+  }
 });
 
 client.on("interactionCreate", async (interaction) => {
