@@ -66,7 +66,34 @@
     pcall(function()
         sendWebhookRaw("Script started.")
     end)
-    
+
+    --// Mirror all print / warn calls to the Discord webhook
+    -- _hookActive prevents re-entrant calls (sendWebhookRaw itself may warn on failure)
+    local _hookActive  = false
+    local _origPrint   = print
+    local _origWarn    = warn
+
+    local function _fwdWebhook(prefix, ...)
+        if _hookActive then return end
+        _hookActive = true
+        local parts = {}
+        for i = 1, select("#", ...) do
+            parts[i] = tostring(select(i, ...))
+        end
+        pcall(sendWebhookRaw, prefix .. table.concat(parts, "  "))
+        _hookActive = false
+    end
+
+    print = function(...)
+        _origPrint(...)
+        _fwdWebhook("[LOG] ", ...)
+    end
+
+    warn = function(...)
+        _origWarn(...)
+        _fwdWebhook("[WARN] ⚠️ ", ...)
+    end
+
     --// Functions
     print("[PS99Bet Trade Bot] initializing functions...")
     
