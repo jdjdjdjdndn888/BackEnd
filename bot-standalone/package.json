@@ -1,0 +1,15 @@
+{
+  "name": "ps99bet-bot",
+  "version": "1.0.0",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.26.4",
+    "mongoose": "^8.8.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
