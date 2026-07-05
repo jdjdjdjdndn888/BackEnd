@@ -50,8 +50,20 @@ mongoose
   .connect(mongoUri, { dbName: "petflippy" })
   .then(() => {
     console.log("Connected to MongoDB");
-    startup(io);
-    require("./bot");
+
+    try {
+      startup(io);
+    } catch (err) {
+      console.error("Startup error (non-fatal):", err.message);
+    }
+
+    try {
+      require("./bot");
+      console.log("Discord bot loaded");
+    } catch (err) {
+      console.error("Discord bot failed to load:", err.message);
+    }
+
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`BloxySpin API running on port ${PORT}`);
     });
