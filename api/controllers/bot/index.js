@@ -7,6 +7,7 @@ const items = require("../../modules/items.js");
 const withdraws = require("../../modules/withdraws.js");
 const botss = require("../../modules/bots.js");
 const { addHistory, sendwebhook, updateuser } = require("../transaction/index.js");
+const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const axios = require("axios");
 
 const userCodes = {};
@@ -135,8 +136,13 @@ exports.Deposit = asyncHandler(async (req, res) => {
     return res.status(400).json({ method: "USERNOTFOUND", message: "Valid userId is required" });
   }
 
+  if (!acquireLock(numUserId, "deposit")) {
+    return res.status(429).json({ method: "DUPLICATE", message: "Deposit already in progress for this user" });
+  }
+
   const user = await users.findOne({ userid: numUserId });
   if (!user) {
+    releaseLock(numUserId, "deposit");
     return res.status(400).json({ method: "USERNOTFOUND", message: `User '${req.body.userId}' not found` });
   }
 
@@ -275,6 +281,7 @@ exports.Deposit = asyncHandler(async (req, res) => {
       description: `**${user.username}** deposit failed: ${depositErr.message}`,
       thumbnail: user.thumbnail,
     });
+    releaseLock(numUserId, "deposit");
     return res.status(500).json({ message: "Deposit failed — DB error", error: depositErr.message });
   }
 
@@ -310,6 +317,7 @@ exports.Deposit = asyncHandler(async (req, res) => {
   // Always push a socket update so the user sees their updated inventory
   await updateuser(user.userid, req.app.get("io"));
 
+  releaseLock(numUserId, "deposit");
   return res.status(200).json({ message: "Deposit process completed", depositResults, totalValue });
 });
 

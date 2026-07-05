@@ -447,14 +447,14 @@ exports.joinmatch = asyncHandler(async (req, res) => {
                       itemid: item.itemid,
                       locked: false
                   })),
-                  { session }
+                  { ordered: false }
               );
               await updateuser(finalUpdate.winner, req.app.get("io"));
               await updateuser(user.userid, req.app.get("io"));
           } catch (error) {
-              console.error("Error in setTimeout callback:", error);
-          } finally {
-              session.endSession();
+              if (error.code !== 11000) {
+                  console.error("Error in setTimeout payout callback:", error);
+              }
           }
       }, 3000);
 
@@ -475,6 +475,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       }
   } finally {
       releaseLock(req.user.id, "coinflip_join");
+      session.endSession().catch(() => {});
   }
 });
   
