@@ -11,9 +11,8 @@ local textChatService    = game:GetService("TextChatService")
 local localPlayer        = players.LocalPlayer
 local playerGUI          = localPlayer:WaitForChild("PlayerGui")
 local tradingWindow      = playerGUI:WaitForChild("TradeWindow")
-local tradingMessage  wh   = playerGUI:WaitForChild("Message")
+local tradingMessage     = playerGUI:WaitForChild("Message")
 local tradingStatus      = tradingWindow:WaitForChild("Frame"):WaitForChild("PlayerItems"):WaitForChild("Status")
-local tradingMessages    = tradingWindow:WaitForChild("Frame"):WaitForChild("ChatOverlay"):WaitForChild("Messages")
 
 local library            = replicatedStorage:WaitForChild("Library")
 local saveModule         = require(library:WaitForChild("Client"):WaitForChild("Save"))
@@ -37,7 +36,7 @@ local method = nil
 --// Initializing
 print("[SPIN Trade Bot] initializing variables...")
 
-local request = request or http_request or http.request
+local request = request or http_request or (http and http.request)
 local websocket = websocket or WebSocket
 local getHwid = getuseridentifier or get_user_identifier or gethwid or get_hwid
 
@@ -346,37 +345,46 @@ local function GetSupported()
   end
 
 -- Huges
-for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Huge:GetChildren() do
-	local petData = require(pet)
-	table.insert(assetIds, petData.thumbnail)
-	table.insert(assetIds, petData.goldenThumbnail)
-	table.insert(goldAssetids, petData.goldenThumbnail)
-	table.insert(nameAssetIds, {
-		["name"]      = petData.name,
-		["assetIds"]  = {
-			petData.thumbnail,
-			petData.goldenThumbnail
-		}
-	})
-	table.insert(hugesTitanicsIds, petData._id)
-	speciesIdToName[petData._id] = petData.name  -- id → display name
-end
+local hugeOk, hugeErr = pcall(function()
+	for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Huge:GetChildren() do
+		local ok, petData = pcall(require, pet)
+		if not ok then continue end
+		table.insert(assetIds, petData.thumbnail)
+		table.insert(assetIds, petData.goldenThumbnail)
+		table.insert(goldAssetids, petData.goldenThumbnail)
+		table.insert(nameAssetIds, {
+			["name"]      = petData.name,
+			["assetIds"]  = {
+				petData.thumbnail,
+				petData.goldenThumbnail
+			}
+		})
+		table.insert(hugesTitanicsIds, petData._id)
+		speciesIdToName[petData._id] = petData.name
+	end
+end)
+if not hugeOk then warn("[TradeBot] Huge loop error: " .. tostring(hugeErr)) end
+
 -- Titanics
-for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Titanic:GetChildren() do
-	local petData = require(pet)
-	table.insert(assetIds, petData.thumbnail)
-	table.insert(assetIds, petData.goldenThumbnail)
-	table.insert(goldAssetids, petData.goldenThumbnail)
-	table.insert(nameAssetIds, {
-		["name"]      = petData.name,
-		["assetIds"]  = {
-            petData.thumbnail,
-			petData.goldenThumbnail
-		}
-	})
-	table.insert(hugesTitanicsIds, petData._id)
-	speciesIdToName[petData._id] = petData.name  -- id → display name
-end
+local titanicOk, titanicErr = pcall(function()
+	for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Titanic:GetChildren() do
+		local ok, petData = pcall(require, pet)
+		if not ok then continue end
+		table.insert(assetIds, petData.thumbnail)
+		table.insert(assetIds, petData.goldenThumbnail)
+		table.insert(goldAssetids, petData.goldenThumbnail)
+		table.insert(nameAssetIds, {
+			["name"]      = petData.name,
+			["assetIds"]  = {
+				petData.thumbnail,
+				petData.goldenThumbnail
+			}
+		})
+		table.insert(hugesTitanicsIds, petData._id)
+		speciesIdToName[petData._id] = petData.name
+	end
+end)
+if not titanicOk then warn("[TradeBot] Titanic loop error: " .. tostring(titanicErr)) end
 
 --// Trade ID setting
 spawn(function()
