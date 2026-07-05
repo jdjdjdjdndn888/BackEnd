@@ -165,8 +165,6 @@ exports.creatematch = asyncHandler(async (req, res) => {
         randomSeed: null,
       }).save({ session });
 
-      await session.commitTransaction();
-
       const publicGame = savedGame.toObject();
       delete publicGame.serverSeed;
 
@@ -464,8 +462,6 @@ exports.cancelmatch = asyncHandler(async (req, res) => {
       await inventorys.insertMany(itemsToRestore, { session, ordered: false }).catch((error) => {
         if (error.code !== 11000) throw error;
       });
-
-      await session.commitTransaction();
 
       req.app.get("io").emit("DICE_CANCEL", { _id: game._id, active: false });
       await Promise.all([

@@ -171,8 +171,6 @@ exports.creatematch = asyncHandler(async (req, res) => {
         user.thumbnail
       );
 
-      await session.commitTransaction()
-
       const publicCoinflip = savedCoinflip.toObject();
       delete publicCoinflip.serverSeed;
 
@@ -544,7 +542,6 @@ exports.cancelcoinflip = asyncHandler(async (req, res) => {
       });
 
       const updatedFlip = await coinflips.findById(flip._id);
-      await session.commitTransaction()
 
       req.app.get("io").emit("COINFLIP_CANCEL", {
         _id: flip._id,

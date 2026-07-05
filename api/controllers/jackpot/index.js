@@ -257,8 +257,6 @@ exports.join_jackpot = [
           return res.status(400).json({ "message": "jackpot is already rolling..." });
         }
 
-        await session.commitTransaction();
-
         res.status(200).json({ message: "Successfully joined jackpot" });
 
         const jackpotDataResponse = await new Promise((resolve, reject) => {
