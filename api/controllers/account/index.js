@@ -351,7 +351,7 @@ exports.withdraw = asyncHandler(async (req, res) => {
       const inventoryItems = await inventorys.find({
         _id: { $in: inventoryIds },
         owner: req.user.id,
-        locked: false
+        locked: { $ne: true }, // accept false, null, or missing — only block explicitly locked items
       }).session(session);
 
       if (inventoryItems.length !== clientItems.length) {
@@ -396,6 +396,12 @@ exports.withdraw = asyncHandler(async (req, res) => {
     return res.status(200).json({ message: "Successfully withdrawn!" });
 
   } catch (error) {
+    logEvent({
+      type: "❌ Withdraw Error",
+      color: 0xff0000,
+      description: `**User ${req.user?.id}** withdraw failed: ${error.message}`,
+      fields: [{ name: "Items sent", value: JSON.stringify(clientItems).slice(0, 1000) }],
+    });
     return res.status(500).json({ message: error.message || "Internal Server Error" });
   } finally {
     releaseLock(req.user.id, "withdraw");
