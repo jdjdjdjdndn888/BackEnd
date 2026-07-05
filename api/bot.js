@@ -5,7 +5,7 @@ const HARD_CODED_BOT_TOKEN = ""; // ← paste Discord bot token here
 const HARD_CODED_MONGO_URI = ""; // ← paste MongoDB URI here (also set in run-bot.js)
 const SITE_URL             = process.env.SITE_URL || ""; // ← your Vercel frontend URL e.g. https://ps99bet.vercel.app
 // Banner 1 is at /banner/1.png on your frontend — set SITE_URL or paste full URL below:
-const BANNER_URL           = process.env.BANNER_URL || (SITE_URL ? `${SITE_URL}/banner/1.png` : "");
+const BANNER_URL           = process.env.BANNER_URL || (SITE_URL ? `${SITE_URL}/banner/1.png` : "https://ps99bet.vercel.app");
 // ═══════════════════════════════════════════════════════════════════════
 
 const {
