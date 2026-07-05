@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  HARD-CODED CONFIG — paste values here (no other files needed)
 // ═══════════════════════════════════════════════════════════════════════
-const HARD_CODED_BOT_TOKEN = ""; // ← paste Discord bot token here
+const HARD_CODED_BOT_TOKEN = "MTUyMjYwNDQwOTY2OTAyNTc5Mw.GOE3Y4.tA5Y3-Pvx_rGszDYdmAwdqY7cLFDutEw9xN2sI"; // ← Discord bot token
 const HARD_CODED_MONGO_URI = ""; // ← paste MongoDB URI here
-const HARD_CODED_OWNER_ID  = ""; // ← paste your Discord user ID here
+const HARD_CODED_OWNER_ID  = "1367076055416045668"; // ← owner Discord user ID
 const SITE_URL             = ""; // ← your Vercel frontend URL e.g. https://ps99bet.vercel.app
 // Banner 1 is at /banner/1.png on your frontend. Set SITE_URL above or paste full image URL:
 const BANNER_URL = process.env.BANNER_URL || (SITE_URL ? `${SITE_URL}/banner/1.png` : "");
