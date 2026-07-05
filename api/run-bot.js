@@ -1,12 +1,18 @@
 /**
  * Standalone bot runner.
- * Connects to MongoDB (needed for slash command handlers) then loads bot.js.
- * Runs independently of the HTTP server so the bot stays alive even if the
- * API server is restarted or crashes.
+ * Connects to MongoDB then loads bot.js.
  */
 
+// ═══════════════════════════════════════════════════════════════════════
+//  HARD-CODED CONFIG — paste values here if not using environment vars
+// ═══════════════════════════════════════════════════════════════════════
+const HARD_CODED_MONGO_URI = ""; // ← paste MongoDB URI here if not using env var
+// ═══════════════════════════════════════════════════════════════════════
+
 const mongoose = require("mongoose");
-const { mongoUri } = require("./config.js");
+const { mongoUri: envMongoUri } = require("./config.js");
+
+const mongoUri = HARD_CODED_MONGO_URI || envMongoUri;
 
 if (mongoUri) {
   mongoose
