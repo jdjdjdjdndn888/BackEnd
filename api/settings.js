@@ -1,4 +1,4 @@
 module.exports = {
-  cancelWithdrawsEnabled: false,
+  cancelWithdrawsEnabled: true,
   tippingLocked: false,
 };
