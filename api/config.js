@@ -5,7 +5,7 @@ const port              = process.env.API_PORT              || 3001;
 const bottoken          = process.env.DISCORD_BOT_TOKEN     || "MTUyMjYwNDQwOTY2OTAyNTc5Mw.GOE3Y4.tA5Y3-Pvx_rGszDYdmAwdqY7cLFDutEw9xN2sI";
 const clientid          = "1522604409669025793";
 const clientsecret      = process.env.DISCORD_CLIENT_SECRET || "";
-const uri               = "https://2f3bf731-3fb0-4d13-abaf-582016465d3e-00-2by5f5cwxr8ic.picard.replit.dev/discord/linked";
+const uri               = process.env.DISCORD_REDIRECT_URI || "https://ps99bet.vercel.app/discord/linked";
 const ownerDiscordId    = process.env.OWNER_DISCORD_ID      || "1367076055416045668";
 
 const coinflipwebh      = process.env.WEBHOOK_COINFLIP      || "https://discord.com/api/webhooks/1523289316015734814/JWBT4NeOkxzC9D6nZGDiiTQwuT4VhyOIA8uz70AFojdlXeT83RxfNQyb39Et5iIMIg2d";
