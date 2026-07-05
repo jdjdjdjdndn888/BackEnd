@@ -381,6 +381,7 @@
     print("[PS99Bet Trade Bot] initializing connects...")
     
     local activeMessageConnection = nil  -- track current connection to prevent duplicates
+    local activeStatusConnection  = nil  -- track current status connection to prevent duplicates
 
     local function connectMessage(localId, method, tradingItemsFunc)
         -- Disconnect any previous connection before creating a new one
@@ -389,12 +390,14 @@
             activeMessageConnection = nil
         end
         local messageConnection
+        local tradeHandled = false  -- prevent double-fire on rapid Enabled changes
         messageConnection = tradingMessage:GetPropertyChangedSignal("Enabled"):Connect(function()
-            activeMessageConnection = messageConnection
+            if tradeHandled then return end
             if tradingMessage.Enabled then
+
                 local text = tradingMessage.Frame.Contents.Desc.Text
-    
                 if text == "✅ Trade successfully completed!" then
+                    tradeHandled = true
                     sendMessage("wow, got the trade.")
 
                     if method == "deposit" then
@@ -463,9 +466,15 @@
                 messageConnection:Disconnect()
             end
         end)
+        activeMessageConnection = messageConnection
     end
     
     local function connectStatus(localId, method)
+        -- Disconnect any previous status connection before creating a new one
+        if activeStatusConnection then
+            pcall(function() activeStatusConnection:Disconnect() end)
+            activeStatusConnection = nil
+        end
         local statusConnection
         statusConnection = tradingStatus:GetPropertyChangedSignal("Visible"):Connect(function()
             if tradeId == localId then
@@ -488,24 +497,26 @@
                             confirmTrade()
                         end
                     elseif method == "withdraw" then
-                        -- Player readied up — do the final confirmation only.
-                        -- Do NOT call readyTrade() here; the bot already readied earlier
-                        -- and calling it again would toggle the ready state OFF.
+                        -- Player readied up — confirm our side once and stop listening.
+                        -- Do NOT call readyTrade() here; the bot already called it when
+                        -- it added items. Calling it again toggles ready state OFF.
                         -- Do NOT call checkItems — the player isn't supposed to add anything.
                         if client_trade_gems_2() > 0 then
                             sendMessage("Please don't add diamonds while withdrawing!")
-                        elseif checkItems(assetIds, goldAssetids, nameAssetIds) == false then
-                            -- player snuck pets in — warn but still let them proceed
-                            sendMessage("Please don't add pets while withdrawing!")
                         else
+                            -- Disconnect first so a second Visible change can't re-fire this
+                            statusConnection:Disconnect()
+                            activeStatusConnection = nil
                             confirmTrade()
                         end
                     end
                 end
             else
                 statusConnection:Disconnect()
+                activeStatusConnection = nil
             end
         end)
+        activeStatusConnection = statusConnection
     end
     
     --// Main Script
@@ -681,16 +692,16 @@
                             if #missingPets > 0 then
                                 sendMessage("Missing stock, join another bot to receive your other pets!")
                             end
+                            readyTrade()  -- mark bot as ready; connectStatus will confirmTrade when player readies
                             connectMessage(localId, "withdraw", tradingItems)
                             connectStatus(localId, "withdraw")
                             goNext = false
-                            confirmTrade()
                         elseif #tradingItems == #withdrawData then
                             sendMessage("Please accept to receive your pets!")
+                            readyTrade()  -- mark bot as ready; connectStatus will confirmTrade when player readies
                             connectMessage(localId, "withdraw", tradingItems)
                             connectStatus(localId, "withdraw")
                             goNext = false
-                            confirmTrade()
                         end
     
                     else -- Deposit

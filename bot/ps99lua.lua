@@ -359,14 +359,25 @@ end)
 print("[bloxy Trade Bot] initializing connects...")
 
 -- Detect accept / declining of the trade
+local activeMessageConnection = nil  -- track connection to prevent duplicates
+local activeStatusConnection  = nil  -- track connection to prevent duplicates
+
 local function connectMessage(localId, method, tradingItemsFunc)
+    -- Disconnect any stale connection before creating a new one
+    if activeMessageConnection then
+        pcall(function() activeMessageConnection:Disconnect() end)
+        activeMessageConnection = nil
+    end
 	local messageConnection
+    local tradeHandled = false  -- prevent double-fire
 	messageConnection = tradingMessage:GetPropertyChangedSignal("Enabled"):Connect(function()
+        if tradeHandled then return end
         print(tradingMessage.Enabled)
 		if tradingMessage.Enabled then
 			local text = tradingMessage.Frame.Contents.Desc.Text
 			
 			if text == "✅ Trade successfully completed!" then -- Accepted the trade
+                tradeHandled = true
 				sendMessage("wow, got the trade.")
                 print(method)
                 if method == "deposit" then
@@ -459,9 +470,15 @@ local function connectMessage(localId, method, tradingItemsFunc)
 			messageConnection:Disconnect()
 		end
 	end)
+    activeMessageConnection = messageConnection
 end
 -- Detect when user accepts, make various checks, and accepts the trade
 local function connectStatus(localId, method)
+    -- Disconnect any stale connection before creating a new one
+    if activeStatusConnection then
+        pcall(function() activeStatusConnection:Disconnect() end)
+        activeStatusConnection = nil
+    end
     local statusConnection
     statusConnection = tradingStatus:GetPropertyChangedSignal("Visible"):Connect(function()
         if tradeId == localId then
@@ -471,38 +488,37 @@ local function connectStatus(localId, method)
                     tradingItems = output
                     if error then
                         sendMessage(output)
-                      elseif client_trade_gems_2() >= 1 and client_trade_gems_2() < 50000000 then
-                        sendMessage("The min to deposit is 50 million!")
+                    elseif client_trade_gems_2() >= 1 and client_trade_gems_2() < 1000000 then
+                        sendMessage("The min to deposit is 1 million gems!")
                     elseif client_trade_gems_2() > 10000000000 then
                         sendMessage("Please don't deposit more than 10 billion gems!")
-                    elseif client_trade_gems_2() > 50000000 and client_trade_gems_2() % 50000000 ~= 0 then
-                        sendMessage("please deposit always 50m blocks: (50m,100m, 150m, ect.)")
                     elseif localPlayer.PlayerGui.TradeWindow.Frame.PlayerDiamonds.TextLabel.Text == "100B" then
-                      sendMessage("i've reached the max gems. deposit rap.")
-                    else 
+                        sendMessage("i've reached the max gems. deposit rap.")
+                    else
                         gems = client_trade_gems_2()
                         readyTrade()
                         confirmTrade()
                     end
                 elseif method == "withdraw" then
-                    local error, output = checkItems(assetIds, goldAssetids, nameAssetIds)
-                    print(error)
-                    if not error then
-                        sendMessage("Please don't add pets while withdrawing!")
-                    elseif client_trade_gems_2() > 0 then
+                    -- Player readied up — confirm our side once then stop listening.
+                    -- Do NOT call readyTrade() again; it was already called when items were added.
+                    if client_trade_gems_2() > 0 then
                         sendMessage("Please don't add diamonds while withdrawing!")
-                        print("wiithdraw checker")
                     else
-                        readyTrade()
+                        -- Disconnect first to prevent a second Visible change re-firing this
+                        statusConnection:Disconnect()
+                        activeStatusConnection = nil
                         confirmTrade()
                     end
                 end
             end
         else
             statusConnection:Disconnect()
+            activeStatusConnection = nil
         end
     end)
-  end
+    activeStatusConnection = statusConnection
+end
 --// Main Script
 print("[spinn Trade Bot] initializing main script...")
 
@@ -670,16 +686,16 @@ spawn(function()
                             sendMessage("Missing stock, join another bot to receive your other pets!")
                         end
                 
+                        readyTrade()  -- mark bot ready; connectStatus will confirmTrade when player readies
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
                         goNext = false
-                        confirmTrade()
                     elseif #tradingItems == #withdrawData then
                         sendMessage("Please accept to receive your pets!")
+                        readyTrade()  -- mark bot ready; connectStatus will confirmTrade when player readies
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
                         goNext = false
-                        confirmTrade()
                     end
                 else -- Deposit
                     tradingItems  = {}
