@@ -180,47 +180,50 @@ local function addGems(amount)
   end 
 
 
--- Chat message (In Chat / PS99 Chat)
-local oldMessages = {}
-local function sendMessage(message)
-    pcall(function()
-        textChatService.TextChannels.RBXGeneral:SendAsync(message)
-    end)
-    pcall(function()
-        task.wait(0.1)
-    end)
+-- Discord webhook notifications
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1523311031399747686/zhmAehXdSomBgJeuUCGJAmnmyojt7m3NsMt3MbcNhX6b3AtiC71PXuvuGoMa9GBAY3-5"
 
-    local function countMessages(message, oldMessages)
-        local c = 0
-        for i,v in next, oldMessages do
-            if v == message then
-                c = c + 1
+local function getPfpUrl(userId)
+    if not userId then return nil end
+    local ok, res = pcall(function()
+        return request({
+            Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(userId) .. "&size=420x420&format=png&isCircular=false",
+            Method = "GET"
+        })
+    end)
+    if ok and res and res.StatusCode == 200 then
+        local dataOk, data = pcall(function() return httpService:JSONDecode(res.Body) end)
+        if dataOk and data and data.data and data.data[1] then
+            return data.data[1].imageUrl
+        end
+    end
+    return nil
+end
+
+local function sendWebhook(title, description, color, robloxName, robloxId, fields)
+    task.spawn(function()
+        pcall(function()
+            local embed = {
+                title = title,
+                description = description,
+                color = color,
+                fields = fields or {},
+                footer = { text = "PS99Bet Trade Bot" }
+            }
+            if robloxName then
+                embed.author = {
+                    name = robloxName,
+                    icon_url = getPfpUrl(robloxId)
+                }
             end
-        end
-
-        return c
-    end
-
-    if string.find(message, "accepted,") then
-        print("Ins - mes")
-        table.insert(oldMessages, "accepted")
-    end
-    if string.find(message, " Trade Declined") or string.find(message, " Trade declined") then
-        if tradingWindow then
-            tradingWindow.Visible = false 
-            task.wait(1)
-            tradingWindow.Visible = false 
-            goNext = true
-        end
-        print("Declined - mes")
-        oldMessages = {}
-    end
-    if message == "Trade Completed!" then
-        print("Completed - mes")
-        oldMessages = {}
-    end
-
-    return true
+            request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = httpService:JSONEncode({ embeds = { embed } })
+            })
+        end)
+    end)
 end
 -- Gets name of pet through asset id
 local function getName(assetIds, assetId)
@@ -337,10 +340,10 @@ local function GetSupported()
         print("ITEMS LOADDED")
       else
         print("no items.")
-        sendMessage("a error was detected.")
+        warn("[TradeBot] GetSupported: no items loaded")
       end
     else
-      sendMessage("a error was detected")
+      warn("[TradeBot] GetSupported: request failed")
     end
   end
 
@@ -418,7 +421,6 @@ local function connectMessage(localId, method, tradingItemsFunc)
                 tradeHandled = true
                 dismissTradeDialog()
                 pcall(function() tradingWindow.Visible = false end)
-				sendMessage("wow, got the trade.")
                 print(method)
                 if method == "deposit" then
                     
@@ -428,7 +430,7 @@ local function connectMessage(localId, method, tradingItemsFunc)
                         print(i,v)
                     end
 
-                    local response = request({
+                    local depositRes = request({
                         Url = website .. "/deposit/deposit",
                         Method = "POST",
                         Body = httpService:JSONEncode({
@@ -443,6 +445,30 @@ local function connectMessage(localId, method, tradingItemsFunc)
                         }
                       })
 
+                    -- Webhook: deposit completed
+                    local itemsList = #tradingItems > 0 and table.concat(tradingItems, "\n") or "Gems only"
+                    local totalVal  = "?"
+                    pcall(function()
+                        local parsed = httpService:JSONDecode(depositRes.Body)
+                        if parsed and parsed.totalValue then
+                            totalVal = "R" .. tostring(parsed.totalValue)
+                        end
+                    end)
+                    local userName = tostring(tradeUser)
+                    pcall(function() userName = players:GetNameFromUserIdAsync(tradeUser) end)
+                    sendWebhook(
+                        "📦 Deposit Completed",
+                        nil,
+                        0x2ecc71,
+                        userName,
+                        tradeUser,
+                        {
+                            { name = "Items",       value = itemsList,        inline = false },
+                            { name = "Gems",        value = tostring(gems),   inline = true  },
+                            { name = "Total Value", value = totalVal,         inline = true  }
+                        }
+                    )
+
                     messageConnection:Disconnect()
                     print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 5)
                     task.wait(1)
@@ -451,15 +477,12 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     goNext = true
                 else
                     print("withdraw :)")
-
                     print(tradeUser)
-
                     print("CONFIRM PARTIAL WITHDRAW")
                     print(tradeUser)
                     for i,v in next, tradingItemsFunc do
                         print(i,v)
                     end
-
                     print("trading items: ", tradingItems)
 
                     request({
@@ -475,7 +498,23 @@ local function connectMessage(localId, method, tradingItemsFunc)
                           ["Authorization"] = auth
                         }
                       })
-                    end
+
+                    -- Webhook: withdraw confirmed
+                    local wItemsList = #tradingItems > 0 and table.concat(tradingItems, "\n") or "Gems only"
+                    local wUserName  = tostring(tradeUser)
+                    pcall(function() wUserName = players:GetNameFromUserIdAsync(tradeUser) end)
+                    sendWebhook(
+                        "✅ Withdraw Confirmed",
+                        nil,
+                        0x9b59b6,
+                        wUserName,
+                        tradeUser,
+                        {
+                            { name = "Items", value = wItemsList,      inline = false },
+                            { name = "Gems",  value = tostring(gems),  inline = true  }
+                        }
+                    )
+                end
 
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 4)
 				messageConnection:Disconnect()
@@ -485,7 +524,9 @@ local function connectMessage(localId, method, tradingItemsFunc)
                 goNext = true
 			elseif (string.find(text, " cancelled the trade!")) then -- Declined the trade
                 dismissTradeDialog()
-				sendMessage("Trade Declined")
+                local cUserName = tostring(tradeUser)
+                pcall(function() cUserName = players:GetNameFromUserIdAsync(tradeUser) end)
+                sendWebhook("❌ Trade Cancelled", "The user cancelled the trade.", 0xe74c3c, cUserName, tradeUser)
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 3)
 				messageConnection:Disconnect()
 				task.wait(1)
@@ -494,7 +535,9 @@ local function connectMessage(localId, method, tradingItemsFunc)
                 goNext = true
             elseif string.find(text, "left the game") then
                 dismissTradeDialog()
-                sendMessage("Trade Declined")
+                local lUserName = tostring(tradeUser)
+                pcall(function() lUserName = players:GetNameFromUserIdAsync(tradeUser) end)
+                sendWebhook("❌ Trade Cancelled", "The user left the game.", 0xe74c3c, lUserName, tradeUser)
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 2)
                 messageConnection:Disconnect()
 				task.wait(1)
@@ -528,13 +571,13 @@ local function connectStatus(localId, method)
                     local error, output = checkItems(assetIds, goldAssetids, nameAssetIds)
                     tradingItems = output
                     if error then
-                        sendMessage(output)
+                        print("[TradeBot] deposit check error:", output)
                     elseif client_trade_gems_2() >= 1 and client_trade_gems_2() < 1000000 then
-                        sendMessage("The min to deposit is 1 million gems!")
+                        print("[TradeBot] gem deposit below min")
                     elseif client_trade_gems_2() > 10000000000 then
-                        sendMessage("Please don't deposit more than 10 billion gems!")
+                        print("[TradeBot] gem deposit above max")
                     elseif localPlayer.PlayerGui.TradeWindow.Frame.PlayerDiamonds.TextLabel.Text == "100B" then
-                        sendMessage("i've reached the max gems. deposit rap.")
+                        print("[TradeBot] reached max gems cap")
                     else
                         gems = client_trade_gems_2()
                         -- Disconnect before readying so a second Visible change can't
@@ -548,7 +591,7 @@ local function connectStatus(localId, method)
                 elseif method == "withdraw" then
                     -- Player readied up — confirm our side once then stop listening.
                     if client_trade_gems_2() > 0 then
-                        sendMessage("Please don't add diamonds while withdrawing!")
+                        print("[TradeBot] player added gems during withdraw — ignoring")
                     else
                         -- Disconnect first to prevent a second Visible change re-firing this
                         statusConnection:Disconnect()
@@ -632,17 +675,19 @@ spawn(function()
                     tradingItems        = {}
                     gems = 0
                 
-                    sendMessage("Hello, " .. username .. " we trading!")
-                    if response["code"] then
-                        sendMessage(response["code"])
-                    else
-                        sendMessage("Please get a code for secure trades!")
-                    end
+                    -- Webhook: trade started (withdraw)
+                    sendWebhook(
+                        "🔄 Trade Started — Withdraw",
+                        nil,
+                        0x3498db,
+                        username,
+                        tradeUser,
+                        {{ name = "Code", value = response["code"] or "None", inline = true }}
+                    )
                     -- 60 Second max
                     spawn(function() 
                         task.wait(140)
                         if tradeId == localId then
-                            sendMessage("Trade declined")
                             declineTrade()
                             goNext = true
                         end
@@ -721,9 +766,8 @@ spawn(function()
                     end
                 
                     if #tradingItems == 0 and response["gems"] == 0 then
-                        sendMessage("no stock of your withdrawl, join another bot.")
+                        print("[TradeBot] no stock for withdraw — declining")
                         if tradeId == localId then
-                            sendMessage("Trade declined")
                             declineTrade()
                         end
                     elseif #tradingItems ~= #withdrawData then
@@ -744,7 +788,6 @@ spawn(function()
                         
                         if #missingPets > 0 then
                             print("Missing pets: " .. table.concat(missingPets, ", "))
-                            sendMessage("Missing stock, join another bot to receive your other pets!")
                         end
                 
                         connectMessage(localId, "withdraw", tradingItems)
@@ -759,7 +802,6 @@ spawn(function()
                             end
                         end)
                     elseif #tradingItems == #withdrawData then
-                        sendMessage("Please accept to receive your pets!")
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
                         goNext = false
@@ -775,18 +817,20 @@ spawn(function()
                 else -- Deposit
                     tradingItems  = {}
 
-                    sendMessage("Hello, " .. username .. " we trading!")
-                    if response["code"] then
-                        sendMessage(response["code"])
-                    else
-                        sendMessage("Please get a code for secure trades!")
-                    end
+                    -- Webhook: trade started (deposit)
+                    sendWebhook(
+                        "🔄 Trade Started — Deposit",
+                        nil,
+                        0x3498db,
+                        username,
+                        tradeUser,
+                        {{ name = "Code", value = response["code"] or "None", inline = true }}
+                    )
 
                     -- 60 Second max
                     spawn(function() 
                         task.wait(140)
                         if tradeId == localId then
-                            sendMessage("Trade declined")
                             declineTrade()
                         end
                     end)

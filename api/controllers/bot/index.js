@@ -310,7 +310,7 @@ exports.Deposit = asyncHandler(async (req, res) => {
   // Always push a socket update so the user sees their updated inventory
   await updateuser(user.userid, req.app.get("io"));
 
-  return res.status(200).json({ message: "Deposit process completed", depositResults });
+  return res.status(200).json({ message: "Deposit process completed", depositResults, totalValue });
 });
 
 exports.withdrawed = asyncHandler(async (req, res) => {
