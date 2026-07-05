@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Coins, Dices, TrendingUp, ShoppingBag } from "lucide-react";
+import { Coins } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
@@ -13,10 +13,10 @@ const BetIcon = () => (
 );
 
 const GAMES = [
-  { label: "Coinflip", icon: Coins, href: "/coinflip" },
-  { label: "Jackpot", icon: Dices, href: "/jackpot" },
-  { label: "Upgrader", icon: TrendingUp, href: "/upgrader" },
-  { label: "Trades", icon: ShoppingBag, href: "/trades" },
+  { label: "Coinflip",  href: "/coinflip",  banner: "/coinflip-banner.png" },
+  { label: "Jackpot",   href: "/jackpot",   banner: "/jackpot-banner.png" },
+  { label: "Upgrader",  href: "/upgrader",  banner: "/upgrader-banner.png" },
+  { label: "Trades",    href: "/trades",    banner: "/trades-banner.png" },
 ];
 
 export const GamesSection = () => {
@@ -40,32 +40,20 @@ export const GamesSection = () => {
         </div>
 
         <CarouselContent className="gap-0 p-1 pt-7 [--width:100%] md:[--width:20rem]">
-          {GAMES.map(({ label, icon: Icon, href }) => (
+          {GAMES.map(({ label, href, banner }) => (
             <CarouselItem key={href} className="basis-1/2 sm:basis-1/3 md:basis-1/4">
-              {label === "Coinflip" ? (
-                <button
-                  onClick={() => navigate(href)}
-                  className="group relative w-full cursor-pointer overflow-hidden rounded-2xl border border-[#252839] transition-all hover:border-[#8B5CF6] hover:scale-[1.02] active:opacity-80"
-                  style={{ aspectRatio: "3/4" }}
-                >
-                  <img
-                    src="/coinflip-banner.png"
-                    alt="Coinflip"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 rounded-2xl bg-[#8B5CF6]/0 group-hover:bg-[#8B5CF6]/10 transition-all duration-200" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => navigate(href)}
-                  className="flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-[#252839] bg-[#1C1F2E] px-4 py-6 text-white transition-all hover:border-[#8B5CF6] hover:bg-[#22263a] active:opacity-80"
-                >
-                  <span className="flex items-center justify-center w-11 h-11 rounded-xl bg-[#0d0f1a] text-[#8B93B8]">
-                    <Icon className="w-5 h-5" />
-                  </span>
-                  <span className="text-sm font-semibold">{label}</span>
-                </button>
-              )}
+              <button
+                onClick={() => navigate(href)}
+                className="group relative w-full cursor-pointer overflow-hidden rounded-2xl border border-[#252839] transition-all hover:border-[#8B5CF6] hover:scale-[1.02] active:opacity-80"
+                style={{ aspectRatio: "3/4" }}
+              >
+                <img
+                  src={banner}
+                  alt={label}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 rounded-2xl bg-[#8B5CF6]/0 group-hover:bg-[#8B5CF6]/10 transition-all duration-200" />
+              </button>
             </CarouselItem>
           ))}
         </CarouselContent>
