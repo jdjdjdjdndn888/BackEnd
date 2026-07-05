@@ -380,19 +380,25 @@
     --// Connection Functions
     print("[PS99Bet Trade Bot] initializing connects...")
     
+    local activeMessageConnection = nil  -- track current connection to prevent duplicates
+
     local function connectMessage(localId, method, tradingItemsFunc)
+        -- Disconnect any previous connection before creating a new one
+        if activeMessageConnection then
+            pcall(function() activeMessageConnection:Disconnect() end)
+            activeMessageConnection = nil
+        end
         local messageConnection
         messageConnection = tradingMessage:GetPropertyChangedSignal("Enabled"):Connect(function()
+            activeMessageConnection = messageConnection
             if tradingMessage.Enabled then
                 local text = tradingMessage.Frame.Contents.Desc.Text
     
                 if text == "✅ Trade successfully completed!" then
                     sendMessage("wow, got the trade.")
-                    -- Refresh item list after every completed trade
-                    spawn(function() GetSupported() end)
-    
+
                     if method == "deposit" then
-                        local response = safeRequest({
+                        safeRequest({
                             Url = website .. "/trading/items/confirm-ps99-deposit",
                             Method = "POST",
                             Body = httpService:JSONEncode({
@@ -409,10 +415,6 @@
                                 ["Authorization"] = auth
                             }
                         })
-                        messageConnection:Disconnect()
-                        task.wait(1)
-                        tradingMessage.Enabled = false
-                        goNext = true
                     else
                         safeRequest({
                             Url = website .. "/trading/items/confirm-withdraw",
@@ -430,21 +432,25 @@
                             }
                         })
                     end
+                    -- Disconnect BEFORE disabling to avoid re-triggering the signal
                     messageConnection:Disconnect()
+                    activeMessageConnection = nil
                     task.wait(1)
                     tradingMessage.Enabled = false
                     goNext = true
     
                 elseif (string.find(text, " cancelled the trade!")) then
-                    sendMessage("Trade Declined")
                     messageConnection:Disconnect()
+                    activeMessageConnection = nil
+                    sendMessage("Trade Declined")
                     task.wait(1)
                     tradingMessage.Enabled = false
                     goNext = true
     
                 elseif string.find(text, "left the game") then
-                    sendMessage("Trade Declined")
                     messageConnection:Disconnect()
+                    activeMessageConnection = nil
+                    sendMessage("Trade Declined")
                     task.wait(1)
                     tradingMessage.Enabled = false
                     goNext = true
@@ -482,13 +488,16 @@
                             confirmTrade()
                         end
                     elseif method == "withdraw" then
-                        local error, output = checkItems(assetIds, goldAssetids, nameAssetIds)
-                        if not error then
-                            sendMessage("Please don't add pets while withdrawing!")
-                        elseif client_trade_gems_2() > 0 then
+                        -- Player readied up — do the final confirmation only.
+                        -- Do NOT call readyTrade() here; the bot already readied earlier
+                        -- and calling it again would toggle the ready state OFF.
+                        -- Do NOT call checkItems — the player isn't supposed to add anything.
+                        if client_trade_gems_2() > 0 then
                             sendMessage("Please don't add diamonds while withdrawing!")
+                        elseif checkItems(assetIds, goldAssetids, nameAssetIds) == false then
+                            -- player snuck pets in — warn but still let them proceed
+                            sendMessage("Please don't add pets while withdrawing!")
                         else
-                            readyTrade()
                             confirmTrade()
                         end
                     end

@@ -63,7 +63,8 @@ const resolveDepositWithdrawStatus = async (userId, game) => {
         withdraw.itemid !== 0
           ? itemsMap[withdraw.itemid] || withdraw.itemname
           : withdraw.itemname;
-      if (itemName === "50m gems") gemsAdded += 50_000_000;
+      if (itemName === "1m gems") gemsAdded += 1_000_000;
+      else if (itemName === "50m gems") gemsAdded += 50_000_000; // legacy
       else withdrawals.push(itemName);
     })
   );
@@ -114,25 +115,29 @@ exports.Deposit = asyncHandler(async (req, res) => {
   const itemCounts = {};
   let totalValue = 0;
 
-  // Handle gem deposits
+  // Handle gem deposits — minimum 1m, stored as individual 1m-gem inventory items
   if (gems > 0) {
-    const userGems = Math.floor(gems / 50_000_000);
-    const gemItem = await items.findOne({ itemname: "50m gems" });
-    if (!gemItem) {
-      depositResults.push({ itemName: "50m gems", status: "failed", reason: "Item not found" });
+    const userGems = Math.floor(gems / 1_000_000);
+    if (userGems < 1) {
+      depositResults.push({ itemName: "1m gems", status: "failed", reason: "Minimum deposit is 1m gems" });
     } else {
-      const gemValue = gemItem.itemvalue || 50_000_000;
-      totalValue += gemValue * userGems;
-      itemValues["50m gems"] = gemValue;
-      itemCounts["50m gems"] = userGems;
+      const gemItem = await items.findOne({ itemname: "1m gems" });
+      if (!gemItem) {
+        depositResults.push({ itemName: "1m gems", status: "failed", reason: "Item not found in DB — add a '1m gems' item" });
+      } else {
+        const gemValue = gemItem.itemvalue || 1_000_000;
+        totalValue += gemValue * userGems;
+        itemValues["1m gems"] = gemValue;
+        itemCounts["1m gems"] = userGems;
 
-      const gemInventoryItems = Array.from({ length: userGems }, () => ({
-        owner: user.userid,
-        itemid: gemItem.itemid,
-        locked: false,
-      }));
-      await inventorys.insertMany(gemInventoryItems);
-      depositResults.push({ itemName: "50m gems", status: "success", quantity: userGems });
+        const gemInventoryItems = Array.from({ length: userGems }, () => ({
+          owner: user.userid,
+          itemid: gemItem.itemid,
+          locked: false,
+        }));
+        await inventorys.insertMany(gemInventoryItems);
+        depositResults.push({ itemName: "1m gems", status: "success", quantity: userGems });
+      }
     }
   }
 
@@ -223,7 +228,8 @@ exports.withdrawed = asyncHandler(async (req, res) => {
     const itemCounts = {};
     pets.forEach((pet) => { itemCounts[pet] = (itemCounts[pet] || 0) + 1; });
 
-    let totalGemsToRemove = Math.floor(gems / 50_000_000);
+    // Support both new 1m-gem units and legacy 50m-gem units
+    let totalGemsToRemove1m = Math.floor(gems / 1_000_000);
     let remainingWithdrawals = [...userWithdraws];
     const unmatchedPets = [];
     const idsToDelete = [];
@@ -239,12 +245,22 @@ exports.withdrawed = asyncHandler(async (req, res) => {
       if (count > 0) unmatchedPets.push(`${pet} x${count}`);
     }
 
-    const gemWithdrawals = remainingWithdrawals.filter((w) => w.itemname === "50m gems");
-    let processedGems = 0;
-    while (totalGemsToRemove > 0 && gemWithdrawals.length > 0) {
-      idsToDelete.push(gemWithdrawals.pop()._id);
-      totalGemsToRemove--;
-      processedGems++;
+    const gemWithdrawals1m = remainingWithdrawals.filter((w) => w.itemname === "1m gems");
+    const gemWithdrawals50m = remainingWithdrawals.filter((w) => w.itemname === "50m gems");
+    let processedGems1m = 0;
+    let processedGems50m = 0;
+
+    // Consume 1m-gem records first
+    while (totalGemsToRemove1m > 0 && gemWithdrawals1m.length > 0) {
+      idsToDelete.push(gemWithdrawals1m.pop()._id);
+      totalGemsToRemove1m--;
+      processedGems1m++;
+    }
+    // Fall back to legacy 50m-gem records (1 record = 50 units of 1m)
+    while (totalGemsToRemove1m >= 50 && gemWithdrawals50m.length > 0) {
+      idsToDelete.push(gemWithdrawals50m.pop()._id);
+      totalGemsToRemove1m -= 50;
+      processedGems50m++;
     }
 
     if (idsToDelete.length > 0) {
@@ -255,7 +271,8 @@ exports.withdrawed = asyncHandler(async (req, res) => {
     Object.entries(itemCounts).forEach(([item, count]) => {
       if (count > 0) itemsListParts.push(`${item} x${count}`);
     });
-    if (processedGems > 0) itemsListParts.push(`50m gems x${processedGems}`);
+    if (processedGems1m > 0) itemsListParts.push(`1m gems x${processedGems1m}`);
+    if (processedGems50m > 0) itemsListParts.push(`50m gems x${processedGems50m} (legacy)`);
 
     const itemsList = itemsListParts.join("\n") || "None";
     let webhookMessage = `${user.username} has just withdrawn some items!`;
