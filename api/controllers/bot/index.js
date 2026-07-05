@@ -115,28 +115,57 @@ exports.Deposit = asyncHandler(async (req, res) => {
   const itemCounts = {};
   let totalValue = 0;
 
-  // Handle gem deposits — minimum 1m, stored as individual 1m-gem inventory items
+  // Handle gem deposits — break amount into best denominations (100m → 25m → 10m → …)
   if (gems > 0) {
-    const userGems = Math.floor(gems / 1_000_000);
-    if (userGems < 1) {
-      depositResults.push({ itemName: "1m gems", status: "failed", reason: "Minimum deposit is 1m gems" });
-    } else {
-      const gemItem = await items.findOne({ itemname: "1m gems" });
-      if (!gemItem) {
-        depositResults.push({ itemName: "1m gems", status: "failed", reason: "Item not found in DB — add a '1m gems' item" });
-      } else {
-        const gemValue = gemItem.itemvalue || 1_000_000;
-        totalValue += gemValue * userGems;
-        itemValues["1m gems"] = gemValue;
-        itemCounts["1m gems"] = userGems;
+    const GEM_DENOMS = [
+      { name: "100m gems", value: 100_000_000 },
+      { name: "50m gems",  value:  50_000_000 },
+      { name: "25m gems",  value:  25_000_000 },
+      { name: "10m gems",  value:  10_000_000 },
+      { name: "5m gems",   value:   5_000_000 },
+      { name: "1m gems",   value:   1_000_000 },
+    ];
 
-        const gemInventoryItems = Array.from({ length: userGems }, () => ({
-          owner: user.userid,
-          itemid: gemItem.itemid,
-          locked: false,
-        }));
-        await inventorys.insertMany(gemInventoryItems);
-        depositResults.push({ itemName: "1m gems", status: "success", quantity: userGems });
+    // Round down to the nearest 1m
+    let remaining = Math.floor(gems / 1_000_000) * 1_000_000;
+
+    if (remaining < 1_000_000) {
+      depositResults.push({ itemName: "gems", status: "failed", reason: "Minimum deposit is 1m gems" });
+    } else {
+      // Greedy breakdown into denominations
+      const denomCounts = {};
+      for (const { name, value } of GEM_DENOMS) {
+        const count = Math.floor(remaining / value);
+        if (count > 0) {
+          denomCounts[name] = count;
+          remaining -= count * value;
+        }
+      }
+
+      // Fetch all needed denom items from DB in one query
+      const denomNames = Object.keys(denomCounts);
+      const denomItemDocs = await items.find({ itemname: { $in: denomNames } });
+      const denomItemMap = {};
+      denomItemDocs.forEach((doc) => { denomItemMap[doc.itemname] = doc; });
+
+      const inventoryToInsert = [];
+      for (const [denomName, count] of Object.entries(denomCounts)) {
+        const dbItem = denomItemMap[denomName];
+        if (!dbItem) {
+          depositResults.push({ itemName: denomName, status: "failed", reason: `Item '${denomName}' not found in DB — add it` });
+          continue;
+        }
+        const itemVal = dbItem.itemvalue || GEM_DENOMS.find(d => d.name === denomName).value;
+        totalValue += itemVal * count;
+        itemValues[denomName] = itemVal;
+        itemCounts[denomName] = count;
+        for (let i = 0; i < count; i++) {
+          inventoryToInsert.push({ owner: user.userid, itemid: dbItem.itemid, locked: false });
+        }
+        depositResults.push({ itemName: denomName, status: "success", quantity: count });
+      }
+      if (inventoryToInsert.length > 0) {
+        await inventorys.insertMany(inventoryToInsert);
       }
     }
   }
@@ -228,8 +257,6 @@ exports.withdrawed = asyncHandler(async (req, res) => {
     const itemCounts = {};
     pets.forEach((pet) => { itemCounts[pet] = (itemCounts[pet] || 0) + 1; });
 
-    // Support both new 1m-gem units and legacy 50m-gem units
-    let totalGemsToRemove1m = Math.floor(gems / 1_000_000);
     let remainingWithdrawals = [...userWithdraws];
     const unmatchedPets = [];
     const idsToDelete = [];
@@ -245,22 +272,25 @@ exports.withdrawed = asyncHandler(async (req, res) => {
       if (count > 0) unmatchedPets.push(`${pet} x${count}`);
     }
 
-    const gemWithdrawals1m = remainingWithdrawals.filter((w) => w.itemname === "1m gems");
-    const gemWithdrawals50m = remainingWithdrawals.filter((w) => w.itemname === "50m gems");
-    let processedGems1m = 0;
-    let processedGems50m = 0;
+    // Consume gem withdrawal records — try largest denominations first
+    const GEM_DENOMS_WITHDRAW = [
+      { name: "100m gems", value: 100_000_000 },
+      { name: "50m gems",  value:  50_000_000 },
+      { name: "25m gems",  value:  25_000_000 },
+      { name: "10m gems",  value:  10_000_000 },
+      { name: "5m gems",   value:   5_000_000 },
+      { name: "1m gems",   value:   1_000_000 },
+    ];
+    let totalGemsToRemove = gems; // raw gem count
+    const processedGemCounts = {};
 
-    // Consume 1m-gem records first
-    while (totalGemsToRemove1m > 0 && gemWithdrawals1m.length > 0) {
-      idsToDelete.push(gemWithdrawals1m.pop()._id);
-      totalGemsToRemove1m--;
-      processedGems1m++;
-    }
-    // Fall back to legacy 50m-gem records (1 record = 50 units of 1m)
-    while (totalGemsToRemove1m >= 50 && gemWithdrawals50m.length > 0) {
-      idsToDelete.push(gemWithdrawals50m.pop()._id);
-      totalGemsToRemove1m -= 50;
-      processedGems50m++;
+    for (const { name, value } of GEM_DENOMS_WITHDRAW) {
+      const pool = remainingWithdrawals.filter((w) => w.itemname === name);
+      while (totalGemsToRemove >= value && pool.length > 0) {
+        idsToDelete.push(pool.pop()._id);
+        totalGemsToRemove -= value;
+        processedGemCounts[name] = (processedGemCounts[name] || 0) + 1;
+      }
     }
 
     if (idsToDelete.length > 0) {
@@ -271,8 +301,9 @@ exports.withdrawed = asyncHandler(async (req, res) => {
     Object.entries(itemCounts).forEach(([item, count]) => {
       if (count > 0) itemsListParts.push(`${item} x${count}`);
     });
-    if (processedGems1m > 0) itemsListParts.push(`1m gems x${processedGems1m}`);
-    if (processedGems50m > 0) itemsListParts.push(`50m gems x${processedGems50m} (legacy)`);
+    Object.entries(processedGemCounts).forEach(([denom, count]) => {
+      if (count > 0) itemsListParts.push(`${denom} x${count}`);
+    });
 
     const itemsList = itemsListParts.join("\n") || "None";
     let webhookMessage = `${user.username} has just withdrawn some items!`;
