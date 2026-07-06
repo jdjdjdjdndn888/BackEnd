@@ -14,10 +14,12 @@ import { Dices } from "lucide-react";
 import CreateDice from "./Create/createdice.jsx";
 import DiceRow from "./DiceRow.jsx";
 import DiceHistory from "./history/history.jsx";
+import DiceView from "./View/view.jsx";
 
 export default function DiceLayout() {
   const { setModalState } = useModal();
   const [games, setGames] = useState([]);
+  const [selectedGame, setSelectedGame] = useState(null);
   const { userData } = useContext(UserContext);
   const socket = useContext(SocketContext);
   const [sortCriteria, setSortCriteria] = useState("high");
@@ -74,6 +76,16 @@ export default function DiceLayout() {
           setCountdowns((c) => ({ ...c, [updated._id]: 5 }));
         }
         return sortGames(prev.map((g) => g._id === updated._id ? updated : g));
+      });
+
+      setSelectedGame((prevSelected) => {
+        if (prevSelected?._id === updated._id) {
+          setModalState(
+            <DiceView game={updated} onClose={() => setSelectedGame(null)} />
+          );
+          return updated;
+        }
+        return prevSelected;
       });
     });
     socket.on("DICE_CANCEL", (data) => {
@@ -162,6 +174,7 @@ export default function DiceLayout() {
               game={g}
               countdowns={countdowns}
               userData={userData}
+              setSelectedGame={setSelectedGame}
             />
           ))}
         </div>

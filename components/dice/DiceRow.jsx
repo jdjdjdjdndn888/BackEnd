@@ -12,12 +12,15 @@ import QuestionMarkIcon from "@/assets/images/question-mark.svg";
 import { useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 
-export default function DiceRow({ game, countdowns, userData }) {
+export default function DiceRow({ game, countdowns, userData, setSelectedGame }) {
   const { setModalState } = useModal();
 
   const handleView = useCallback(() => {
-    setTimeout(() => setModalState(<DiceView game={game} onClose={() => setModalState(null)} />), 0);
-  }, [game]);
+    setTimeout(() => {
+      setSelectedGame(game);
+      setModalState(<DiceView game={game} onClose={() => setSelectedGame(null)} />);
+    }, 0);
+  }, [game, setSelectedGame]);
 
   const p1Status = game.PlayerTwo && !countdowns[game._id]
     ? game.winner === game.PlayerOne.id ? "winner" : "loser"
@@ -58,7 +61,7 @@ export default function DiceRow({ game, countdowns, userData }) {
           <button
             onClick={() => {
               if (userData) {
-                setModalState(<JoinDice game={game} onJoin={() => {}} onClose={() => setModalState(null)} />);
+                setModalState(<JoinDice game={game} onJoin={setSelectedGame} onClose={() => setSelectedGame(null)} />);
               } else {
                 setModalState(<LoginModal />);
               }

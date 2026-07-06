@@ -102,7 +102,10 @@ export default function Trades() {
     setModalState(
       <CreateTradeListing
         onCreated={(listing) => {
-          setListings((prev) => [listing, ...prev]);
+          // Do not also push into `listings` here — the server broadcasts a
+          // NEW_TRADE socket event (including back to the creator), and the
+          // NEW_TRADE listener below already adds it. Pushing here too caused
+          // the same listing to render twice until refresh.
           setMyListings((prev) => [listing, ...prev]);
         }}
       />
