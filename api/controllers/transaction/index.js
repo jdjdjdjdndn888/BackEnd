@@ -34,17 +34,6 @@ exports.addHistory = async function (userid, type, amount) {
 };
 
 exports.sendwebhook = async function (webhook, title, description, fields, thumbnail, banner) {
-
-    /*
-    TITLE: FUNCTION TO SEND A DISCORD WEBHOOK MESSAGE
-
-    USAGE: REQUIREDMODULE.addHistory(webhook, title, description, fields, thumbnail, banner)
-
-    EXTRA: ONLY THE WEBHOOK AND THE DESCRIPTION ARE REQUIRED!
-
-    RETURNS: { success: BOOLEAN, message: STRING }
-    */
-
     if (!webhook) return { success: false, message: "No webhook URL" };
 
     const embed = {};
@@ -64,18 +53,33 @@ exports.sendwebhook = async function (webhook, title, description, fields, thumb
     embed.color = 2061822;
     embed.timestamp = new Date().toISOString();
 
-    try {
-        console.log(`[SENDWEBHOOK] Firing → ${webhook?.slice(0, 60)}...`);
-        const result = await axios.post(webhook, { embeds: [embed] });
-        console.log(`[SENDWEBHOOK] OK — status=${result.status}`);
-        return { success: true, message: "OK" };
-    } catch (error) {
-        const status = error?.response?.status;
-        const body   = JSON.stringify(error?.response?.data);
-        const url    = webhook?.slice(0, 60) + "...";
-        console.error(`[SENDWEBHOOK] FAILED — status=${status} body=${body} url=${url}`);
-        return { success: false, message: "Something went wrong" };
+    const MAX_RETRIES = 3;
+    let delay = 1000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const result = await axios.post(webhook, { embeds: [embed] });
+            return { success: true, message: "OK" };
+        } catch (error) {
+            const status = error?.response?.status;
+
+            if (status === 429) {
+                const retryAfterMs = ((error?.response?.data?.retry_after) || 30) * 1000;
+                const waitMs = Math.max(retryAfterMs, delay);
+                console.warn(`[SENDWEBHOOK] Rate limited (attempt ${attempt}/${MAX_RETRIES}), retrying in ${waitMs}ms...`);
+                await new Promise(r => setTimeout(r, waitMs));
+                delay *= 2;
+                continue;
+            }
+
+            const body = JSON.stringify(error?.response?.data);
+            console.error(`[SENDWEBHOOK] FAILED — status=${status} body=${body} url=${webhook?.slice(0, 60)}...`);
+            return { success: false, message: "Something went wrong" };
+        }
     }
+
+    console.error(`[SENDWEBHOOK] Gave up after ${MAX_RETRIES} retries — url=${webhook?.slice(0, 60)}...`);
+    return { success: false, message: "Rate limited, gave up" };
 };
 
 exports.sendnoneembed = async function (webhook, message) {
