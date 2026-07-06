@@ -20,7 +20,7 @@ const navItems = [
   { label: "Coinflip", icon: () => <img src="/coinflip-icon.png" alt="Coinflip" className="w-8 h-8 object-contain" />, href: "/coinflip" },
   { label: "Dice", icon: () => <img src="/dice-icon.png" alt="Dice" className="w-8 h-8 object-contain" />, href: "/dice" },
   { label: "Jackpot", icon: () => <img src="/jackpot-icon.png" alt="Jackpot" className="w-8 h-8 object-contain" />, href: "/jackpot" },
-  { label: "BlackJack 1v1", icon: () => <span className="text-2xl leading-none">🃏</span>, href: "/blackjack" },
+  { label: "BlackJack 1v1", icon: () => <img src="/blackjack-icon.png" alt="BlackJack 1v1" className="w-8 h-8 object-contain" />, href: "/blackjack" },
   { label: "Upgrader", icon: () => <img src="/upgrader-icon.png" alt="Upgrader" className="w-8 h-8 object-contain" />, href: "/upgrader" },
   { label: "Trades", icon: MarketPlaceIcon, href: "/trades" },
 ];
