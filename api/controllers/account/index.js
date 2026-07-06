@@ -582,12 +582,18 @@ exports.linkdiscord = asyncHandler(async (req, res) => {
   }
 
   if (!req.user?.id) {
-    return res.status(400).json({ message: "Unauthorized" });
+    return res.status(401).json({ message: "Please login to do that" });
   }
 
-  const user = await users.findOne({ userid: String(req.user.id) });
+  if (!clientsecret) {
+    console.error("[linkdiscord] DISCORD_CLIENT_SECRET is not set on this server.");
+    return res.status(500).json({ message: "Server misconfiguration — contact support" });
+  }
+
+  const numUserId = Number(req.user.id);
+  const user = await users.findOne({ userid: numUserId });
   if (!user) {
-    return res.status(400).json({ message: "Unauthorized" });
+    return res.status(401).json({ message: "Please login to do that" });
   }
 
   if (user.discordusername || user.discordid) {
@@ -665,8 +671,15 @@ exports.linkdiscord = asyncHandler(async (req, res) => {
       id: discordId,
     });
   } catch (error) {
-    console.error("Error during Discord linking:", error.message);
-    return res.status(500).json({ message: "Internal Server Error" });
+    const discordErr = error?.response?.data;
+    console.error("[linkdiscord] Discord OAuth error:", discordErr || error.message);
+    if (discordErr?.error === "invalid_grant") {
+      return res.status(400).json({ message: "Discord link expired — please try again" });
+    }
+    if (discordErr?.error === "invalid_client") {
+      return res.status(500).json({ message: "Server misconfiguration — contact support" });
+    }
+    return res.status(500).json({ message: "Failed to link Discord — please try again" });
   }
 });
 

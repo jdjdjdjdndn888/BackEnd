@@ -68,17 +68,30 @@ const inventorys = mongoose.model("inventorys", new Schema({
 // ─── Settings (in-memory) ─────────────────────────────────────────────────────
 const settings = { cancelWithdrawsEnabled: true, tippingLocked: false };
 
+// ─── Log Channel IDs ─────────────────────────────────────────────────────────
+const LOG_CHANNELS = {
+  logs:       "1515602211319713853", // bot logs / general logs
+  coinflip:   "1523289034632200192",
+  dice:       "1523288922367590460",
+  jackpot:    "1523289179876884612",
+  giveaway:   "1522616966521688196",
+  taxedItems: "1523482408467300513",
+  tips:       "1523358826793926806",
+};
+
 // ─── Logger (inlined) ─────────────────────────────────────────────────────────
-const LOG_CHANNEL_ID = "1515602211319713853";
-let _logChannel = null;
+const _channels = {};
 const logger = {
   init(client) {
-    client.channels.fetch(LOG_CHANNEL_ID)
-      .then((ch) => { _logChannel = ch; console.log(`Log channel ready: #${ch.name}`); })
-      .catch(() => console.warn("Could not fetch log channel:", LOG_CHANNEL_ID));
+    for (const [name, id] of Object.entries(LOG_CHANNELS)) {
+      client.channels.fetch(id)
+        .then((ch) => { _channels[name] = ch; console.log(`Log channel [${name}] ready: #${ch.name}`); })
+        .catch(() => console.warn(`Could not fetch log channel [${name}]:`, id));
+    }
   },
-  async logEvent({ type, color, description, fields = [], thumbnail = null }) {
-    if (!_logChannel) return;
+  async logEvent({ type, color, description, fields = [], thumbnail = null, channel = "logs" }) {
+    const ch = _channels[channel] || _channels["logs"];
+    if (!ch) return;
     try {
       const e = new EmbedBuilder()
         .setColor(color || 0x8b5cf6)
@@ -88,10 +101,14 @@ const logger = {
         .setFooter({ text: "PS99Bet Logs" });
       if (thumbnail) e.setThumbnail(thumbnail);
       if (fields.length) e.addFields(fields);
-      await _logChannel.send({ embeds: [e] });
+      await ch.send({ embeds: [e] });
     } catch (err) {
       console.error("[Logger] Failed:", err.message);
     }
+  },
+  // Convenience: send to a specific named channel
+  async logTo(channelName, { type, color, description, fields = [], thumbnail = null }) {
+    return this.logEvent({ type, color, description, fields, thumbnail, channel: channelName });
   },
 };
 
