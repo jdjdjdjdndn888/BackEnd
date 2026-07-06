@@ -7,8 +7,8 @@ const history = require("../../modules/history.js");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const { coinflipwebh, dicewebh, taxedItemsWebh, taxer, taxes } = require("../../config.js");
-const { addHistory, sendwebhook, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
+const { taxer, taxes } = require("../../config.js");
+const { addHistory, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 
 /** Derive 6 dice rolls (1-6) from seeds using rejection sampling to avoid modulo bias */
@@ -83,7 +83,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
         return res.status(400).json({ message: "One or more items can't be used!" });
       }
 
-      const user = await users.findOne({ userid: req.user.id }).session(session);
+      const user = await users.findOne({ userid: Number(req.user.id) }).session(session);
       if (!user) return res.status(401).json({ message: "Unauthorized" });
 
       const inventoryItems = await inventorys
@@ -177,17 +177,6 @@ exports.creatematch = asyncHandler(async (req, res) => {
         updateuser(user.userid, req.app.get("io")),
       ]);
 
-      sendwebhook(
-        dicewebh,
-        `New R${totalItemValue} Dice Match Created`,
-        `**${user.username}** created a R${totalItemValue} dice match!`,
-        [{
-          name: "Items",
-          value: publicGame.PlayerOne.items.map(i => `${i.itemname} - R${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
-          inline: false,
-        }],
-        user.thumbnail
-      ).catch(e => console.error("[dice create webhook]", e.message));
     });
   } catch (error) {
     if (error.message?.includes("Write conflict")) {
@@ -224,7 +213,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 
       [game, user] = await Promise.all([
         dice.findOne({ _id: gameid }).session(session),
-        users.findOne({ userid: req.user.id }).session(session),
+        users.findOne({ userid: Number(req.user.id) }).session(session),
       ]);
 
       if (!game || !user) return res.status(400).json({ message: "Game or user not found!" });
@@ -424,40 +413,6 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       updatestats(req.app.get("io")),
     ]);
 
-    sendwebhook(
-      dicewebh,
-      "Dice Game Completed 🎲",
-      `${game.PlayerOne.username} vs ${user.username} — match finished!`,
-      [
-        {
-          name: "Result",
-          value: `${finalUpdate.PlayerOne.username} ${winner === "PlayerOne" ? "🥳 Won" : "😭 Lost"}\n${user.username} ${winner === "PlayerTwo" ? "🥳 Won" : "😭 Lost"}`,
-          inline: false,
-        },
-        {
-          name: "Items",
-          value: allItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
-          inline: false,
-        },
-      ],
-      "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-    ).catch(e => console.error("[dice join webhook]", e.message));
-
-    if (taxedItems.length > 0) {
-      sendwebhook(
-        taxedItemsWebh,
-        "Tax Collected 💰 (DICE)",
-        `Taxed items from ${game.PlayerOne.username} vs ${user.username} match`,
-        [
-          {
-            name: "Taxed Items",
-            value: taxedItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024),
-            inline: false,
-          },
-        ],
-        "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-      ).catch(e => console.error("[dice tax webhook]", e.message));
-    }
   } catch (error) {
     if (error.message?.includes("Write conflict")) {
       res.status(400).json({ message: "One or more items can't be used!" });

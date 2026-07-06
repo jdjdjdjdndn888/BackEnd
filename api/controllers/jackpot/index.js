@@ -1,4 +1,4 @@
-const { taxer, jackpotwebh, taxes, taxedItemsWebh } = require("../../config");
+const { taxer, taxes } = require("../../config");
 const Jackpot = require("../../modules/jackpots");
 const users = require("../../modules/users");
 const crypto = require("crypto");
@@ -7,7 +7,7 @@ const asyncHandler = require("express-async-handler");
 const InventoryItem = require("../../modules/inventorys");
 const JackpotEntry = require("../../modules/jackpotjoins");
 const items = require("../../modules/items");
-const { addHistory, sendwebhook, updateuser, updatestats, sendnoneembed, level } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 
 function generateRandomSeed() {
@@ -358,7 +358,6 @@ exports.create_jackpot = asyncHandler(async (req, res, next) => {
     req.app.get("io").emit("JACKPOT_UPDATE", jackpotDataResponse);
     req.app.get("io").emit("JACKPOT_TIME_UPDATE", "0")
 
-    sendnoneembed(jackpotwebh, `Created a new jackpot: ${newJackpot._id}, waiting for players to join!`);
   } catch (error) {
     await session.abortTransaction();
     console.error("Create Jackpot Error:", error);
@@ -467,24 +466,6 @@ exports.play_jackpot = asyncHandler(async (req, res, next) => {
 
     req.app.get("io").emit("JACKPOT_UPDATE", jackpotDataResponse);
 
-    const fields = [
-      { name: "Winner", value: winnerEntry.username, inline: true },
-      {
-        name: "Players",
-        value: jackpotEntries
-          .map((entry) => `${entry.username} - R$${entry.value}`)
-          .join("\n"),
-        inline: false,
-      },
-    ];
-
-    sendwebhook(
-      jackpotwebh,
-      "Jackpot Game completed!",
-      `Jackpot game with ${jackpotEntries.length} players completed!`,
-      fields
-    );
-
     return res.status(200).json({ message: "Successfully joined jackpot", data: jackpotDataResponse });
 
   } catch (error) {
@@ -569,40 +550,6 @@ exports.payflip = asyncHandler(async (req, res, next) => {
     await updateuser(activeJackpot.winnerid, req.app.get("io"));
 
     const winnerUser = await users.findOne({ userid: activeJackpot.winnerid });
-    sendwebhook(
-      jackpotwebh,
-      "Jackpot Completed 🎰",
-      `Jackpot game with **${jackpotEntries.length}** players completed! R$${activeJackpot.value} pot`,
-      [
-        {
-          name: "Winner",
-          value: winnerUser ? `${winnerUser.username} won R$${activeJackpot.value - taxedValue}!` : `User ${activeJackpot.winnerid}`,
-          inline: false,
-        },
-        {
-          name: "Players",
-          value: jackpotEntries.map(e => `${e.username} — R$${e.value}`).join("\n").slice(0, 1024) || "—",
-          inline: false,
-        },
-      ],
-      winnerUser?.thumbnail || "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-    ).catch(e => console.error("[jackpot winner webhook]", e.message));
-
-    if (taxedItems.length > 0) {
-      sendwebhook(
-          taxedItemsWebh,
-          "Tax Collected 💰 (JACKPOT)",
-          `Taxed items from jackpot with ${jackpotEntries.length} players, R$${activeJackpot.value}!`,
-          [
-            {
-              name: "Taxed Items",
-              value: taxedItems.map(item => `${item.itemname} - R$${item.itemvalue}`).join("\n").slice(0, 1024),
-              inline: false,
-            },
-          ],
-          "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-        ).catch(e => console.error("[jackpot tax webhook]", e.message));
-    }
 
     await exports.close_jackpot(); 
 

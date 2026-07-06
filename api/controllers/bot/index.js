@@ -1,12 +1,12 @@
 const asyncHandler = require("express-async-handler");
-const { jwt_secret, botlogs } = require("../../config.js");
+const { jwt_secret } = require("../../config.js");
 const { logEvent } = require("../../logger.js");
 const users = require("../../modules/users.js");
 const inventorys = require("../../modules/inventorys.js");
 const items = require("../../modules/items.js");
 const withdraws = require("../../modules/withdraws.js");
 const botss = require("../../modules/bots.js");
-const { addHistory, sendwebhook, updateuser } = require("../transaction/index.js");
+const { addHistory, updateuser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const axios = require("axios");
 
@@ -303,13 +303,6 @@ exports.Deposit = asyncHandler(async (req, res) => {
       thumbnail: user.thumbnail,
     });
 
-    await sendwebhook(
-      botlogs,
-      "We got a new deposit!",
-      `${user.username} deposited R${totalValue}`,
-      [{ name: "Items", value: formattedItems }],
-      user.thumbnail
-    );
   } else {
     console.warn(`[Deposit] ${user.username} (${user.userid}) — nothing deposited. Results:`, depositResults);
   }
@@ -399,13 +392,6 @@ exports.withdrawed = asyncHandler(async (req, res) => {
       thumbnail: user.thumbnail,
     });
 
-    await sendwebhook(
-      botlogs,
-      "A new withdrawal was confirmed!",
-      webhookMessage,
-      [{ name: "Items", value: itemsList }],
-      user.thumbnail
-    );
 
     return res.status(200).json({ message: "OK" });
   } catch (error) {

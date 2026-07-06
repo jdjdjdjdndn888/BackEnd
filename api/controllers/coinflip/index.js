@@ -8,8 +8,8 @@ const moment = require('moment');
 const mongoose = require('mongoose');
 const axios = require("axios");
 const crypto = require('crypto');
-const { coinflipwebh, taxer, taxedItemsWebh, taxes } = require("../../config.js");
-const { addHistory, sendwebhook, updateuser, updatestats, level, emituser } = require("../transaction/index.js")
+const { taxer, taxes } = require("../../config.js");
+const { addHistory, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 
 exports.getcoinflips = asyncHandler(async (req, res) => {
@@ -165,19 +165,6 @@ exports.creatematch = asyncHandler(async (req, res) => {
         data: publicCoinflip 
       });
 
-      sendwebhook(
-        coinflipwebh,
-        `New R$${totalItemValue} Match Created`,
-        `**${user.username}** created a R$${totalItemValue} match!`,
-        [{
-          name: "Items",
-          value: validatedItems
-            .map(item => `${item.itemname} - R$${item.itemvalue}`)
-            .join("\n"),
-          inline: false
-        }],
-        user.thumbnail
-      ).catch(e => console.error("[coinflip create webhook]", e.message));
 
       req.app.get("io").emit("NEW_COINFLIP", publicCoinflip);
       await Promise.all([
@@ -403,40 +390,6 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           updatestats(req.app.get("io")),
       ]);
 
-      sendwebhook(
-          coinflipwebh,
-          "Coinflip Completed 🎉",
-          `${user.username} joined ${coinflip.PlayerOne.username}'s match!`,
-          [
-              {
-                  name: "Result",
-                  value: `${finalUpdate.PlayerOne.username} (${finalUpdate.PlayerOne.coin}) ${finalUpdate.winner === finalUpdate.PlayerOne.id ? "🥳" : "😭"}\n${user.username} (${finalUpdate.PlayerTwo.coin}) ${finalUpdate.winner === user.userid ? "🥳" : "😭"}`,
-                  inline: false
-              },
-              {
-                  name: "Items",
-                  value: allItems.map(item => `${item.itemname} - R$${item.itemvalue}`).join("\n"),
-                  inline: false
-              }
-          ],
-          "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-      ).catch(e => console.error("[coinflip join webhook]", e.message));
-
-      if (taxedItems.length > 0) {
-          sendwebhook(
-              taxedItemsWebh,
-              "Tax Collected 💰 (COINFLIP)",
-              `Taxed items from ${coinflip.PlayerOne.username} vs ${user.username} match`,
-              [
-                  {
-                      name: "Taxed Items",
-                      value: taxedItems.map(item => `${item.itemname} - R$${item.itemvalue}`).join("\n"),
-                      inline: false
-                  }
-              ],
-              "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-          ).catch(e => console.error("[coinflip tax webhook]", e.message));
-      }
 
       setTimeout(async () => {
           try {

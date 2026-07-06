@@ -8,8 +8,7 @@ const history = require("../../modules/history.js");
 const giveaways = require("../../modules/giveaways.js");
 const coinflips = require("../../modules/coinflips.js");
 const giveawayjoins = require("../../modules/giveawayjoins.js");
-const { giveawaywebh } = require("../../config.js");
-const { sendwebhook, addHistory, updateuser } = require("../transaction/index.js");
+const { addHistory, updateuser } = require("../transaction/index.js");
 const moment = require('moment');
 
 const rollwinner = async (giveawayid) => {

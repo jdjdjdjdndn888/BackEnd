@@ -1,7 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const { jwt_secret, clientid, clientsecret, uri, tippedlogs, discordlogs } = require("../../config.js");
+const { jwt_secret, clientid, clientsecret, uri } = require("../../config.js");
 const { logEvent } = require("../../logger.js");
 const users = require("../../modules/users.js");
 const items = require("../../modules/items.js");
@@ -10,7 +10,7 @@ const withdraws = require("../../modules/withdraws.js");
 const history = require("../../modules/history.js");
 const axios = require("axios");
 const qs = require('querystring');
-const { addHistory, sendwebhook, updateuser, emituser } = require("../transaction/index.js")
+const { addHistory, updateuser, emituser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const settings = require("../../settings.js");
 
@@ -548,13 +548,6 @@ exports.tip = asyncHandler(async (req, res) => {
     });
 
     await Promise.all([
-      sendwebhook(
-        tippedlogs,
-        `${user.username} tipped ${tiptouser.username}`,
-        `${user.username} tipped ${tiptouser.username} R$${webhookData.totalValue}`,
-        [{ name: "Items", value: webhookData.items.join("\n"), inline: false }],
-        tiptouser.thumbnail
-      ),
       emituser("TIP", {
         to: tiptouser.userid,
         from: user.username,
@@ -648,20 +641,6 @@ exports.linkdiscord = asyncHandler(async (req, res) => {
       ],
       thumbnail: user.thumbnail,
     });
-
-    sendwebhook(
-      discordlogs,
-      `${user.username} has linked their Discord!`,
-      `${user.username} has linked their Discord to ${user.discordusername}`,
-      [
-        {
-          name: "User ID (GLOBAL)",
-          value: discordId,
-          inline: false,
-        },
-      ],
-      user.thumbnail
-    );
 
     await updateuser(user.userid, req.app.get("io"))
 
