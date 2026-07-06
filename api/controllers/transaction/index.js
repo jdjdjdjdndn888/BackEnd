@@ -65,7 +65,9 @@ exports.sendwebhook = async function (webhook, title, description, fields, thumb
     embed.timestamp = new Date().toISOString();
 
     try {
-        await axios.post(webhook, { embeds: [embed] });
+        console.log(`[SENDWEBHOOK] Firing → ${webhook?.slice(0, 60)}...`);
+        const result = await axios.post(webhook, { embeds: [embed] });
+        console.log(`[SENDWEBHOOK] OK — status=${result.status}`);
         return { success: true, message: "OK" };
     } catch (error) {
         const status = error?.response?.status;
