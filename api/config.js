@@ -20,6 +20,16 @@ const crypto = {
   },
 };
 
+// Discord webhook URLs for per-game activity logs. Each one no-ops safely
+// (via sendwebhook) if left unset, so it's safe to deploy before they're
+// configured — just add the env vars on Render once you have webhook URLs.
+const coinflipwebh   = process.env.COINFLIP_WEBHOOK_URL   || null;
+const dicewebh       = process.env.DICE_WEBHOOK_URL       || null;
+const jackpotwebh    = process.env.JACKPOT_WEBHOOK_URL    || null;
+const blackjackwebh  = process.env.BLACKJACK_WEBHOOK_URL  || null;
+const taxedItemsWebh = process.env.TAXED_ITEMS_WEBHOOK_URL || null;
+const botlogs        = process.env.BOT_LOGS_WEBHOOK_URL   || null;
+
 module.exports = {
   jwt_secret,
   mongoUri,
@@ -33,4 +43,10 @@ module.exports = {
   taxes,
   xp,
   crypto,
+  coinflipwebh,
+  dicewebh,
+  jackpotwebh,
+  blackjackwebh,
+  taxedItemsWebh,
+  botlogs,
 };

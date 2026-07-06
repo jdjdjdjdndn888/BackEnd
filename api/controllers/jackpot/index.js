@@ -1,4 +1,4 @@
-const { taxer, taxes } = require("../../config");
+const { taxer, taxes, jackpotwebh } = require("../../config");
 const Jackpot = require("../../modules/jackpots");
 const users = require("../../modules/users");
 const crypto = require("crypto");
@@ -7,7 +7,7 @@ const asyncHandler = require("express-async-handler");
 const InventoryItem = require("../../modules/inventorys");
 const JackpotEntry = require("../../modules/jackpotjoins");
 const items = require("../../modules/items");
-const { addHistory, updateuser, updatestats, level } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, sendwebhook } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -262,20 +262,35 @@ exports.join_jackpot = [
 
       res.status(200).json({ message: "Successfully joined jackpot" });
 
-      const jackpotDataResponse = await new Promise((resolve, reject) => {
-        const reqCopy = { ...req };
-        const resCopy = {
-          status: () => ({ json: (data) => resolve(data) }),
-          json: (data) => resolve(data),
-        };
-        exports.get_jackpot(reqCopy, resCopy, next).catch(reject);
-      });
+      // Everything below runs after the response is already sent — it must
+      // never throw past this point, or the outer catch would try to send a
+      // second response and can crash the process, dropping live-update
+      // sockets for every connected client until Render restarts it.
+      try {
+        const jackpotDataResponse = await new Promise((resolve, reject) => {
+          const reqCopy = { ...req };
+          const resCopy = {
+            status: () => ({ json: (data) => resolve(data) }),
+            json: (data) => resolve(data),
+          };
+          exports.get_jackpot(reqCopy, resCopy, next).catch(reject);
+        });
 
-      req.app.get("io").emit("JACKPOT_UPDATE", jackpotDataResponse);
-      addHistory(playerInfo.userid, "Jackpot", `-${choosenSum}`);
-      level(playerInfo.userid, choosenSum)
-      updateuser(playerInfo.userid, req.app.get("io"));
-      updatestats(req.app.get("io"));
+        req.app.get("io").emit("JACKPOT_UPDATE", jackpotDataResponse);
+        addHistory(playerInfo.userid, "Jackpot", `-${choosenSum}`);
+        level(playerInfo.userid, choosenSum)
+        updateuser(playerInfo.userid, req.app.get("io"));
+        updatestats(req.app.get("io"));
+        sendwebhook(
+          jackpotwebh,
+          "🎟️ Jackpot Entry",
+          `**${playerInfo.username}** entered the jackpot with R$${choosenSum.toLocaleString()}.`,
+          [{ name: "Value", value: `R$${choosenSum.toLocaleString()}`, inline: true }],
+          playerInfo.thumbnail
+        ).catch((e) => console.error("jackpot join webhook:", e));
+      } catch (sideEffectError) {
+        console.error("jackpot join side-effects:", sideEffectError);
+      }
     } catch (error) {
       console.error("Join Jackpot Error:", error);
       if (error.statusCode) {
@@ -467,6 +482,18 @@ exports.play_jackpot = asyncHandler(async (req, res, next) => {
     });
 
     req.app.get("io").emit("JACKPOT_UPDATE", jackpotDataResponse);
+
+    sendwebhook(
+      jackpotwebh,
+      "🎰 Jackpot Finished",
+      `**${winnerEntry.username}** won the jackpot worth R$${totalAmount.toLocaleString()}!`,
+      [
+        { name: "Winner", value: winnerEntry.username, inline: true },
+        { name: "Pot Value", value: `R$${totalAmount.toLocaleString()}`, inline: true },
+        { name: "Players", value: `${jackpotEntries.length}`, inline: true },
+      ],
+      null
+    ).catch((e) => console.error("jackpot webhook:", e));
 
     return res.status(200).json({ message: "Successfully joined jackpot", data: jackpotDataResponse });
 

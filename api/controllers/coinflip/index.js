@@ -8,8 +8,8 @@ const moment = require('moment');
 const mongoose = require('mongoose');
 const axios = require("axios");
 const crypto = require('crypto');
-const { taxer, taxes } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
+const { taxer, taxes, coinflipwebh } = require("../../config.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -171,12 +171,34 @@ exports.creatematch = asyncHandler(async (req, res) => {
       data: publicCoinflip
     });
 
-    req.app.get("io").emit("NEW_COINFLIP", publicCoinflip);
-    await Promise.all([
-      addHistory(savedUser.userid, "Game Creation", `-${totalItemValue}`),
-      updatestats(req.app.get("io")),
-      updateuser(savedUser.userid, req.app.get("io"))
-    ]);
+    // Everything below runs after the response is already sent. It must
+    // never throw past this point — a throw here would hit the outer catch
+    // and try to send a second response ("headers already sent"), which can
+    // crash the process and drop live-update sockets for every connected
+    // client until Render restarts it (this was the root cause of clients
+    // needing a refresh to see finished/updated games).
+    try {
+      req.app.get("io").emit("NEW_COINFLIP", publicCoinflip);
+      await Promise.all([
+        addHistory(savedUser.userid, "Game Creation", `-${totalItemValue}`),
+        updatestats(req.app.get("io")),
+        updateuser(savedUser.userid, req.app.get("io")),
+        sendwebhook(
+          coinflipwebh,
+          "🪙 Coinflip Created",
+          `**${savedUser.username}** created a R$${totalItemValue.toLocaleString()} coinflip.`,
+          [
+            { name: "Game", value: publicCoinflip.game || "N/A", inline: true },
+            { name: "Coin", value: publicCoinflip.PlayerOne.coin, inline: true },
+            { name: "Value", value: `R$${totalItemValue.toLocaleString()}`, inline: true },
+          ],
+          savedUser.thumbnail
+        ),
+      ]);
+    } catch (sideEffectError) {
+      console.error("cf create side-effects:", sideEffectError);
+    }
+    return;
   } catch (error) {
     if (error.statusCode) {
       return res.status(error.statusCode).json({ message: error.message });
@@ -379,52 +401,73 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 
       res.status(200).json({ message: "Successfully joined match!", data: finalUpdate });
 
-      req.app.get("io").emit("COINFLIP_UPDATE", finalUpdate);
+      // Everything below runs after the response is already sent. It must
+      // never throw past this point — a throw here would hit the outer catch
+      // and try to send a second response ("headers already sent"), which can
+      // crash the process and drop live-update sockets for every connected
+      // client until Render restarts it (this was the root cause of clients
+      // needing a refresh to see finished games).
+      try {
+        req.app.get("io").emit("COINFLIP_UPDATE", finalUpdate);
 
-      await emituser("NOTIFICATION", {
-        type: "info",
-        title: "Someone joined your coinflip!",
-        message: `${user.username} joined your R$${coinflip.requirements.static} coinflip. ${winner === "PlayerOne" ? "You won! 🎉" : "They won 😭"}`,
-        target: coinflip.PlayerOne.id,
-      }, coinflip.PlayerOne.id, req.app.get("io"));
+        await emituser("NOTIFICATION", {
+          type: "info",
+          title: "Someone joined your coinflip!",
+          message: `${user.username} joined your R$${coinflip.requirements.static} coinflip. ${winner === "PlayerOne" ? "You won! 🎉" : "They won 😭"}`,
+          target: coinflip.PlayerOne.id,
+        }, coinflip.PlayerOne.id, req.app.get("io"));
 
-      await Promise.all([
-          addHistory(finalUpdate.winner, "Game Win", `+${totalJoinerValue}`),
-          addHistory(user.userid, "Game Loss", `-${totalJoinerValue}`),
-          level(finalUpdate.winner, coinflip.PlayerOne.value),
-          level(user.userid, totalJoinerValue),
-          updateuser(user.userid, req.app.get("io")),
-          updatestats(req.app.get("io")),
-      ]);
+        await Promise.all([
+            addHistory(finalUpdate.winner, "Game Win", `+${totalJoinerValue}`),
+            addHistory(user.userid, "Game Loss", `-${totalJoinerValue}`),
+            level(finalUpdate.winner, coinflip.PlayerOne.value),
+            level(user.userid, totalJoinerValue),
+            updateuser(user.userid, req.app.get("io")),
+            updatestats(req.app.get("io")),
+            sendwebhook(
+              coinflipwebh,
+              "🏁 Coinflip Finished",
+              `**${finalUpdate.winner === coinflip.PlayerOne.id ? coinflip.PlayerOne.username : user.username}** won a R$${(coinflip.requirements.static + totalJoinerValue).toLocaleString()} coinflip!`,
+              [
+                { name: "Player 1", value: coinflip.PlayerOne.username, inline: true },
+                { name: "Player 2", value: user.username, inline: true },
+                { name: "Winning Coin", value: finalUpdate.winnercoin, inline: true },
+              ],
+              null
+            ),
+        ]);
 
 
-      setTimeout(async () => {
-          try {
-              await inventorys.insertMany(
-                  winnerItems.map(item => ({
-                      _id: item._id,
-                      owner: winner === "PlayerOne" ? coinflip.PlayerOne.id : user.userid,
-                      itemid: item.itemid,
-                      locked: false
-                  })),
-                  { ordered: false }
-              );
-              await updateuser(finalUpdate.winner, req.app.get("io"));
-              await updateuser(user.userid, req.app.get("io"));
-          } catch (error) {
-              if (error.code !== 11000) {
-                  console.error("Error in setTimeout payout callback:", error);
-              }
-          }
-      }, 3000);
+        setTimeout(async () => {
+            try {
+                await inventorys.insertMany(
+                    winnerItems.map(item => ({
+                        _id: item._id,
+                        owner: winner === "PlayerOne" ? coinflip.PlayerOne.id : user.userid,
+                        itemid: item.itemid,
+                        locked: false
+                    })),
+                    { ordered: false }
+                );
+                await updateuser(finalUpdate.winner, req.app.get("io"));
+                await updateuser(user.userid, req.app.get("io"));
+            } catch (error) {
+                if (error.code !== 11000) {
+                    console.error("Error in setTimeout payout callback:", error);
+                }
+            }
+        }, 3000);
 
-      setTimeout(() => {
-          req.app.get("io").emit("COINFLIP_CANCEL", {
-              _id: finalUpdate._id,
-              active: false
-          });
-          updatestats(req.app.get("io"));
-      }, 60000);
+        setTimeout(() => {
+            req.app.get("io").emit("COINFLIP_CANCEL", {
+                _id: finalUpdate._id,
+                active: false
+            });
+            updatestats(req.app.get("io"));
+        }, 60000);
+      } catch (sideEffectError) {
+        console.error("cf join side-effects:", sideEffectError);
+      }
 
   } catch (error) {
       if (error.statusCode) {

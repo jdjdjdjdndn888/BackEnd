@@ -25,6 +25,7 @@ import Chat from "../components/chat/Chat.jsx";
 import Admin from "../components/admin/Admin.jsx";
 import Trades from "../components/trades/Trades.jsx";
 import DicePage from "../components/dice/layout.jsx";
+import BlackjackPage from "../components/blackjack/layout.jsx";
 import MobileChat from "../components/chat/mobilechat.jsx";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL
@@ -97,6 +98,7 @@ function App() {
                         <Route path="/admin" element={<Admin />} />
                         <Route path="/trades" element={<Trades />} />
                         <Route path="/dice" element={<DicePage />} />
+                        <Route path="/blackjack" element={<BlackjackPage />} />
                       </Routes>
                     </div>
                     <aside className="hidden lg:flex flex-col w-[17rem] shrink-0 border-l border-[#252839] bg-[#171925] overflow-hidden">

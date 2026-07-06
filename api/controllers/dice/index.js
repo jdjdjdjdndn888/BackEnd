@@ -7,8 +7,8 @@ const history = require("../../modules/history.js");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const { taxer, taxes } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
+const { taxer, taxes, dicewebh } = require("../../config.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -174,12 +174,28 @@ exports.creatematch = asyncHandler(async (req, res) => {
 
     res.status(200).json({ message: "Match created!", data: publicGame });
 
-    req.app.get("io").emit("NEW_DICE", publicGame);
-    await Promise.all([
-      addHistory(savedUser.userid, "Dice Creation", `-${totalItemValue}`),
-      updatestats(req.app.get("io")),
-      updateuser(savedUser.userid, req.app.get("io")),
-    ]);
+    // Everything below runs after the response is already sent — it must
+    // never throw past this point, or the outer catch would try to send a
+    // second response and can crash the process (see coinflip controller
+    // for the full explanation of this pattern).
+    try {
+      req.app.get("io").emit("NEW_DICE", publicGame);
+      await Promise.all([
+        addHistory(savedUser.userid, "Dice Creation", `-${totalItemValue}`),
+        updatestats(req.app.get("io")),
+        updateuser(savedUser.userid, req.app.get("io")),
+        sendwebhook(
+          dicewebh,
+          "🎲 Dice Game Created",
+          `**${savedUser.username}** created a R$${totalItemValue.toLocaleString()} dice game.`,
+          [{ name: "Value", value: `R$${totalItemValue.toLocaleString()}`, inline: true }],
+          savedUser.thumbnail
+        ),
+      ]);
+    } catch (sideEffectError) {
+      console.error("dice create side-effects:", sideEffectError);
+    }
+    return;
   } catch (error) {
     if (error.statusCode) {
       return res.status(error.statusCode).json({ message: error.message });
@@ -257,7 +273,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       );
 
       if (totalJoinerValue < game.requirements.min || totalJoinerValue > game.requirements.max) {
-        return res.status(400).json({ message: "The selected value doesn't match!" });
+        throw httpError(400, "The selected value doesn't match!");
       }
 
       let serverSeed = game.serverSeed;
@@ -372,49 +388,68 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 
     res.status(200).json({ message: "Successfully joined match!", data: finalUpdate });
 
-    req.app.get("io").emit("DICE_UPDATE", finalUpdate);
+    // Everything below runs after the response is already sent — it must
+    // never throw past this point, or the outer catch would try to send a
+    // second response and can crash the process, dropping live-update
+    // sockets for every connected client until Render restarts it (this
+    // was the root cause of clients needing a refresh to see finished games).
+    try {
+      req.app.get("io").emit("DICE_UPDATE", finalUpdate);
 
-    await emituser(
-      "NOTIFICATION",
-      {
-        type: "info",
-        title: "Someone joined your dice game!",
-        message: `${user.username} joined your R${game.requirements.static} dice game. ${winner === "PlayerOne" ? "You won! 🎉" : "They won 😭"}`,
-        target: game.PlayerOne.id,
-      },
-      game.PlayerOne.id,
-      req.app.get("io")
-    );
+      await emituser(
+        "NOTIFICATION",
+        {
+          type: "info",
+          title: "Someone joined your dice game!",
+          message: `${user.username} joined your R${game.requirements.static} dice game. ${winner === "PlayerOne" ? "You won! 🎉" : "They won 😭"}`,
+          target: game.PlayerOne.id,
+        },
+        game.PlayerOne.id,
+        req.app.get("io")
+      );
 
-    setTimeout(async () => {
-      try {
-        await inventorys.insertMany(
-          winnerItems.map((item) => ({
-            _id: item._id,
-            owner: winnerId,
-            itemid: item.itemid,
-            locked: false,
-          }))
-        );
-        await updateuser(winnerId, req.app.get("io"));
-        await updateuser(loserId, req.app.get("io"));
-      } catch (error) {
-        console.error("Dice setTimeout error:", error);
-      }
-    }, 5000);
+      setTimeout(async () => {
+        try {
+          await inventorys.insertMany(
+            winnerItems.map((item) => ({
+              _id: item._id,
+              owner: winnerId,
+              itemid: item.itemid,
+              locked: false,
+            }))
+          );
+          await updateuser(winnerId, req.app.get("io"));
+          await updateuser(loserId, req.app.get("io"));
+        } catch (error) {
+          console.error("Dice setTimeout error:", error);
+        }
+      }, 5000);
 
-    setTimeout(() => {
-      req.app.get("io").emit("DICE_CANCEL", { _id: finalUpdate._id, active: false });
-      updatestats(req.app.get("io"));
-    }, 60000);
+      setTimeout(() => {
+        req.app.get("io").emit("DICE_CANCEL", { _id: finalUpdate._id, active: false });
+        updatestats(req.app.get("io"));
+      }, 60000);
 
-    await Promise.all([
-      addHistory(winnerId, "Dice Win", `+${totalJoinerValue}`),
-      addHistory(loserId, "Dice Loss", `-${totalJoinerValue}`),
-      level(winnerId, totalJoinerValue),
-      level(loserId, totalJoinerValue),
-      updatestats(req.app.get("io")),
-    ]);
+      await Promise.all([
+        addHistory(winnerId, "Dice Win", `+${totalJoinerValue}`),
+        addHistory(loserId, "Dice Loss", `-${totalJoinerValue}`),
+        level(winnerId, totalJoinerValue),
+        level(loserId, totalJoinerValue),
+        updatestats(req.app.get("io")),
+        sendwebhook(
+          dicewebh,
+          "🏁 Dice Game Finished",
+          `**${winnerId === game.PlayerOne.id ? game.PlayerOne.username : user.username}** won a R$${(game.requirements.static + totalJoinerValue).toLocaleString()} dice game!`,
+          [
+            { name: "Player 1", value: game.PlayerOne.username, inline: true },
+            { name: "Player 2", value: user.username, inline: true },
+          ],
+          null
+        ),
+      ]);
+    } catch (sideEffectError) {
+      console.error("dice join side-effects:", sideEffectError);
+    }
 
   } catch (error) {
     if (error.statusCode) {

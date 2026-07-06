@@ -11,6 +11,7 @@ const jackpotController = require("../controllers/jackpot/index.js");
 const adminController = require("../controllers/admin/index.js");
 const tradesController = require("../controllers/trades/index.js");
 const diceController = require("../controllers/dice/index.js");
+const blackjackController = require("../controllers/blackjack/index.js");
 
 router.use(express.json());
 
@@ -87,6 +88,14 @@ router.post("/dice/join", accountController.verifyToken, diceController.joinmatc
 router.post("/dice/cancel", accountController.verifyToken, diceController.cancelmatch);
 router.post("/dice/history/me", accountController.verifyToken, diceController.historyme);
 
+router.get("/blackjack/games", blackjackController.getgames);
+router.post("/blackjack/create", accountController.verifyToken, blackjackController.creatematch);
+router.post("/blackjack/join", accountController.verifyToken, blackjackController.joinmatch);
+router.post("/blackjack/hit", accountController.verifyToken, blackjackController.hit);
+router.post("/blackjack/stand", accountController.verifyToken, blackjackController.stand);
+router.post("/blackjack/cancel", accountController.verifyToken, blackjackController.cancelmatch);
+router.post("/blackjack/history/me", accountController.verifyToken, blackjackController.historyme);
+
 router.get("/admin/stats", accountController.verifyToken, adminController.isAdmin, adminController.stats);
 router.get("/admin/users", accountController.verifyToken, adminController.isAdmin, adminController.getUsers);
 router.post("/admin/ban", accountController.verifyToken, adminController.isAdmin, adminController.banUser);
@@ -126,6 +135,7 @@ router.post("/debug/webhooks", bothandler.realBody, async (req, res) => {
     botlogs:    cfg.botlogs,
     jackpot:    cfg.jackpotwebh,
     dice:       cfg.dicewebh,
+    blackjack:  cfg.blackjackwebh,
   };
   const results = {};
   for (const [name, url] of Object.entries(targets)) {

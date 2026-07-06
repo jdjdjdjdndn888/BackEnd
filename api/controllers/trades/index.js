@@ -45,6 +45,12 @@ exports.getMyListings = asyncHandler(async (req, res) => {
 
 exports.createListing = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
+  // Pre-generate the id so a driver-level automatic retry of withTransaction
+  // (which happens transparently on transient errors) re-runs this callback
+  // against the SAME _id instead of creating a brand new document each time
+  // — that mismatch was the cause of listings occasionally getting created
+  // twice.
+  const listingId = new mongoose.Types.ObjectId();
   let listing;
   try {
     await session.withTransaction(async () => {
@@ -97,21 +103,29 @@ exports.createListing = asyncHandler(async (req, res) => {
         { session },
       );
 
-      listing = await new trades({
-        ownerid: user.userid,
-        ownerusername: user.username,
-        ownerthumbnail: user.thumbnail,
-        game: gameType,
-        offeredItems: inventoryItems.map((inv) => ({
-          itemid: inv.itemid,
-          inventoryid: String(inv._id),
-          itemname: itemMap.get(String(inv.itemid))?.itemname || "",
-          itemimage: itemMap.get(String(inv.itemid))?.itemimage || "",
-          itemvalue: itemMap.get(String(inv.itemid))?.itemvalue || 0,
-        })),
-        wantedDescription: wantedDescription || "",
-        totalValue,
-      }).save({ session });
+      listing = await trades.findOneAndUpdate(
+        { _id: listingId },
+        {
+          $setOnInsert: {
+            _id: listingId,
+            ownerid: user.userid,
+            ownerusername: user.username,
+            ownerthumbnail: user.thumbnail,
+            game: gameType,
+            offeredItems: inventoryItems.map((inv) => ({
+              itemid: inv.itemid,
+              inventoryid: String(inv._id),
+              itemname: itemMap.get(String(inv.itemid))?.itemname || "",
+              itemimage: itemMap.get(String(inv.itemid))?.itemimage || "",
+              itemvalue: itemMap.get(String(inv.itemid))?.itemvalue || 0,
+            })),
+            wantedDescription: wantedDescription || "",
+            totalValue,
+            status: "active",
+          },
+        },
+        { upsert: true, new: true, session },
+      );
     });
 
     req.app.get("io").emit("NEW_TRADE", listing);
