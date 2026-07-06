@@ -9,6 +9,7 @@ const JackpotEntry = require("../../modules/jackpotjoins");
 const items = require("../../modules/items");
 const { addHistory, updateuser, updatestats, level } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
+const { httpError } = require("../../utils/httpError.js");
 
 function generateRandomSeed() {
   return crypto.randomBytes(16).toString("hex");
@@ -100,6 +101,7 @@ exports.join_jackpot = [
     }
 
     const session = await mongoose.startSession();
+    let playerInfo, choosenSum, jackpotEmit;
     try {
       await session.withTransaction(async () => {
         let recentJackpot = await Jackpot.findOne({ state: { $ne: "Ended" } })
@@ -107,7 +109,7 @@ exports.join_jackpot = [
           .exec();
 
         if (!recentJackpot) {
-          if (playing) return res.status(400).json({ "message": "jackpot is already rolling..." });
+          if (playing) throw httpError(400, "jackpot is already rolling...");
           const serverSeed = generateRandomSeed();
           const hashedServerSeed = crypto.createHash("sha256").update(serverSeed).digest("hex");
 
@@ -135,34 +137,34 @@ exports.join_jackpot = [
           .exec();
 
         if (recentEntry > 50) {
-          return res.status(401).json({ message: "jackpot is already full!" });
+          throw httpError(401, "jackpot is already full!");
         }
 
         if (recentJackpot.state === "Rolling" || recentJackpot.state === "Locked") {
-          return res.status(400).json({ message: "jackpot is already rolling!" });
+          throw httpError(400, "jackpot is already rolling!");
         }
 
-        const playerInfo = await users.findOne({ userid: req.user.id })
+        playerInfo = await users.findOne({ userid: req.user.id })
           .session(session)
           .exec();
 
         if (!playerInfo?.userid) {
-          return res.status(404).json({ message: "Your account does not exist" });
+          throw httpError(404, "Your account does not exist");
         }
 
         if (req.body.chosenItems.length < 1) {
-          return res.status(422).json({ message: "You must select at least 1 item" });
+          throw httpError(422, "You must select at least 1 item");
         }
 
         const inventoryIds = req.body.chosenItems.map(item => item.inventoryid);
         const uniqueInventoryIds = [...new Set(inventoryIds)];
         if (inventoryIds.length !== uniqueInventoryIds.length) {
-          return res.status(422).json({ message: "One or more items can't be used!" });
+          throw httpError(422, "One or more items can't be used!");
         }
 
         const actualItems = [];
         const itemIdsToDelete = [];
-        let choosenSum = 0;
+        choosenSum = 0;
 
         for (const chosenItem of req.body.chosenItems) {
           const exists = await InventoryItem.findOne({
@@ -174,13 +176,13 @@ exports.join_jackpot = [
             .exec();
 
           if (!exists) {
-            return res.status(422).json({ message: "Item doesn't exist" });
+            throw httpError(422, "Item doesn't exist");
           }
           if (exists.locked) {
-            return res.status(409).json({ message: "Cannot use a locked item" });
+            throw httpError(409, "Cannot use a locked item");
           }
           if (exists.owner.toString() !== req.user.id.toString()) {
-            return res.status(409).json({ message: "Item does not belong to you" });
+            throw httpError(409, "Item does not belong to you");
           }
 
           const item = await items.findOne({ $or: [{ itemid: exists.itemid }, { itemid: String(exists.itemid) }, { itemid: Number(exists.itemid) }] })
@@ -205,7 +207,7 @@ exports.join_jackpot = [
         }).session(session);
 
         if (hasJoined) {
-          return res.status(400).json({ message: "You can only join the jackpot once!" });
+          throw httpError(400, "You can only join the jackpot once!");
         }
 
         await InventoryItem.deleteMany({ _id: { $in: itemIdsToDelete } }).session(session);
@@ -254,30 +256,30 @@ exports.join_jackpot = [
         );
 
         if (playing) {
-          return res.status(400).json({ "message": "jackpot is already rolling..." });
+          throw httpError(400, "jackpot is already rolling...");
         }
-
-        res.status(200).json({ message: "Successfully joined jackpot" });
-
-        const jackpotDataResponse = await new Promise((resolve, reject) => {
-          const reqCopy = { ...req };
-          const resCopy = {
-            status: () => ({ json: (data) => resolve(data) }),
-            json: (data) => resolve(data),
-          };
-          exports.get_jackpot(reqCopy, resCopy, next).catch(reject);
-        });
-
-        req.app.get("io").emit("JACKPOT_UPDATE", jackpotDataResponse);
-        addHistory(playerInfo.userid, "Jackpot", `-${choosenSum}`);
-        level(playerInfo.userid, choosenSum)
-        updateuser(playerInfo.userid, req.app.get("io"));
-        updatestats(req.app.get("io"));
       });
+
+      res.status(200).json({ message: "Successfully joined jackpot" });
+
+      const jackpotDataResponse = await new Promise((resolve, reject) => {
+        const reqCopy = { ...req };
+        const resCopy = {
+          status: () => ({ json: (data) => resolve(data) }),
+          json: (data) => resolve(data),
+        };
+        exports.get_jackpot(reqCopy, resCopy, next).catch(reject);
+      });
+
+      req.app.get("io").emit("JACKPOT_UPDATE", jackpotDataResponse);
+      addHistory(playerInfo.userid, "Jackpot", `-${choosenSum}`);
+      level(playerInfo.userid, choosenSum)
+      updateuser(playerInfo.userid, req.app.get("io"));
+      updatestats(req.app.get("io"));
     } catch (error) {
       console.error("Join Jackpot Error:", error);
-      if (session.inTransaction()) {
-        await session.abortTransaction().catch(err => console.error("Abort transaction error:", err));
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ message: error.message });
       }
       return res.status(500).json({ message: "Internal server error" });
     } finally {

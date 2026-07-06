@@ -10,6 +10,7 @@ const crypto = require("crypto");
 const { taxer, taxes } = require("../../config.js");
 const { addHistory, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
+const { httpError } = require("../../utils/httpError.js");
 
 /** Derive 6 dice rolls (1-6) from seeds using rejection sampling to avoid modulo bias */
 function getDiceRolls(serverSeed, randomSeed) {
@@ -71,27 +72,29 @@ exports.creatematch = asyncHandler(async (req, res) => {
   }
 
   const session = await mongoose.startSession();
+  let publicGame, savedUser, totalItemValue;
 
   try {
     await session.withTransaction(async () => {
       const { items: clientItems } = req.body;
 
-      if (!clientItems?.length) return res.status(400).json({ message: "Select items!" });
+      if (!clientItems?.length) throw httpError(400, "Select items!");
 
       const inventoryIds = clientItems.map((i) => i.inventoryid);
       if (new Set(inventoryIds).size !== clientItems.length) {
-        return res.status(400).json({ message: "One or more items can't be used!" });
+        throw httpError(400, "One or more items can't be used!");
       }
 
       const user = await users.findOne({ userid: Number(req.user.id) }).session(session);
-      if (!user) return res.status(401).json({ message: "Unauthorized" });
+      if (!user) throw httpError(401, "Unauthorized");
+      savedUser = user;
 
       const inventoryItems = await inventorys
         .find({ _id: { $in: inventoryIds }, owner: user.userid, locked: false })
         .session(session);
 
       if (inventoryItems.length !== clientItems.length) {
-        return res.status(400).json({ message: "Invalid items detected" });
+        throw httpError(400, "Invalid items detected");
       }
 
       const itemIds = inventoryItems.map((item) => item.itemid);
@@ -108,16 +111,16 @@ exports.creatematch = asyncHandler(async (req, res) => {
 
       const validItems = dbItems.filter((item) => item.itemvalue >= 1);
       if (validItems.length !== new Set(itemIds.map(String)).size) {
-        return res.status(400).json({ message: "Invalid item values" });
+        throw httpError(400, "Invalid item values");
       }
 
       const gameType = validItems[0].game;
       if (!validItems.every((item) => item.game === gameType)) {
-        return res.status(400).json({ message: "You cannot cross-join!" });
+        throw httpError(400, "You cannot cross-join!");
       }
 
       const itemMap = new Map(validItems.map((item) => [String(item.itemid), item]));
-      const totalItemValue = inventoryItems.reduce(
+      totalItemValue = inventoryItems.reduce(
         (acc, item) => acc + (itemMap.get(String(item.itemid))?.itemvalue || 0),
         0
       );
@@ -165,20 +168,22 @@ exports.creatematch = asyncHandler(async (req, res) => {
         randomSeed: null,
       }).save({ session });
 
-      const publicGame = savedGame.toObject();
+      publicGame = savedGame.toObject();
       delete publicGame.serverSeed;
-
-      res.status(200).json({ message: "Match created!", data: publicGame });
-
-      req.app.get("io").emit("NEW_DICE", publicGame);
-      await Promise.all([
-        addHistory(user.userid, "Dice Creation", `-${totalItemValue}`),
-        updatestats(req.app.get("io")),
-        updateuser(user.userid, req.app.get("io")),
-      ]);
-
     });
+
+    res.status(200).json({ message: "Match created!", data: publicGame });
+
+    req.app.get("io").emit("NEW_DICE", publicGame);
+    await Promise.all([
+      addHistory(savedUser.userid, "Dice Creation", `-${totalItemValue}`),
+      updatestats(req.app.get("io")),
+      updateuser(savedUser.userid, req.app.get("io")),
+    ]);
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     if (error.message?.includes("Write conflict")) {
       return res.status(400).json({ message: "One or more items can't be used!" });
     }
@@ -203,12 +208,12 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       const { items: userItems, gameid } = req.body;
 
       if (!userItems?.length || !Array.isArray(userItems) || !gameid) {
-        return res.status(400).json({ message: "Invalid request parameters!" });
+        throw httpError(400, "Invalid request parameters!");
       }
 
       const inventoryIds = userItems.map((item) => item.inventoryid);
       if (new Set(inventoryIds).size !== userItems.length) {
-        return res.status(400).json({ message: "One or more items can't be used!" });
+        throw httpError(400, "One or more items can't be used!");
       }
 
       [game, user] = await Promise.all([
@@ -216,10 +221,10 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         users.findOne({ userid: Number(req.user.id) }).session(session),
       ]);
 
-      if (!game || !user) return res.status(400).json({ message: "Game or user not found!" });
-      if (!game.active) return res.status(400).json({ message: "Game not active!" });
+      if (!game || !user) throw httpError(400, "Game or user not found!");
+      if (!game.active) throw httpError(400, "Game not active!");
       if (game.PlayerOne.id === user.userid) {
-        return res.status(400).json({ message: "You cannot join your own game!" });
+        throw httpError(400, "You cannot join your own game!");
       }
 
       const inventoryItems = await inventorys
@@ -227,7 +232,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         .session(session);
 
       if (inventoryItems.length !== userItems.length) {
-        return res.status(400).json({ message: "One or more items can't be used!" });
+        throw httpError(400, "One or more items can't be used!");
       }
 
       const itemIds = inventoryItems.map((item) => item.itemid);
@@ -237,12 +242,12 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       const validItems = dbItems.filter((item) => item.itemvalue > 0);
 
       if (validItems.length !== new Set(itemIds.map(String)).size) {
-        return res.status(400).json({ message: "Invalid item values!" });
+        throw httpError(400, "Invalid item values!");
       }
 
       const gameType = validItems[0]?.game;
       if (!validItems.every((item) => item.game === gameType) || gameType !== game.game) {
-        return res.status(400).json({ message: "You cannot cross join!" });
+        throw httpError(400, "You cannot cross join!");
       }
 
       const itemMap = new Map(validItems.map((item) => [String(item.itemid), item]));
@@ -306,7 +311,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       );
 
       if (updateResult.modifiedCount === 0) {
-        return res.status(400).json({ message: "Game is being joined, try again!" });
+        throw httpError(400, "Game is being joined, try again!");
       }
 
       await inventorys.deleteMany({ _id: { $in: inventoryIds } }).session(session);
@@ -395,8 +400,6 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         await updateuser(loserId, req.app.get("io"));
       } catch (error) {
         console.error("Dice setTimeout error:", error);
-      } finally {
-        session.endSession();
       }
     }, 5000);
 
@@ -414,6 +417,9 @@ exports.joinmatch = asyncHandler(async (req, res) => {
     ]);
 
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     if (error.message?.includes("Write conflict")) {
       res.status(400).json({ message: "One or more items can't be used!" });
     } else {
@@ -422,26 +428,28 @@ exports.joinmatch = asyncHandler(async (req, res) => {
     }
   } finally {
     releaseLock(req.user.id, "dice_join");
+    session.endSession();
   }
 });
 
 exports.cancelmatch = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
+  let user, game;
 
   try {
     await session.withTransaction(async () => {
-      if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
-      if (!req.body.gameid) return res.status(400).json({ message: "Game ID required!" });
+      if (!req.user?.id) throw httpError(401, "Unauthorized");
+      if (!req.body.gameid) throw httpError(400, "Game ID required!");
 
-      const [user, game] = await Promise.all([
+      [user, game] = await Promise.all([
         users.findOne({ userid: req.user.id }).session(session),
         dice.findOne({ _id: req.body.gameid }).session(session),
       ]);
 
-      if (!user) return res.status(401).json({ message: "User not found!" });
-      if (!game) return res.status(404).json({ message: "Game not found!" });
-      if (!game.active) return res.status(400).json({ message: "Game already completed!" });
-      if (game.creatorid !== user.userid) return res.status(403).json({ message: "Not your game!" });
+      if (!user) throw httpError(401, "User not found!");
+      if (!game) throw httpError(404, "Game not found!");
+      if (!game.active) throw httpError(400, "Game already completed!");
+      if (game.creatorid !== user.userid) throw httpError(403, "Not your game!");
 
       const updateResult = await dice.updateOne(
         { _id: game._id, active: true, creatorid: user.userid },
@@ -450,7 +458,7 @@ exports.cancelmatch = asyncHandler(async (req, res) => {
       );
 
       if (updateResult.modifiedCount === 0) {
-        return res.status(409).json({ message: "Game is being joined!" });
+        throw httpError(409, "Game is being joined!");
       }
 
       const itemsToRestore = game.PlayerOne.items.map((item) => ({
@@ -464,18 +472,21 @@ exports.cancelmatch = asyncHandler(async (req, res) => {
       await inventorys.insertMany(itemsToRestore, { session, ordered: false }).catch((error) => {
         if (error.code !== 11000) throw error;
       });
-
-      req.app.get("io").emit("DICE_CANCEL", { _id: game._id, active: false });
-      await Promise.all([
-        updatestats(req.app.get("io")),
-        addHistory(user.userid, "Dice Cancel", `+${game.requirements.static}`),
-        updateuser(user.userid, req.app.get("io")),
-      ]);
-
-      return res.status(200).json({ success: true, message: "Game cancelled!" });
     });
+
+    req.app.get("io").emit("DICE_CANCEL", { _id: game._id, active: false });
+    await Promise.all([
+      updatestats(req.app.get("io")),
+      addHistory(user.userid, "Dice Cancel", `+${game.requirements.static}`),
+      updateuser(user.userid, req.app.get("io")),
+    ]);
+
+    return res.status(200).json({ success: true, message: "Game cancelled!" });
   } catch (error) {
     console.error("Cancel Dice Error:", error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     return res.status(500).json({ message: "Internal Server Error" });
   } finally {
     session.endSession();

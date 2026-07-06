@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const { taxer, taxes } = require("../../config.js");
 const { addHistory, updateuser, updatestats, level, emituser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
+const { httpError } = require("../../utils/httpError.js");
 
 exports.getcoinflips = asyncHandler(async (req, res) => {
   try {
@@ -63,21 +64,23 @@ exports.creatematch = asyncHandler(async (req, res) => {
   }
 
   const session = await mongoose.startSession();
+  let publicCoinflip, savedUser, totalItemValue;
 
   try {
     await session.withTransaction(async () => {
       const { items: clientItems, coin } = req.body;
 
-      if (!clientItems?.length) return res.status(400).json({ message: "Select items!" });
-      if (!["trails", "heads"].includes(coin)) return res.status(400).json({ message: "Invalid coin choice" });
+      if (!clientItems?.length) throw httpError(400, "Select items!");
+      if (!["trails", "heads"].includes(coin)) throw httpError(400, "Invalid coin choice");
 
       const inventoryIds = clientItems.map(i => i.inventoryid);
       if (new Set(inventoryIds).size !== clientItems.length) {
-        return res.status(400).json({ message: "One or more items can't be used!" });
+        throw httpError(400, "One or more items can't be used!");
       }
 
       const user = await users.findOne({ userid: req.user.id }).session(session);
-      if (!user) return res.status(401).json({ message: "Unauthorized" });
+      if (!user) throw httpError(401, "Unauthorized");
+      savedUser = user;
 
       const inventoryItems = await inventorys.find({
         _id: { $in: inventoryIds },
@@ -86,7 +89,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
       }).session(session);
 
       if (inventoryItems.length !== clientItems.length) {
-        return res.status(400).json({ message: "Invalid items detected" });
+        throw httpError(400, "Invalid items detected");
       }
 
       const itemIds = inventoryItems.map(item => item.itemid);
@@ -101,16 +104,16 @@ exports.creatematch = asyncHandler(async (req, res) => {
 
       const validItems = dbItems.filter(item => item.itemvalue >= 1);
       if (validItems.length !== new Set(itemIds.map(String)).size) {
-        return res.status(400).json({ message: "Invalid item values" });
+        throw httpError(400, "Invalid item values");
       }
 
       const gameType = validItems[0].game;
       if (!validItems.every(item => item.game === gameType)) {
-        return res.status(400).json({ message: "You cannot cross-join!" });
+        throw httpError(400, "You cannot cross-join!");
       }
 
       const itemMap = new Map(validItems.map(item => [String(item.itemid), item]));
-      const totalItemValue = inventoryItems.reduce((acc, item) => 
+      totalItemValue = inventoryItems.reduce((acc, item) => 
         acc + (itemMap.get(String(item.itemid))?.itemvalue || 0), 0);
 
       await inventorys.deleteMany({ _id: { $in: inventoryIds } }).session(session);
@@ -157,24 +160,28 @@ exports.creatematch = asyncHandler(async (req, res) => {
         randomSeed: null
       }).save({ session });
 
-      const publicCoinflip = savedCoinflip.toObject();
+      publicCoinflip = savedCoinflip.toObject();
       delete publicCoinflip.serverSeed;
-
-      res.status(200).json({ 
-        message: "Match created!", 
-        data: publicCoinflip 
-      });
-
-
-      req.app.get("io").emit("NEW_COINFLIP", publicCoinflip);
-      await Promise.all([
-        await addHistory(user.userid, "Game Creation", `-${totalItemValue}`),
-        await updatestats(req.app.get("io")),
-        await updateuser(user.userid, req.app.get("io"))
-      ]);
     });
+
+    // Only respond / broadcast / run side-effects AFTER the transaction has
+    // actually committed — never from inside withTransaction (see httpError.js).
+    res.status(200).json({
+      message: "Match created!",
+      data: publicCoinflip
+    });
+
+    req.app.get("io").emit("NEW_COINFLIP", publicCoinflip);
+    await Promise.all([
+      addHistory(savedUser.userid, "Game Creation", `-${totalItemValue}`),
+      updatestats(req.app.get("io")),
+      updateuser(savedUser.userid, req.app.get("io"))
+    ]);
   } catch (error) {
-    if (error.message.includes("Write conflict")) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    if (error.message?.includes("Write conflict")) {
       return res.status(400).json({ message: "One or more items can't be used!" });
     }
     console.error("Match creation error:", error);
@@ -198,12 +205,12 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           const { items: userItems, gameid } = req.body;
 
           if (!userItems?.length || !Array.isArray(userItems) || !gameid) {
-              return res.status(400).json({ message: "Invalid request parameters!" });
+              throw httpError(400, "Invalid request parameters!");
           }
 
           const inventoryIds = userItems.map(item => item.inventoryid);
           if (new Set(inventoryIds).size !== userItems.length) {
-              return res.status(400).json({ message: "One or more items can't be used!" });
+              throw httpError(400, "One or more items can't be used!");
           }
 
           [coinflip, user] = await Promise.all([
@@ -212,15 +219,15 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           ]);
 
           if (!coinflip || !user) {
-              return res.status(400).json({ message: "Game or user not found!" });
+              throw httpError(400, "Game or user not found!");
           }
 
           if (!coinflip.active) {
-              return res.status(400).json({ message: "Game not active!" });
+              throw httpError(400, "Game not active!");
           }
 
           if (coinflip.PlayerOne.id === user.userid) {
-              return res.status(400).json({ message: "You cannot join your own game!" });
+              throw httpError(400, "You cannot join your own game!");
           }
 
           const inventoryItems = await inventorys.find({
@@ -230,7 +237,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           }).session(session);
 
           if (inventoryItems.length !== userItems.length) {
-              return res.status(400).json({ message: "One or more items can't be used!" });
+              throw httpError(400, "One or more items can't be used!");
           }
 
           const itemIds = inventoryItems.map(item => item.itemid);
@@ -238,12 +245,12 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           const validItems = dbItems.filter(item => item.itemvalue > 0);
 
           if (validItems.length !== new Set(itemIds.map(String)).size) {
-              return res.status(400).json({ message: "Invalid item values!" });
+              throw httpError(400, "Invalid item values!");
           }
 
           const gameType = validItems[0]?.game;
           if (!validItems.every(item => item.game === gameType) || gameType !== coinflip.game) {
-              return res.status(400).json({ message: "You cannot cross join!" });
+              throw httpError(400, "You cannot cross join!");
           }
 
           const itemMap = new Map(validItems.map(item => [String(item.itemid), item]));
@@ -251,7 +258,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
               acc + (itemMap.get(String(item.itemid))?.itemvalue || 0), 0);
 
           if (totalJoinerValue < coinflip.requirements.min || totalJoinerValue > coinflip.requirements.max) {
-              return res.status(400).json({ message: "The selected value doesn't match!" });
+              throw httpError(400, "The selected value doesn't match!");
           }
 
           let serverSeed = coinflip.serverSeed;
@@ -295,7 +302,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           );
 
           if (updateResult.modifiedCount === 0) {
-              return res.status(400).json({ message: "REPORT THIS!!!" });
+              throw httpError(400, "Game was just taken, try again!");
           }
 
           await inventorys.deleteMany({ _id: { $in: inventoryIds } }).session(session);
@@ -420,11 +427,14 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       }, 60000);
 
   } catch (error) {
-      if (error.message?.includes("aused by :: Write conflict")) {
-          res.status(400).json({ message: 'One or more items cant be used!' });
+      if (error.statusCode) {
+          return res.status(error.statusCode).json({ message: error.message });
+      }
+      if (error.message?.includes("Write conflict")) {
+          return res.status(400).json({ message: 'One or more items cant be used!' });
       } else {
           console.error("cf join:", error);
-          res.status(500).json({ message: "Internal Server Error" });
+          return res.status(500).json({ message: "Internal Server Error" });
       }
   } finally {
       releaseLock(req.user.id, "coinflip_join");
@@ -435,35 +445,37 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 exports.cancelcoinflip = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
 
+  let flip, user, updatedFlip;
+
   try {
     await session.withTransaction(async () => {
       if (!req.user?.id) {
-        return res.status(401).json({ message: "Unauthorized" });
+        throw httpError(401, "Unauthorized");
       }
 
       if (!req.body.coinflipid) {
-        return res.status(400).json({ message: "CoinFlip ID required!" });
+        throw httpError(400, "CoinFlip ID required!");
       }
 
-      const [user, flip] = await Promise.all([
+      [user, flip] = await Promise.all([
         users.findOne({ userid: req.user.id }).session(session),
         coinflips.findOne({ _id: req.body.coinflipid }).session(session)
       ]);
 
       if (!user) {
-        return res.status(401).json({ message: "User not found!" });
+        throw httpError(401, "User not found!");
       }
 
       if (!flip) {
-        return res.status(404).json({ message: "CoinFlip not found!" });
+        throw httpError(404, "CoinFlip not found!");
       }
 
       if (!flip.active) {
-        return res.status(400).json({ message: "CoinFlip already completed!" });
+        throw httpError(400, "CoinFlip already completed!");
       }
 
       if (flip.creatorid !== user.userid) {
-        return res.status(403).json({ message: "Not your CoinFlip!" });
+        throw httpError(403, "Not your CoinFlip!");
       }
 
       const updateResult = await coinflips.updateOne(
@@ -477,7 +489,7 @@ exports.cancelcoinflip = asyncHandler(async (req, res) => {
       );
 
       if (updateResult.modifiedCount === 0) {
-        return res.status(409).json({ message: "CoinFlip being joined!" });
+        throw httpError(409, "CoinFlip being joined!");
       }
 
       const itemsToRestore = flip.PlayerOne.items.map(item => ({
@@ -495,30 +507,33 @@ exports.cancelcoinflip = asyncHandler(async (req, res) => {
         if (error.code !== 11000) throw error;
       });
 
-      const updatedFlip = await coinflips.findById(flip._id);
+      updatedFlip = await coinflips.findById(flip._id).session(session);
+    });
 
-      req.app.get("io").emit("COINFLIP_CANCEL", {
-        _id: flip._id,
-        active: false,
-        updatedAt: new Date()
-      });
+    req.app.get("io").emit("COINFLIP_CANCEL", {
+      _id: flip._id,
+      active: false,
+      updatedAt: new Date()
+    });
 
-      await Promise.all([
-        updatestats(req.app.get("io")),
-        addHistory(user.userid, "Game Cancel", `+${flip.requirements.static}`),
-        updateuser(user.userid, req.app.get("io"))
-      ]);
+    await Promise.all([
+      updatestats(req.app.get("io")),
+      addHistory(user.userid, "Game Cancel", `+${flip.requirements.static}`),
+      updateuser(user.userid, req.app.get("io"))
+    ]);
 
-      return res.status(200).json({
-        success: true,
-        message: "CoinFlip canceled!",
-        data: updatedFlip
-      });
+    return res.status(200).json({
+      success: true,
+      message: "CoinFlip canceled!",
+      data: updatedFlip
     });
   } catch (error) {
     console.error("CancelCoinFlip Error:", error);
 
-    if (error.message.includes("WriteConflict")) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    if (error.message?.includes("WriteConflict")) {
       return res.status(409).json({ message: "CoinFlip being joined!" });
     } else {
       return res.status(500).json({ message: "Internal Server Error" });

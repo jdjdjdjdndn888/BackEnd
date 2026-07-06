@@ -8,8 +8,17 @@ const history = require("../../modules/history.js");
 const giveaways = require("../../modules/giveaways.js");
 const coinflips = require("../../modules/coinflips.js");
 const giveawayjoins = require("../../modules/giveawayjoins.js");
-const { addHistory, updateuser } = require("../transaction/index.js");
+const { addHistory, updateuser, sendwebhook } = require("../transaction/index.js");
 const moment = require('moment');
+const { httpError } = require("../../utils/httpError.js");
+
+// `giveawaywebh` was previously referenced but never defined anywhere in this
+// file/module, which threw a ReferenceError every time a giveaway was created
+// or concluded. When that happened INSIDE session.withTransaction() (in the
+// old exports.giveaway) the whole transaction was aborted, so the giveaway
+// silently disappeared for the client despite showing a "created" response.
+// sendwebhook() already no-ops gracefully when passed a falsy webhook URL.
+const giveawaywebh = process.env.GIVEAWAY_WEBHOOK_URL || null;
 
 const rollwinner = async (giveawayid) => {
     if (!giveawayid) {
@@ -166,26 +175,28 @@ exports.getgiveaways = asyncHandler(async (req, res) => {
 
 exports.giveaway = asyncHandler(async (req, res) => {
     const session = await mongoose.startSession();
-  
+    let savedUser, totalItemValue, giveawaysToSave, endDate;
+
     try {
       await session.withTransaction(async () => {
         const { items: clientItems, time } = req.body;
   
         if (!clientItems || !Array.isArray(clientItems) || clientItems.length === 0) {
-          return res.status(400).json({ message: "Please select items!" });
+          throw httpError(400, "Please select items!");
         }
   
         const user = await users.findOne({ userid: req.user.id }).session(session);
         if (!user) {
-          return res.status(401).json({ message: "Unauthorized" });
+          throw httpError(401, "Unauthorized");
         }
+        savedUser = user;
   
         if (!time || typeof time !== 'number' || time < 1 || time > 60) {
-          return res.status(400).json({ message: "Time must be a number between 1 and 60 minutes!" });
+          throw httpError(400, "Time must be a number between 1 and 60 minutes!");
         }
   
         const validatedItems = [];
-        let totalItemValue = 0;
+        totalItemValue = 0;
   
         for (const item of clientItems) {
           const inventoryItem = await inventorys
@@ -193,12 +204,12 @@ exports.giveaway = asyncHandler(async (req, res) => {
             .session(session);
   
           if (!inventoryItem) {
-            return res.status(400).json({ message: "One or more items can't be used!" });
+            throw httpError(400, "One or more items can't be used!");
           }
   
           const dbItem = await items.findOne({ itemid: inventoryItem.itemid }).session(session);
           if (!dbItem) {
-            return res.status(400).json({ message: "One or more items can't be used!" });
+            throw httpError(400, "One or more items can't be used!");
           }
   
           totalItemValue += dbItem.itemvalue;
@@ -215,10 +226,10 @@ exports.giveaway = asyncHandler(async (req, res) => {
           });
         }
   
-        const endDate = new Date();
+        endDate = new Date();
         endDate.setMinutes(endDate.getMinutes() + time);
   
-        const giveawaysToSave = validatedItems.map((validatedItem) => {
+        giveawaysToSave = validatedItems.map((validatedItem) => {
           return new giveaways({
             starterid: req.user.id,
             starterusername: user.username,
@@ -238,73 +249,76 @@ exports.giveaway = asyncHandler(async (req, res) => {
         });
   
         await giveaways.insertMany(giveawaysToSave, { session });
-  
-        giveawaysToSave.forEach((giveaway) => {
-          req.app.get("io").emit("NEW_GIVEAWAY", giveaway);
-  
-          sendwebhook(
-            giveawaywebh,
-            "BloxySpin Giveaway Created",
-            `A new **${giveaway.item[0].itemname}** giveaway has been created in BloxySpin. Join now at https://bloxyspin.com/`,
-            [
-              {
-                name: "Host",
-                value: `\`\`${user.username}\`\``,
-                inline: false,
-              },
-              {
-                name: "Item",
-                value: `\`\`${giveaway.item[0].itemname} - R$${giveaway.item[0].itemvalue}\`\``,
-                inline: false,
-              },
-              {
-                name: "Value",
-                value: `\`\`${giveaway.item[0].itemvalue}\`\``,
-                inline: false,
-              },
-              {
-                name: "Giveaway End Time",
-                value: `<t:${Math.floor(endDate.getTime() / 1000)}:R>`,
-                inline: false,
-              },
-            ],
-            giveaway.item[0].itemimage
-          );
-  
-          setTimeout(async () => {
-            const giveawayy = await giveaways.findOne({ _id: giveaway._id });
-            if (!giveawayy) return;
-  
-            const winneres = await rollwinner(giveaway._id);
-            giveawayy.winner = winneres || "something went wrong...";
-            giveawayy.complete = true;
-  
-            await giveawayy.save();
-            req.app.get("io").emit("GIVEAWAY_UPDATE", giveawayy);
-            await updateuser(giveaway.winnerid, req.app.get("io"));
-  
-            setTimeout(async () => {
-              const activegiveaways = await giveaways.find({
-                $or: [
-                  { complete: false },
-                  {
-                    endeddate: { $gte: moment().subtract(1, 'minutes').toDate() }
-                  }
-                ]
-              });
-              req.app.get("io").emit("GIVEAWAY_DONE", { giveaways: activegiveaways });
-            }, 62000);
-  
-          }, time * 60000);
-        });
-
-        await addHistory(user.userid, "Giveaway", `-${totalItemValue}`);
-        await updateuser(user.userid, req.app.get("io"));
-  
-        return res.status(200).json({ message: "Successfully started the giveaway!!" });
       });
+
+      res.status(200).json({ message: "Successfully started the giveaway!!" });
+
+      giveawaysToSave.forEach((giveaway) => {
+        req.app.get("io").emit("NEW_GIVEAWAY", giveaway);
+
+        sendwebhook(
+          giveawaywebh,
+          "BloxySpin Giveaway Created",
+          `A new **${giveaway.item[0].itemname}** giveaway has been created in BloxySpin. Join now at https://bloxyspin.com/`,
+          [
+            {
+              name: "Host",
+              value: `\`\`${savedUser.username}\`\``,
+              inline: false,
+            },
+            {
+              name: "Item",
+              value: `\`\`${giveaway.item[0].itemname} - R$${giveaway.item[0].itemvalue}\`\``,
+              inline: false,
+            },
+            {
+              name: "Value",
+              value: `\`\`${giveaway.item[0].itemvalue}\`\``,
+              inline: false,
+            },
+            {
+              name: "Giveaway End Time",
+              value: `<t:${Math.floor(endDate.getTime() / 1000)}:R>`,
+              inline: false,
+            },
+          ],
+          giveaway.item[0].itemimage
+        );
+
+        setTimeout(async () => {
+          const giveawayy = await giveaways.findOne({ _id: giveaway._id });
+          if (!giveawayy) return;
+
+          const winneres = await rollwinner(giveaway._id);
+          giveawayy.winner = winneres || "something went wrong...";
+          giveawayy.complete = true;
+
+          await giveawayy.save();
+          req.app.get("io").emit("GIVEAWAY_UPDATE", giveawayy);
+          await updateuser(giveaway.winnerid, req.app.get("io"));
+
+          setTimeout(async () => {
+            const activegiveaways = await giveaways.find({
+              $or: [
+                { complete: false },
+                {
+                  endeddate: { $gte: moment().subtract(1, 'minutes').toDate() }
+                }
+              ]
+            });
+            req.app.get("io").emit("GIVEAWAY_DONE", { giveaways: activegiveaways });
+          }, 62000);
+
+        }, time * 60000);
+      });
+
+      await addHistory(savedUser.userid, "Giveaway", `-${totalItemValue}`);
+      await updateuser(savedUser.userid, req.app.get("io"));
     } catch (error) {
-      if (error.message.includes("aused by :: Write conflict during plan execution and yielding is disabled. :: Please retry your operation or multi-document transaction.")) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+      if (error.message?.includes("Write conflict")) {
         return res.status(400).json({ message: 'One or more items can\'t be used!' });
       } else {
         console.error("Error during giveaway:", error.message);
