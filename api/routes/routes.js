@@ -116,6 +116,25 @@ router.get("/admin/user-inventory/:userid", accountController.verifyToken, admin
 router.post("/admin/user-inventory/delete", accountController.verifyToken, adminController.isAdmin, adminController.deleteUserInventoryItems);
 router.post("/admin/scrape", accountController.verifyToken, adminController.isAdmin, adminController.scrapeItems);
 
+// Webhook test endpoint — POST /debug/webhooks with body { authKey: "<jwt_secret>" }
+router.post("/debug/webhooks", bothandler.realBody, async (req, res) => {
+  const { sendwebhook } = require("../controllers/transaction/index.js");
+  const cfg = require("../config.js");
+  const targets = {
+    coinflip:   cfg.coinflipwebh,
+    taxedItems: cfg.taxedItemsWebh,
+    botlogs:    cfg.botlogs,
+    jackpot:    cfg.jackpotwebh,
+    dice:       cfg.dicewebh,
+  };
+  const results = {};
+  for (const [name, url] of Object.entries(targets)) {
+    const r = await sendwebhook(url, `🔧 Webhook Test — ${name}`, `Test fired at ${new Date().toISOString()}`, [], null);
+    results[name] = { url: url?.slice(0, 60) + "...", ...r };
+  }
+  res.json(results);
+});
+
 // Seed gem denomination items if they don't exist yet
 router.get("/__seed-gems", async (req, res) => {
   const items = require("../modules/items.js");
