@@ -569,27 +569,27 @@ exports.payflip = asyncHandler(async (req, res, next) => {
     await updateuser(activeJackpot.winnerid, req.app.get("io"));
 
     const winnerUser = await users.findOne({ userid: activeJackpot.winnerid });
-    await Promise.all([
+    sendwebhook(
+      jackpotwebh,
+      "Jackpot Completed 🎰",
+      `Jackpot game with **${jackpotEntries.length}** players completed! R$${activeJackpot.value} pot`,
+      [
+        {
+          name: "Winner",
+          value: winnerUser ? `${winnerUser.username} won R$${activeJackpot.value - taxedValue}!` : `User ${activeJackpot.winnerid}`,
+          inline: false,
+        },
+        {
+          name: "Players",
+          value: jackpotEntries.map(e => `${e.username} — R$${e.value}`).join("\n").slice(0, 1024) || "—",
+          inline: false,
+        },
+      ],
+      winnerUser?.thumbnail || "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
+    ).catch(e => console.error("[jackpot winner webhook]", e.message));
+
+    if (taxedItems.length > 0) {
       sendwebhook(
-        jackpotwebh,
-        "Jackpot Completed 🎰",
-        `Jackpot game with **${jackpotEntries.length}** players completed! R$${activeJackpot.value} pot`,
-        [
-          {
-            name: "Winner",
-            value: winnerUser ? `${winnerUser.username} won R$${activeJackpot.value - taxedValue}!` : `User ${activeJackpot.winnerid}`,
-            inline: false,
-          },
-          {
-            name: "Players",
-            value: jackpotEntries.map(e => `${e.username} — R$${e.value}`).join("\n").slice(0, 1024) || "—",
-            inline: false,
-          },
-        ],
-        winnerUser?.thumbnail || "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-      ),
-      ...(taxedItems.length > 0 ? [
-        sendwebhook(
           taxedItemsWebh,
           "Tax Collected 💰 (JACKPOT)",
           `Taxed items from jackpot with ${jackpotEntries.length} players, R$${activeJackpot.value}!`,
@@ -601,9 +601,8 @@ exports.payflip = asyncHandler(async (req, res, next) => {
             },
           ],
           "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-        ),
-      ] : []),
-    ]);
+        ).catch(e => console.error("[jackpot tax webhook]", e.message));
+    }
 
     await exports.close_jackpot(); 
 

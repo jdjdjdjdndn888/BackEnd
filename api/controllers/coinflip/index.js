@@ -157,7 +157,15 @@ exports.creatematch = asyncHandler(async (req, res) => {
         randomSeed: null
       }).save({ session });
 
-      await sendwebhook(
+      const publicCoinflip = savedCoinflip.toObject();
+      delete publicCoinflip.serverSeed;
+
+      res.status(200).json({ 
+        message: "Match created!", 
+        data: publicCoinflip 
+      });
+
+      sendwebhook(
         coinflipwebh,
         `New R$${totalItemValue} Match Created`,
         `**${user.username}** created a R$${totalItemValue} match!`,
@@ -169,15 +177,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
           inline: false
         }],
         user.thumbnail
-      );
-
-      const publicCoinflip = savedCoinflip.toObject();
-      delete publicCoinflip.serverSeed;
-
-      res.status(200).json({ 
-        message: "Match created!", 
-        data: publicCoinflip 
-      });
+      ).catch(e => console.error("[coinflip create webhook]", e.message));
 
       req.app.get("io").emit("NEW_COINFLIP", publicCoinflip);
       await Promise.all([
@@ -385,48 +385,6 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 
       res.status(200).json({ message: "Successfully joined match!", data: finalUpdate });
 
-      const webhookTasks = [
-          sendwebhook(
-              coinflipwebh,
-              "Coinflip Completed 🎉",
-              `${user.username} joined ${coinflip.PlayerOne.username}'s match!`,
-              [
-                  {
-                      name: "Result",
-                      value: `${finalUpdate.PlayerOne.username} (${finalUpdate.PlayerOne.coin}) ${finalUpdate.winner === finalUpdate.PlayerOne.id ? "🥳" : "😭"}\n${user.username} (${finalUpdate.PlayerTwo.coin}) ${finalUpdate.winner === user.userid ? "🥳" : "😭"}`,
-                      inline: false
-                  },
-                  {
-                      name: "Items",
-                      value: allItems.map(item => `${item.itemname} - R$${item.itemvalue}`).join("\n"),
-                      inline: false
-                  }
-              ],
-              "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-          ),
-          ...(taxedItems.length > 0 ? [
-              sendwebhook(
-                  taxedItemsWebh,
-                  "Tax Collected 💰 (COINFLIP)",
-                  `Taxed items from ${coinflip.PlayerOne.username} vs ${user.username} match`,
-                  [
-                      {
-                          name: "Taxed Items",
-                          value: taxedItems.map(item => `${item.itemname} - R$${item.itemvalue}`).join("\n"),
-                          inline: false
-                      }
-                  ],
-                  "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-              )
-          ] : []),
-          addHistory(finalUpdate.winner, "Game Win", `+${totalJoinerValue}`),
-          addHistory(user.userid, "Game Loss", `-${totalJoinerValue}`),
-          level(finalUpdate.winner, coinflip.PlayerOne.value),
-          level(user.userid, totalJoinerValue),
-          updateuser(user.userid, req.app.get("io")),
-          updatestats(req.app.get("io"))
-      ];
-
       req.app.get("io").emit("COINFLIP_UPDATE", finalUpdate);
 
       await emituser("NOTIFICATION", {
@@ -436,7 +394,49 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         target: coinflip.PlayerOne.id,
       }, coinflip.PlayerOne.id, req.app.get("io"));
 
-      await Promise.all(webhookTasks);
+      await Promise.all([
+          addHistory(finalUpdate.winner, "Game Win", `+${totalJoinerValue}`),
+          addHistory(user.userid, "Game Loss", `-${totalJoinerValue}`),
+          level(finalUpdate.winner, coinflip.PlayerOne.value),
+          level(user.userid, totalJoinerValue),
+          updateuser(user.userid, req.app.get("io")),
+          updatestats(req.app.get("io")),
+      ]);
+
+      sendwebhook(
+          coinflipwebh,
+          "Coinflip Completed 🎉",
+          `${user.username} joined ${coinflip.PlayerOne.username}'s match!`,
+          [
+              {
+                  name: "Result",
+                  value: `${finalUpdate.PlayerOne.username} (${finalUpdate.PlayerOne.coin}) ${finalUpdate.winner === finalUpdate.PlayerOne.id ? "🥳" : "😭"}\n${user.username} (${finalUpdate.PlayerTwo.coin}) ${finalUpdate.winner === user.userid ? "🥳" : "😭"}`,
+                  inline: false
+              },
+              {
+                  name: "Items",
+                  value: allItems.map(item => `${item.itemname} - R$${item.itemvalue}`).join("\n"),
+                  inline: false
+              }
+          ],
+          "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
+      ).catch(e => console.error("[coinflip join webhook]", e.message));
+
+      if (taxedItems.length > 0) {
+          sendwebhook(
+              taxedItemsWebh,
+              "Tax Collected 💰 (COINFLIP)",
+              `Taxed items from ${coinflip.PlayerOne.username} vs ${user.username} match`,
+              [
+                  {
+                      name: "Taxed Items",
+                      value: taxedItems.map(item => `${item.itemname} - R$${item.itemvalue}`).join("\n"),
+                      inline: false
+                  }
+              ],
+              "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
+          ).catch(e => console.error("[coinflip tax webhook]", e.message));
+      }
 
       setTimeout(async () => {
           try {

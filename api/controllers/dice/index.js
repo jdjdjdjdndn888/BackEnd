@@ -175,18 +175,19 @@ exports.creatematch = asyncHandler(async (req, res) => {
         addHistory(user.userid, "Dice Creation", `-${totalItemValue}`),
         updatestats(req.app.get("io")),
         updateuser(user.userid, req.app.get("io")),
-        sendwebhook(
-          dicewebh,
-          `New R${totalItemValue} Dice Match Created`,
-          `**${user.username}** created a R${totalItemValue} dice match!`,
-          [{
-            name: "Items",
-            value: publicGame.PlayerOne.items.map(i => `${i.itemname} - R${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
-            inline: false,
-          }],
-          user.thumbnail
-        ),
       ]);
+
+      sendwebhook(
+        dicewebh,
+        `New R${totalItemValue} Dice Match Created`,
+        `**${user.username}** created a R${totalItemValue} dice match!`,
+        [{
+          name: "Items",
+          value: publicGame.PlayerOne.items.map(i => `${i.itemname} - R${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
+          inline: false,
+        }],
+        user.thumbnail
+      ).catch(e => console.error("[dice create webhook]", e.message));
     });
   } catch (error) {
     if (error.message?.includes("Write conflict")) {
@@ -421,40 +422,42 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       level(winnerId, totalJoinerValue),
       level(loserId, totalJoinerValue),
       updatestats(req.app.get("io")),
+    ]);
+
+    sendwebhook(
+      dicewebh,
+      "Dice Game Completed 🎲",
+      `${game.PlayerOne.username} vs ${user.username} — match finished!`,
+      [
+        {
+          name: "Result",
+          value: `${finalUpdate.PlayerOne.username} ${winner === "PlayerOne" ? "🥳 Won" : "😭 Lost"}\n${user.username} ${winner === "PlayerTwo" ? "🥳 Won" : "😭 Lost"}`,
+          inline: false,
+        },
+        {
+          name: "Items",
+          value: allItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
+          inline: false,
+        },
+      ],
+      "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
+    ).catch(e => console.error("[dice join webhook]", e.message));
+
+    if (taxedItems.length > 0) {
       sendwebhook(
-        dicewebh,
-        "Dice Game Completed 🎲",
-        `${game.PlayerOne.username} vs ${user.username} — match finished!`,
+        taxedItemsWebh,
+        "Tax Collected 💰 (DICE)",
+        `Taxed items from ${game.PlayerOne.username} vs ${user.username} match`,
         [
           {
-            name: "Result",
-            value: `${finalUpdate.PlayerOne.username} ${winner === "PlayerOne" ? "🥳 Won" : "😭 Lost"}\n${user.username} ${winner === "PlayerTwo" ? "🥳 Won" : "😭 Lost"}`,
-            inline: false,
-          },
-          {
-            name: "Items",
-            value: allItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024) || "—",
+            name: "Taxed Items",
+            value: taxedItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024),
             inline: false,
           },
         ],
         "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-      ),
-      ...(taxedItems.length > 0 ? [
-        sendwebhook(
-          taxedItemsWebh,
-          "Tax Collected 💰 (DICE)",
-          `Taxed items from ${game.PlayerOne.username} vs ${user.username} match`,
-          [
-            {
-              name: "Taxed Items",
-              value: taxedItems.map(i => `${i.itemname} - R$${i.itemvalue}`).join("\n").slice(0, 1024),
-              inline: false,
-            },
-          ],
-          "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png"
-        ),
-      ] : []),
-    ]);
+      ).catch(e => console.error("[dice tax webhook]", e.message));
+    }
   } catch (error) {
     if (error.message?.includes("Write conflict")) {
       res.status(400).json({ message: "One or more items can't be used!" });
