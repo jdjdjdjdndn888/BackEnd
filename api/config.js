@@ -27,6 +27,7 @@ const coinflipwebh   = process.env.COINFLIP_WEBHOOK_URL   || null;
 const dicewebh       = process.env.DICE_WEBHOOK_URL       || null;
 const jackpotwebh    = process.env.JACKPOT_WEBHOOK_URL    || null;
 const blackjackwebh  = process.env.BLACKJACK_WEBHOOK_URL  || null;
+const upgraderwebh   = process.env.UPGRADER_WEBHOOK_URL   || null;
 const taxedItemsWebh = process.env.TAXED_ITEMS_WEBHOOK_URL || null;
 const botlogs        = process.env.BOT_LOGS_WEBHOOK_URL   || null;
 
@@ -47,6 +48,7 @@ module.exports = {
   dicewebh,
   jackpotwebh,
   blackjackwebh,
+  upgraderwebh,
   taxedItemsWebh,
   botlogs,
 };

@@ -2,7 +2,7 @@
 //  HARD-CODED CONFIG — paste values here (no other files needed)
 // ═══════════════════════════════════════════════════════════════════════
 const HARD_CODED_BOT_TOKEN = ""; // ← paste Discord bot token here
-const HARD_CODED_MONGO_URI = ""; // ← do NOT hardcode credentials here; use the MONGODB_URI secret instead
+const HARD_CODED_MONGO_URI = ""; // ← paste MongoDB URI here
 const HARD_CODED_OWNER_ID  = "1367076055416045668"; // ← owner Discord user ID
 const SITE_URL             = "https://ps99bet.vercel.app"; // ← your Vercel frontend URL e.g. https://ps99bet.vercel.app
 // Banner 1 is at /banner/1.png on your frontend. Set SITE_URL above or paste full image URL:

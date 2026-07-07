@@ -33,41 +33,34 @@ async function startJackpotCountdown(io) {
   if (jackpotTimeout) clearTimeout(jackpotTimeout);
 
   jackpotTimeout = setTimeout(async () => {
-    const session = await mongoose.startSession();
     try {
-      await session.withTransaction(async () => {
-        const activeJackpot = await Jackpot.findOne({ state: "rollingsoon" })
-          .session(session)
-          .exec();
+      const activeJackpot = await Jackpot.findOne({ state: "rollingsoon" }).exec();
 
-        if (!activeJackpot) {
-          console.log("no jackpot");
-          return;
-        }
+      if (!activeJackpot) {
+        console.log("no jackpot to countdown");
+        return;
+      }
 
-        io.emit("JACKPOT_TIME_UPDATE", jackpotCooldown)
+      io.emit("JACKPOT_TIME_UPDATE", jackpotCooldown);
 
-        if (jackpotCooldown <= 0) {
-          playing = true
-          io.emit("JACKPOT_TIME_UPDATE", "rolling...")
-          await exports.lock_jackpot();
-          await exports.play_jackpot({ app: { get: () => io } }, {}, () => {});
-          setTimeout(() => exports.payflip({ app: { get: () => io } }, {}, () => {}), 10000);
-          setTimeout(() => exports.close_jackpot({ app: { get: () => io } }, {}, () => {}), 10000);
-          setTimeout(() => exports.create_jackpot({ app: { get: () => io } }, {}, () => {}), 15000);
-          setTimeout(async () => await updatestats(io), 15000);
-          setTimeout(() => playing = false, 15000)
-          jackpotCooldown = 120;
-          return;
-        }
+      if (jackpotCooldown <= 0) {
+        playing = true;
+        io.emit("JACKPOT_TIME_UPDATE", "rolling...");
+        await exports.lock_jackpot();
+        await exports.play_jackpot({ app: { get: () => io } }, {}, () => {});
+        setTimeout(() => exports.payflip({ app: { get: () => io } }, {}, () => {}), 10000);
+        setTimeout(() => exports.close_jackpot({ app: { get: () => io } }, {}, () => {}), 10000);
+        setTimeout(() => exports.create_jackpot({ app: { get: () => io } }, {}, () => {}), 15000);
+        setTimeout(async () => await updatestats(io), 15000);
+        setTimeout(() => { playing = false; }, 15000);
+        jackpotCooldown = 120;
+        return;
+      }
 
-        jackpotCooldown -= 1;
-        startJackpotCountdown(io);
-      });
+      jackpotCooldown -= 1;
+      startJackpotCountdown(io);
     } catch (error) {
       console.error("Jackpot Countdown Error:", error);
-    } finally {
-      session.endSession();
     }
   }, 1000);
 }
