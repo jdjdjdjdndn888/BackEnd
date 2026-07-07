@@ -48,7 +48,7 @@ function App() {
   const [userData, setUserData] = useState(null);
   const [showMobileChat, setShowMobileChat] = useState(false);
 
-  useEffect(() => {
+  const fetchMe = () => {
     const token = getauth();
     if (!token) return;
     fetch(`${api}/me`, {
@@ -60,6 +60,17 @@ function App() {
         if (data?.data) setUserData(data.data);
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchMe();
+  }, []);
+
+  // When an admin resets all balances, force-refresh user data so the
+  // displayed balance immediately drops to 0 for every connected client.
+  useEffect(() => {
+    socket.on("BALANCE_RESET", fetchMe);
+    return () => socket.off("BALANCE_RESET", fetchMe);
   }, []);
 
   // Re-authenticate the socket only when the logged-in user actually changes

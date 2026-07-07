@@ -25,8 +25,12 @@ const AvatarFallback = React.forwardRef(({ className, ...props }, ref) => (
 ));
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
-const Avatar = ({ imgUrl, level, className }) => (
-  <div className={cn("relative inline-flex shrink-0", className)}>
+const Avatar = ({ imgUrl, level, className, onClick, ...rest }) => (
+  <div
+    className={cn("relative inline-flex shrink-0", className)}
+    onClick={onClick}
+    {...rest}
+  >
     <AvatarRoot className="h-full w-full">
       <AvatarImage src={imgUrl} alt="avatar" />
       <AvatarFallback>?</AvatarFallback>

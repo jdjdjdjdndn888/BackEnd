@@ -694,3 +694,70 @@ exports.getleaderboard = asyncHandler(async (req, res) => {
     return res.status(500).json({ "message": "Internal Server Error"});
   }
 })
+
+// ── Universal user lookup ──────────────────────────────────────────────────────
+// Accepts: ?userid=, ?username=, ?discordid=, ?discordusername=
+// Also reads the same fields from req.body for POST compatibility.
+exports.lookup = asyncHandler(async (req, res) => {
+  const p = { ...req.query, ...(req.body || {}) };
+  const { userid, username, discordid, discordusername } = p;
+
+  let query = null;
+
+  if (userid) {
+    const n = Number(userid);
+    query = Number.isFinite(n) ? { userid: n } : null;
+  } else if (username) {
+    query = { username: { $regex: new RegExp("^" + username.replace(/[.*+?^${}()|[\]\\]/g, "\\    const leaders = await users.find({}).sort({ wager: -1 }).limit(10);
+    res.status(200).json({ "message": "OK", "leaders": leaders })
+  }
+  catch (error) {
+    return res.status(500).json({ "message": "Internal Server Error"});
+  }
+})") + "$", "i") } };
+  } else if (discordid) {
+    const n = Number(discordid);
+    query = Number.isFinite(n) ? { discordid: n } : { discordid: discordid };
+  } else if (discordusername) {
+    query = { discordusername: { $regex: new RegExp("^" + discordusername.replace(/[.*+?^${}()|[\]\\]/g, "\\    const leaders = await users.find({}).sort({ wager: -1 }).limit(10);
+    res.status(200).json({ "message": "OK", "leaders": leaders })
+  }
+  catch (error) {
+    return res.status(500).json({ "message": "Internal Server Error"});
+  }
+})") + "$", "i") } };
+  }
+
+  if (!query) {
+    return res.status(400).json({ success: false, message: "Provide userid, username, discordid, or discordusername." });
+  }
+
+  try {
+    const user = await users.findOne(query).lean();
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+    return res.status(200).json({
+      success: true,
+      message: "OK",
+      data: {
+        userid:          user.userid,
+        username:        user.username,
+        thumbnail:       user.thumbnail,
+        displayname:     user.displayname,
+        rank:            user.rank,
+        level:           user.level,
+        xp:              user.xp,
+        balance:         user.balance,
+        wager:           user.wager,
+        won:             user.won,
+        lost:            user.lost,
+        discordid:       user.discordid       ?? null,
+        discordusername: user.discordusername ?? null,
+        banned:          user.banned,
+      },
+    });
+  } catch (err) {
+    console.error("lookup error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error." });
+  }
+})

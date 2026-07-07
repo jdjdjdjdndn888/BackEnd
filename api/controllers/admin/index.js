@@ -346,20 +346,28 @@ exports.deleteUserInventoryItems = asyncHandler(async (req, res) => {
 
 // ── Reset all balances ────────────────────────────────────────────────────────
 exports.resetBalances = asyncHandler(async (req, res) => {
-  if (!req.adminUser || req.adminUser.rank !== "OWNER") {
+  if (!req.adminUser || req.adminUser.rank?.toUpperCase() !== "OWNER") {
     return res.status(403).json({ message: "Only the site owner can reset balances." });
   }
-  const result = await users.updateMany({}, { $set: { balance: 0 } });
-  const io = req.app.get("io");
-  if (io) {
-    io.emit("NOTIFICATION", {
-      title: "Balances Reset",
-      message: "All site balances have been reset to 0.",
-      type: "warning",
-      target: "all",
-    });
+  try {
+    const result = await users.updateMany({}, { $set: { balance: 0 } });
+    const io = req.app.get("io");
+    if (io) {
+      // Broadcast notification to all clients
+      io.emit("NOTIFICATION", {
+        title: "Balances Reset",
+        message: "All site balances have been reset to 0.",
+        type: "warning",
+        target: "all",
+      });
+      // Force every connected client to re-fetch their own user data
+      io.emit("BALANCE_RESET");
+    }
+    res.json({ success: true, message: `Reset ${result.modifiedCount} user balances to 0.` });
+  } catch (err) {
+    console.error("resetBalances error:", err);
+    res.status(500).json({ message: "Failed to reset balances: " + err.message });
   }
-  res.json({ success: true, message: `Reset ${result.modifiedCount} user balances to 0.` });
 });
 
 // ── Scrape items ────────────────────────────────────────────────────────────

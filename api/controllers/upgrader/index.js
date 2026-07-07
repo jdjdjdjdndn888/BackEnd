@@ -24,7 +24,7 @@ function roll(serverSeed, clientSeed) {
 exports.getItems = asyncHandler(async (req, res) => {
   const taxerInventory = await InventoryItem.find({
     owner: taxer,
-    locked: false,
+    locked: { $ne: true },
   }).lean();
 
   if (taxerInventory.length === 0) {
@@ -90,7 +90,7 @@ exports.upgrade = [
         const targetInv = await InventoryItem.findOne({
           _id: targetInventoryId,
           owner: taxer,
-          locked: false,
+          locked: { $ne: true },
         }).session(session);
 
         if (!targetInv) {
@@ -116,8 +116,8 @@ exports.upgrade = [
         for (const invId of uniqueIds) {
           const inv = await InventoryItem.findOne({
             _id: invId,
-            owner: req.user.id,
-            locked: false,
+            $or: [{ owner: req.user.id }, { owner: Number(req.user.id) }, { owner: String(req.user.id) }],
+            locked: { $ne: true },
           }).session(session);
 
           if (!inv) throw httpError(422, `Item ${invId} not found or locked.`);
