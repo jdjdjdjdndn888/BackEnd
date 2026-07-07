@@ -87,14 +87,14 @@ export default function BlackjackLayout() {
 
   return (
     <div className="box-border p-4">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[repeat(3,calc((100%-2*0.5rem)/3))]">
         <StatCard title="Rooms" value={totalGames.toLocaleString()} />
-        <StatCard title="Value" value={<><WalletIcon className="w-5 text-[#8B5CF6]" /> {formatLargeNumber(totalValue)}</>} />
+        <StatCard title="Value" value={<><WalletIcon className="w-4 text-[#8B5CF6]" /> {formatLargeNumber(totalValue)}</>} />
         <StatCard title="Items" value={totalItems.toLocaleString()} />
       </div>
 
-      <div className="my-2.5 flex items-center gap-2.5">
-        <div className="mr-auto flex gap-2.5">
+      <div className="my-3 flex items-center gap-2.5">
+        <div className="mr-auto flex gap-2">
           <button
             onClick={() => {
               setModalState(null);
@@ -102,12 +102,12 @@ export default function BlackjackLayout() {
                 userData ? <CreateBlackjack onCreate={() => {}} onClose={() => setModalState(null)} /> : <LoginModal />
               ));
             }}
-            className="min-w-24 cursor-pointer rounded-lg border-none bg-[#8B5CF6] p-2.5 text-base font-semibold text-white transition-colors hover:bg-[#7C3AED]"
+            className="min-w-[90px] cursor-pointer rounded-xl border-none bg-[#8B5CF6] px-4 py-2 text-center text-sm font-bold text-white tracking-wide transition-all hover:bg-[#7C3AED] active:scale-95"
           >
             Create
           </button>
           <button
-            className="min-w-24 cursor-pointer rounded-lg border-none bg-[#2A2E44] p-2.5 text-base font-semibold text-white transition-colors hover:opacity-80"
+            className="min-w-[90px] cursor-pointer rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-2 text-center text-sm font-bold text-[#8B93B8] tracking-wide transition-all hover:border-[#252839] hover:text-white active:scale-95"
             onClick={() => setModalState(userData ? <BlackjackHistory /> : <LoginModal />)}
           >
             History
@@ -116,35 +116,37 @@ export default function BlackjackLayout() {
 
         <div className="hidden sm:contents">
           <Select onValueChange={setSortCriteria} value={sortCriteria}>
-            <SelectTrigger className="h-10 w-44 rounded-lg border border-[#252839] bg-[#1C1F2E] px-3 text-sm text-white">
+            <SelectTrigger className="h-10 w-44 rounded-xl border border-[#1e2035] bg-[#12141f] px-3 text-sm font-semibold text-white">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-[#1C1F2D] border border-[#252839] rounded-lg p-1 mt-1">
-              <SelectItem className="text-white hover:bg-[#252839] rounded cursor-pointer px-3 py-2" value="high">Highest to Lowest</SelectItem>
-              <SelectItem className="text-white hover:bg-[#252839] rounded cursor-pointer px-3 py-2" value="low">Lowest to Highest</SelectItem>
+            <SelectContent className="bg-[#1C1F2D] border border-[#252839] rounded-xl p-1 mt-1">
+              <SelectItem className="text-sm text-[#ccc] hover:bg-[#202331] rounded-lg cursor-pointer px-3 py-2 mt-1" value="high">Highest to Lowest</SelectItem>
+              <SelectItem className="text-sm text-[#ccc] hover:bg-[#202331] rounded-lg cursor-pointer px-3 py-2 mt-1" value="low">Lowest to Highest</SelectItem>
             </SelectContent>
           </Select>
           <Select onValueChange={setGameFilter} value={gameFilter}>
-            <SelectTrigger className="h-10 w-36 rounded-lg border border-[#252839] bg-[#1C1F2E] px-3 text-sm text-white">
+            <SelectTrigger className="h-10 w-36 rounded-xl border border-[#1e2035] bg-[#12141f] px-3 text-sm font-semibold text-white">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-[#1C1F2D] border border-[#252839] rounded-lg p-1 mt-1">
-              <SelectItem className="text-white hover:bg-[#252839] rounded cursor-pointer px-3 py-2" value="all">All Games</SelectItem>
-              <SelectItem className="text-white hover:bg-[#252839] rounded cursor-pointer px-3 py-2" value="MM2">MM2</SelectItem>
-              <SelectItem className="text-white hover:bg-[#252839] rounded cursor-pointer px-3 py-2" value="PS99">PS99</SelectItem>
+            <SelectContent className="bg-[#1C1F2D] border border-[#252839] rounded-xl p-1 mt-1">
+              <SelectItem className="text-sm text-[#ccc] hover:bg-[#202331] rounded-lg cursor-pointer px-3 py-2 mt-1" value="all">All Games</SelectItem>
+              <SelectItem className="text-sm text-[#ccc] hover:bg-[#202331] rounded-lg cursor-pointer px-3 py-2 mt-1" value="MM2">MM2</SelectItem>
+              <SelectItem className="text-sm text-[#ccc] hover:bg-[#202331] rounded-lg cursor-pointer px-3 py-2 mt-1" value="PS99">PS99</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {games.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#252839] py-24 text-center">
-          <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#8B5CF620] text-[#8B5CF6]">
-            <Spade className="w-7 h-7" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-[#1e2035] bg-[#0d0f1a] py-24 text-center">
+          <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#8B5CF615] border border-[#8B5CF630] text-[#8B5CF6]">
+            <Spade className="w-6 h-6" />
           </span>
-          <p className="text-lg font-semibold text-white">No Active Blackjack Games</p>
-          <p className="text-sm text-[#6B7280]">Come Back Later Or Create One</p>
-          <p className="text-xs font-medium text-[#42496B]">
+          <div>
+            <p className="text-base font-bold text-white">No Active Blackjack Games</p>
+            <p className="text-sm text-[#42496B] mt-1">Come back later or create one</p>
+          </div>
+          <p className="text-xs font-mono font-medium text-[#2a2e44]">
             {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </p>
         </div>
@@ -165,8 +167,8 @@ export default function BlackjackLayout() {
 }
 
 const StatCard = ({ title, value }) => (
-  <div className="rounded-md border border-solid border-[#252839] px-3 pb-3 pt-2 text-sm font-bold text-[#6B7280]">
-    <strong className="flex items-center gap-1 text-xl text-white">{value}</strong>
-    <p>{title}</p>
+  <div className="rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-3">
+    <strong className="flex items-center gap-1.5 text-2xl font-bold tracking-tight text-white">{value}</strong>
+    <p className="mt-0.5 text-xs font-semibold uppercase tracking-widest text-[#42496B]">{title}</p>
   </div>
 );

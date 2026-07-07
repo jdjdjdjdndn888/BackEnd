@@ -169,200 +169,197 @@ export default function Upgrader() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0f1117] text-white p-4">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-1">Upgrader</h1>
-        <p className="text-gray-400 mb-6 text-sm">
-          Bet your items for a chance to win a higher-value item from the house.
-        </p>
+    <div className="box-border p-4 text-white">
+      {/* Page header — matches coinflip stat-card row style */}
+      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-3">
+          <strong className="flex items-center gap-1.5 text-2xl font-bold tracking-tight text-white">
+            {selectedBetItems.length}
+          </strong>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-widest text-[#42496B]">Your Items</p>
+        </div>
+        <div className="rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-3">
+          <strong className="flex items-center gap-1.5 text-2xl font-bold tracking-tight text-[#8B5CF6]">
+            {betValue > 0 ? `R${formatLargeNumber(betValue)}` : "—"}
+          </strong>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-widest text-[#42496B]">Bet Value</p>
+        </div>
+        <div className="rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-3">
+          <strong className="flex items-center gap-1.5 text-2xl font-bold tracking-tight text-white">
+            {filteredTargets.length}
+          </strong>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-widest text-[#42496B]">Targets Available</p>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px_1fr] gap-4">
-          {/* Left — user bet items */}
-          <div className="bg-[#171925] border border-[#252839] rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm text-gray-300">Your Items</span>
-              <span className="text-xs text-purple-400">
-                R${betValue > 0 ? formatLargeNumber(betValue) : "0"}
-              </span>
-            </div>
-            <input
-              className="bg-[#0f1117] border border-[#252839] rounded-lg px-3 py-2 text-sm w-full outline-none focus:border-purple-500"
-              placeholder="Search items..."
-              value={betSearch}
-              onChange={(e) => setBetSearch(e.target.value)}
-            />
-            <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-96">
-              {loadingInv && (
-                <div className="col-span-3 flex justify-center py-8">
-                  <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_176px_1fr]">
+        {/* Left — user bet items */}
+        <div className="flex flex-col gap-3 rounded-xl border border-[#1e2035] bg-[#12141f] p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#42496B]">Your Items</span>
+            <span className="text-xs font-bold text-[#8B5CF6]">
+              {betValue > 0 ? `R${formatLargeNumber(betValue)}` : "Select items"}
+            </span>
+          </div>
+          <input
+            className="w-full rounded-xl border border-[#1e2035] bg-[#0f1220] px-3 py-2 text-sm text-white outline-none placeholder:text-[#42496B] focus:border-[#8B5CF6] transition-colors"
+            placeholder="Search items..."
+            value={betSearch}
+            onChange={(e) => setBetSearch(e.target.value)}
+          />
+          <div className="grid grid-cols-3 gap-2 overflow-y-auto" style={{ maxHeight: "22rem" }}>
+            {loadingInv && (
+              <div className="col-span-3 flex justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#8B5CF6] border-t-transparent" />
+              </div>
+            )}
+            {!loadingInv && !userData && (
+              <p className="col-span-3 py-8 text-center text-sm text-[#42496B]">
+                Log in to see your inventory
+              </p>
+            )}
+            {!loadingInv && userData && filteredBet.length === 0 && (
+              <p className="col-span-3 py-8 text-center text-sm text-[#42496B]">No items found</p>
+            )}
+            {filteredBet.map((item) => {
+              const selected = selectedBetItems.some((s) => s.inventoryid === item.inventoryid);
+              return (
+                <div
+                  key={item.inventoryid}
+                  onClick={() => toggleBetItem(item)}
+                  className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border p-2 transition-all ${
+                    selected
+                      ? "border-[#8B5CF6] bg-[#8B5CF615]"
+                      : "border-[#1e2035] bg-[#0f1220] hover:border-[#8B5CF650]"
+                  }`}
+                >
+                  <img src={item.itemimage} alt={item.itemname} className="h-12 w-12 object-contain" />
+                  <p className="line-clamp-2 text-center text-[10px] leading-tight text-[#8B93B8]">
+                    {item.itemname}
+                  </p>
+                  <p className="text-[10px] font-bold text-[#8B5CF6]">R${formatLargeNumber(item.itemvalue)}</p>
                 </div>
-              )}
-              {!loadingInv && !userData && (
-                <p className="col-span-3 text-center text-gray-500 py-8 text-sm">
-                  Log in to see your inventory
-                </p>
-              )}
-              {!loadingInv && userData && filteredBet.length === 0 && (
-                <p className="col-span-3 text-center text-gray-500 py-8 text-sm">No items found</p>
-              )}
-              {filteredBet.map((item) => {
-                const selected = selectedBetItems.some(
-                  (s) => s.inventoryid === item.inventoryid
-                );
-                return (
-                  <div
-                    key={item.inventoryid}
-                    onClick={() => toggleBetItem(item)}
-                    className={`cursor-pointer rounded-xl border p-2 flex flex-col items-center gap-1 transition-all ${
-                      selected
-                        ? "border-purple-500 bg-purple-900/20"
-                        : "border-[#252839] hover:border-purple-700"
-                    }`}
-                  >
-                    <img
-                      src={item.itemimage}
-                      alt={item.itemname}
-                      className="w-12 h-12 object-contain"
-                    />
-                    <p className="text-[10px] text-center text-gray-300 leading-tight line-clamp-2">
-                      {item.itemname}
-                    </p>
-                    <p className="text-[10px] text-purple-400">
-                      R${formatLargeNumber(item.itemvalue)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Center — controls */}
+        <div className="flex flex-col items-center justify-center gap-4">
+          <div
+            className={`transition-all duration-300 ${
+              result === "win"
+                ? "drop-shadow-[0_0_24px_rgba(34,197,94,0.6)]"
+                : result === "lose"
+                ? "drop-shadow-[0_0_24px_rgba(239,68,68,0.5)]"
+                : ""
+            }`}
+          >
+            <WinChanceArc chance={winChance} />
           </div>
 
-          {/* Center — controls */}
-          <div className="flex flex-col items-center justify-center gap-4">
+          {result && (
             <div
-              className={`transition-all duration-300 ${
+              className={`rounded-xl border px-4 py-2 text-center text-lg font-black ${
                 result === "win"
-                  ? "drop-shadow-[0_0_24px_rgba(34,197,94,0.6)]"
-                  : result === "lose"
-                  ? "drop-shadow-[0_0_24px_rgba(239,68,68,0.5)]"
-                  : ""
+                  ? "border-green-500/40 bg-green-900/20 text-green-400"
+                  : "border-red-500/40 bg-red-900/20 text-red-400"
               }`}
             >
-              <WinChanceArc chance={winChance} />
+              {result === "win" ? "🎉 YOU WON!" : "💀 YOU LOST"}
             </div>
+          )}
 
-            {result && (
-              <div
-                className={`text-center font-bold text-xl px-4 py-2 rounded-xl border ${
-                  result === "win"
-                    ? "text-green-400 border-green-500/40 bg-green-900/20"
-                    : "text-red-400 border-red-500/40 bg-red-900/20"
-                }`}
-              >
-                {result === "win" ? "🎉 YOU WON!" : "💀 YOU LOST"}
-              </div>
-            )}
-
-            <button
-              onClick={doUpgrade}
-              disabled={rolling || !selectedBetItems.length || !selectedTarget || winChance <= 0}
-              className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${
+          <button
+            onClick={doUpgrade}
+            disabled={rolling || !selectedBetItems.length || !selectedTarget || winChance <= 0}
+            className="w-full cursor-pointer rounded-xl border-none py-2.5 text-sm font-bold text-white tracking-wide transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{
+              background:
                 rolling || !selectedBetItems.length || !selectedTarget || winChance <= 0
-                  ? "bg-[#252839] text-gray-500 cursor-not-allowed"
-                  : "buttoncolorful"
-              }`}
-            >
-              {rolling ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Rolling...
-                </span>
-              ) : (
-                "Upgrade!"
-              )}
-            </button>
+                  ? "#1e2035"
+                  : "linear-gradient(135deg,#8B5CF6,#7C3AED)",
+              color:
+                rolling || !selectedBetItems.length || !selectedTarget || winChance <= 0
+                  ? "#42496B"
+                  : "white",
+            }}
+          >
+            {rolling ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Rolling...
+              </span>
+            ) : (
+              "Upgrade!"
+            )}
+          </button>
 
-            {selectedBetItems.length > 0 && selectedTarget && (
-              <div className="text-center text-xs text-gray-400 space-y-1">
-                <p>
-                  Bet:{" "}
-                  <span className="text-white">R${formatLargeNumber(betValue)}</span>
-                </p>
-                <p>
-                  Target:{" "}
-                  <span className="text-white">
-                    R${formatLargeNumber(targetValue)}
-                  </span>
-                </p>
+          {selectedBetItems.length > 0 && selectedTarget && (
+            <div className="w-full space-y-1 rounded-xl border border-[#1e2035] bg-[#0f1220] px-3 py-2.5 text-center text-xs">
+              <p className="text-[#42496B]">
+                Bet: <span className="font-bold text-white">R${formatLargeNumber(betValue)}</span>
+              </p>
+              <p className="text-[#42496B]">
+                Target: <span className="font-bold text-white">R${formatLargeNumber(targetValue)}</span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Right — upgrade targets */}
+        <div className="flex flex-col gap-3 rounded-xl border border-[#1e2035] bg-[#12141f] p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#42496B]">Upgrade Targets</span>
+            <span className="text-xs font-bold text-[#42496B]">{filteredTargets.length} available</span>
+          </div>
+          <input
+            className="w-full rounded-xl border border-[#1e2035] bg-[#0f1220] px-3 py-2 text-sm text-white outline-none placeholder:text-[#42496B] focus:border-[#8B5CF6] transition-colors"
+            placeholder="Search targets..."
+            value={targetSearch}
+            onChange={(e) => setTargetSearch(e.target.value)}
+          />
+          <div className="grid grid-cols-3 gap-2 overflow-y-auto" style={{ maxHeight: "22rem" }}>
+            {loadingTargets && (
+              <div className="col-span-3 flex justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#8B5CF6] border-t-transparent" />
               </div>
             )}
-          </div>
+            {!loadingTargets && filteredTargets.length === 0 && (
+              <p className="col-span-3 py-8 text-center text-sm text-[#42496B]">
+                No upgrade targets available
+              </p>
+            )}
+            {filteredTargets.map((item) => {
+              const selected = selectedTarget?.inventoryid === item.inventoryid;
+              const chance =
+                betValue > 0 && item.itemvalue > 0
+                  ? Math.min(MAX_WIN_CHANCE, (betValue / item.itemvalue) * 100)
+                  : 0;
+              const chanceColor =
+                chance >= 70 ? "text-green-400" : chance >= 40 ? "text-yellow-400" : "text-red-400";
 
-          {/* Right — taxer items (upgrade targets) */}
-          <div className="bg-[#171925] border border-[#252839] rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm text-gray-300">Upgrade Targets</span>
-              <span className="text-xs text-gray-500">{filteredTargets.length} available</span>
-            </div>
-            <input
-              className="bg-[#0f1117] border border-[#252839] rounded-lg px-3 py-2 text-sm w-full outline-none focus:border-purple-500"
-              placeholder="Search targets..."
-              value={targetSearch}
-              onChange={(e) => setTargetSearch(e.target.value)}
-            />
-            <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-96">
-              {loadingTargets && (
-                <div className="col-span-3 flex justify-center py-8">
-                  <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+              return (
+                <div
+                  key={item.inventoryid}
+                  onClick={() => selectTarget(item)}
+                  className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border p-2 transition-all ${
+                    selected
+                      ? "border-[#8B5CF6] bg-[#8B5CF615]"
+                      : "border-[#1e2035] bg-[#0f1220] hover:border-[#8B5CF650]"
+                  }`}
+                >
+                  <img src={item.itemimage} alt={item.itemname} className="h-12 w-12 object-contain" />
+                  <p className="line-clamp-2 text-center text-[10px] leading-tight text-[#8B93B8]">
+                    {item.itemname}
+                  </p>
+                  <p className="text-[10px] font-bold text-[#8B5CF6]">R${formatLargeNumber(item.itemvalue)}</p>
+                  {betValue > 0 && (
+                    <p className={`text-[10px] font-bold ${chanceColor}`}>{chance.toFixed(1)}%</p>
+                  )}
                 </div>
-              )}
-              {!loadingTargets && filteredTargets.length === 0 && (
-                <p className="col-span-3 text-center text-gray-500 py-8 text-sm">
-                  No upgrade targets available
-                </p>
-              )}
-              {filteredTargets.map((item) => {
-                const selected = selectedTarget?.inventoryid === item.inventoryid;
-                const chance =
-                  betValue > 0 && item.itemvalue > 0
-                    ? Math.min(MAX_WIN_CHANCE, (betValue / item.itemvalue) * 100)
-                    : 0;
-                const chanceColor =
-                  chance >= 70
-                    ? "text-green-400"
-                    : chance >= 40
-                    ? "text-yellow-400"
-                    : "text-red-400";
-
-                return (
-                  <div
-                    key={item.inventoryid}
-                    onClick={() => selectTarget(item)}
-                    className={`cursor-pointer rounded-xl border p-2 flex flex-col items-center gap-1 transition-all ${
-                      selected
-                        ? "border-purple-500 bg-purple-900/20"
-                        : "border-[#252839] hover:border-purple-700"
-                    }`}
-                  >
-                    <img
-                      src={item.itemimage}
-                      alt={item.itemname}
-                      className="w-12 h-12 object-contain"
-                    />
-                    <p className="text-[10px] text-center text-gray-300 leading-tight line-clamp-2">
-                      {item.itemname}
-                    </p>
-                    <p className="text-[10px] text-purple-400">
-                      R${formatLargeNumber(item.itemvalue)}
-                    </p>
-                    {betValue > 0 && (
-                      <p className={`text-[10px] font-bold ${chanceColor}`}>
-                        {chance.toFixed(1)}%
-      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>
