@@ -1,238 +1,528 @@
-.profilelayout {
-  position: relative;
-  padding: 1rem;
+.profileLayout {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem;
   box-sizing: border-box;
+  min-height: 100%;
+  align-items: flex-start;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebarTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  padding: 0 12px;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.sidebarItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6B7280;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebarItem:hover {
+  background: #1a1d2e;
+  color: #8B93B8;
+}
+
+.sidebarItemActive {
+  background: #8B5CF620;
+  color: #8B5CF6 !important;
+}
+
+.sidebarItemLogout {
+  color: #FF4757;
+  margin-top: 4px;
+}
+
+.sidebarItemLogout:hover {
+  background: rgba(255,71,87,0.08);
+  color: #FF6B7A;
+}
+
+.sidebarDivider {
+  height: 1px;
+  background: #1e2035;
+  margin: 6px 12px;
+}
+
+/* ── Main content ─────────────────────────────────────────────── */
+.mainContent {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.acclonger {
-  left: 0 !important;
-}
-
-.layoutss {
-  transition: all 0.3s ease-in-out;
-}
-
-.userinfo {
+/* ── Profile card ─────────────────────────────────────────────── */
+.profileCard {
+  background: #12141f;
+  border: 1px solid #1e2035;
+  border-radius: 16px;
+  padding: 24px;
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 10px;
-  position: relative;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
 }
 
-.userinfo img {
-  width: 150px;
-  height: 150px;
+.avatarWrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid #297bff;
+  border: 3px solid #8B5CF6;
+  display: block;
+  box-shadow: 0 0 20px rgba(139,92,246,0.3);
 }
 
-.userDetails {
+.avatarRing {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px dashed rgba(139,92,246,0.3);
+  animation: spin 8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.profileInfo {
   flex: 1;
+  min-width: 0;
 }
 
-.userDetails h1 {
-  font-size: 1.75rem;
-  color: white;
-  margin: 0;
-}
-
-.username {
-  font-size: 1.75rem;
-  margin: 0;
-}
-
-.rank {
-  font-size: 1.125rem;
+.profileName {
+  font-size: 22px;
+  font-weight: 800;
   color: #fff;
-  margin-top: 0.25rem;
+  margin: 0 0 2px 0;
+  letter-spacing: -0.02em;
+}
+
+.profileRankBadge {
   display: inline-flex;
   align-items: center;
-  border: none !important;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.rank img {
-  width: 24px;
-  height: 24px;
-  margin-left: 0.5rem;
-  cursor: pointer;
-  border: none !important;
+.levelSection {
+  margin-top: 8px;
+}
+
+.levelLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #42496B;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.levelBarTrack {
+  height: 6px;
+  width: 100%;
+  max-width: 320px;
+  background: #1a1d2e;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+
+.levelBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.8s ease;
+}
+
+.levelBarMeta {
+  font-size: 11px;
+  color: #42496B;
+  display: flex;
+  justify-content: space-between;
+  max-width: 320px;
 }
 
 .discordWrapper {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.discordButton {
-  padding: 0.75rem 1.25rem;
+  align-items: flex-start;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .discordUsername {
-  font-size: 1rem;
-  color: #ddd;
-  text-align: center;
+  font-size: 12px;
+  color: #6B7280;
+  text-align: right;
 }
 
-.statsWrapper {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
+/* ── Game levels row ──────────────────────────────────────────── */
+.gameLevels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
 
-.stats {
-  flex: 1;
-  padding: 1rem;
-  border: 2px solid #252839;
-  border-radius: 5px;
-  text-align: center;
+.gameLevelCard {
+  background: #0f1220;
+  border: 1px solid #1e2035;
+  border-radius: 12px;
+  padding: 14px 16px;
 }
 
-.stats h1 {
-  font-size: 1.5rem;
+.gameLevelTag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #42496B;
+  margin-bottom: 4px;
+}
+
+.gameLevelName {
+  font-size: 14px;
+  font-weight: 700;
   color: #fff;
-  font-weight: bold;
 }
 
-.statsIconAmount {
+.gameLevelSub {
+  font-size: 11px;
+  color: #42496B;
+  margin-top: 1px;
+}
+
+/* ── Stats row ────────────────────────────────────────────────── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.statCard {
+  background: #12141f;
+  border: 1px solid #1e2035;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.statAmount {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  gap: 6px;
 }
 
-.statsIconAmount img {
-  width: 25px;
-  height: 25px;
-  margin-right: 3px;
+.statLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #42496B;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 3px;
 }
 
-.statsLabel {
-  font-size: 1rem;
-  color: #aaa;
-  margin-top: 0.25rem;
-}
-
-.loaderWrapperSmall {
-  display: inline-block;
-  margin-right: 10px;
-  margin-left: -15px;
-}
-
-.loaderSmall {
-  border: 4px solid #1c1f30;
-  border-radius: 50%;
-  border-top: 4px solid #297bff;
+.bobuxIcon {
   width: 20px;
   height: 20px;
-  animation: spin 0.45s linear infinite;
 }
 
-.history {
+/* ── Account Settings section ─────────────────────────────────── */
+.settingsSection {
+  background: #12141f;
+  border: 1px solid #1e2035;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.settingsSectionHeader {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  background-color: #171925;
-  border: 1px solid #181a28;
-  border-radius: 5px;
-  padding: 1rem;
-  max-height: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #1e2035;
+}
+
+.settingsSectionHeaderAccent {
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: #8B5CF6;
+  flex-shrink: 0;
+}
+
+.settingsSectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.settingsField {
+  padding: 20px 24px;
+  border-bottom: 1px solid #1e2035;
+}
+
+.settingsField:nth-child(odd) {
+  border-right: 1px solid #1e2035;
+}
+
+.settingsFieldLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 3px 0;
+}
+
+.settingsFieldDesc {
+  font-size: 11px;
+  color: #42496B;
+  margin-bottom: 10px;
+}
+
+.settingsInput {
+  width: 100%;
+  background: #0f1220;
+  border: 1px solid #1e2035;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+  box-sizing: border-box;
+  cursor: default;
+  outline: none;
+}
+
+.settingsToggleRow {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settingsToggleInfo {
+  flex: 1;
+}
+
+/* ── History section ──────────────────────────────────────────── */
+.historySection {
+  background: #12141f;
+  border: 1px solid #1e2035;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #1e2035;
+}
+
+.historyTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.historyPageInfo {
+  font-size: 12px;
+  color: #42496B;
+  font-weight: 600;
+}
+
+.historyTableHeader {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  padding: 10px 24px;
+  background: #0f1220;
+  border-bottom: 1px solid #1e2035;
+}
+
+.historyTableHeader p {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #42496B;
+  margin: 0;
+  text-align: center;
 }
 
 .historyList {
+  max-height: 320px;
   overflow-y: auto;
-  max-height: 400px;
-  padding-right: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
 }
 
-.historyItem {
+.historyRow {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
-  padding: 1.9rem 2rem;
-  border-radius: 4px;
-  margin-bottom: 0.15rem;
-  color: #bbb;
-  font-weight: bold;
-  background-color: #151722;
-  border: 1px solid #181a28;
+  padding: 12px 24px;
+  border-bottom: 1px solid #0f1220;
+  transition: background 0.1s;
 }
 
-.historyItem p {
+.historyRow:hover {
+  background: #0f1220;
+}
+
+.historyRow p {
+  font-size: 13px;
+  font-weight: 600;
+  color: #8B93B8;
+  margin: 0;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgb(184, 180, 180);
-  font-weight: bold;
-  margin: 0;
-  font-size: 1rem;
-  text-align: center;
 }
 
 .pagination {
   display: flex;
   justify-content: space-between;
-  margin-top: 1.5rem;
+  align-items: center;
+  padding: 14px 24px;
+  border-top: 1px solid #1e2035;
+  gap: 10px;
 }
 
-.pagination button:disabled {
-  opacity: 0.6;
+.paginationBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8B93B8;
+  background: #0f1220;
+  border: 1px solid #1e2035;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-@media (max-width: 1300px) {
-  .statsWrapper {
+.paginationBtn:hover:not(:disabled) {
+  border-color: #8B5CF6;
+  color: #fff;
+}
+
+.paginationBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.loaderWrapperSmall {
+  display: inline-block;
+  margin-right: 8px;
+  margin-left: -10px;
+}
+
+.loaderSmall {
+  border: 3px solid #1c1f30;
+  border-radius: 50%;
+  border-top: 3px solid #8B5CF6;
+  width: 14px;
+  height: 14px;
+  animation: spin 0.45s linear infinite;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .profileLayout {
     flex-direction: column;
-    gap: 1rem;
+    padding: 1rem;
   }
 
-  .userinfo {
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .sidebarItem {
+    flex: 1;
+    justify-content: center;
+    min-width: 90px;
+  }
+
+  .gameLevels,
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsField:nth-child(odd) {
+    border-right: none;
+  }
+
+  .profileCard {
     flex-direction: column;
     align-items: center;
-    padding: 1rem;
     text-align: center;
   }
 
-  .userDetails h1 {
-    font-size: 1.5rem;
-  }
-
-  .historyItem {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-
-  .pagination button {
-    padding: 0.5rem 1rem;
-  }
-
   .discordWrapper {
-    margin-top: 1rem;
+    margin-left: 0;
     align-items: center;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 600px) {
-  .historyItem {
-    grid-template-columns: 1fr 1fr;
   }
 
-  .pagination button {
-    padding: 0.5rem;
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+  .levelBarTrack,
+  .levelBarMeta {
+    max-width: 100%;
   }
 }

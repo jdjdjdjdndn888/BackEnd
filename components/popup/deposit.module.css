@@ -68,7 +68,7 @@
 }
 
 .actualcode {
-  color: #297bff;
+  color: #8B5CF6;
 }
 
 .botList {
@@ -129,8 +129,8 @@
 }
 
 .online_circle_active {
-  background-color: #297bff;
-  border: 2.5px solid #297bff;
+  background-color: #8B5CF6;
+  border: 2.5px solid #8B5CF6;
 }
 
 .online_circle_inactive {
@@ -149,7 +149,7 @@
 }
 
 .inner_circle_active {
-  background-color: #297bff;
+  background-color: #8B5CF6;
 }
 
 .inner_circle_inactive {
@@ -171,7 +171,7 @@
 }
 
 .botPfp:hover {
-  border-color: #297bff;
+  border-color: #8B5CF6;
   opacity: 0.9;
 }
 
@@ -197,7 +197,7 @@
 .loader {
   border: 6px solid #191d35;
   border-radius: 50%;
-  border-top: 6px solid #297bff;
+  border-top: 6px solid #8B5CF6;
   width: 45px;
   height: 45px;
   animation: spin 0.45s linear infinite;
