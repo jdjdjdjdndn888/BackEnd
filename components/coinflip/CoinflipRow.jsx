@@ -14,8 +14,7 @@ import {
 import { Trails, Heads } from "../../assets/exports.jsx";
 import { WalletIcon } from "@/assets/icons/WalletIcon";
 import QuestionMarkIcon from "@/assets/images/question-mark.svg";
-import { useCallback } from "react";
-import { memo } from "react";
+import { useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,8 +44,9 @@ export const CoinflipRow = ({
   }, [flip]);
 
   return (
-    <div className="grid grid-cols-1 items-center gap-2 rounded-lg border border-solid border-[#252839] bg-[#1C1F2E] py-3 pl-6 pr-2.5 xl:grid-cols-[repeat(5,auto)] [&>*]:min-w-0">
-      <div className="flex items-center gap-3 justify-self-center xl:justify-self-start">
+    <div className="grid grid-cols-1 items-center gap-3 rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-3 transition-colors hover:border-[#252839] hover:bg-[#161824] xl:grid-cols-[auto_1fr_auto_auto_auto]">
+      {/* Players */}
+      <div className="flex items-center gap-3 justify-self-center xl:justify-self-start flex-shrink-0">
         <Player
           imgUrl={flip.PlayerOne.thumbnail}
           userid={flip.PlayerOne.id}
@@ -60,7 +60,7 @@ export const CoinflipRow = ({
           }
         />
 
-        <strong className="text-lg font-bold text-[#B0B8C1]">VS</strong>
+        <span className="text-xs font-bold text-[#42496B] tracking-widest select-none">VS</span>
 
         <Player
           imgUrl={flip.PlayerTwo?.thumbnail ?? QuestionMarkIcon}
@@ -76,24 +76,30 @@ export const CoinflipRow = ({
         />
       </div>
 
-      <ItemsCell
-        itemsA={flip.PlayerOne.items}
-        itemsB={flip.PlayerTwo?.items ?? []}
-      />
+      {/* Items */}
+      <div className="flex min-w-0 justify-center xl:justify-start">
+        <ItemsCell
+          itemsA={flip.PlayerOne.items}
+          itemsB={flip.PlayerTwo?.items ?? []}
+        />
+      </div>
 
+      {/* Value */}
       <ValueCell
         value={flip.requirements.static}
         min={flip.requirements.min}
         max={flip.requirements.max}
       />
 
+      {/* Countdown coin */}
       <CoinCountDown
         countdown={countdowns[flip._id]}
         winner={flip.winnercoin}
         max={3}
       />
 
-      <div className="flex justify-center gap-2 justify-self-center xl:ml-auto xl:flex-col xl:justify-self-end">
+      {/* Action buttons */}
+      <div className="flex justify-center gap-2 xl:flex-col xl:justify-self-end xl:gap-1.5 xl:w-[88px]">
         {flip.active && (
           <button
             onClick={() => {
@@ -110,14 +116,14 @@ export const CoinflipRow = ({
               }
             }}
             disabled={!!flip.PlayerTwo || userData?.userid === flip.creatorid}
-            className="min-w-24 cursor-pointer rounded-lg border-none bg-[#8B5CF6] py-1.5 text-center text-base font-semibold text-white transition-colors hover:bg-[#7C3AED] active:bg-[#8B5CF6] disabled:cursor-not-allowed disabled:opacity-80"
+            className="min-w-[80px] xl:w-full cursor-pointer rounded-lg border-none bg-[#8B5CF6] py-1.5 px-3 text-center text-sm font-bold text-white transition-all hover:bg-[#7C3AED] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Join
           </button>
         )}
         <button
           onClick={handleViewFlip}
-          className="min-w-24 cursor-pointer rounded-lg border-none bg-[#2A2E44] py-1.5 text-center text-base font-semibold text-white transition-colors hover:opacity-80 active:opacity-100"
+          className="min-w-[80px] xl:w-full cursor-pointer rounded-lg border border-solid border-[#252839] bg-[#1C1F2E] py-1.5 px-3 text-center text-sm font-bold text-[#8B93B8] transition-all hover:border-[#8B5CF6] hover:text-white active:scale-95"
           type="button"
         >
           View
@@ -130,13 +136,14 @@ export const CoinflipRow = ({
 /** @type {import("react").FC<{value: string, min:string, max: string}>} */
 const ValueCell = ({ max, min, value }) => {
   return (
-    <div className="w-32 place-self-center text-center font-bold">
-      <p className="inline-flex items-center gap-2 text-[1.375rem] leading-normal text-white">
-        <WalletIcon className="w-5 text-[#8B5CF6]" />
+    <div className="flex-shrink-0 w-28 text-center">
+      <p className="inline-flex items-center gap-1.5 text-lg font-bold leading-tight text-white">
+        <WalletIcon className="w-4 text-[#8B5CF6]" />
         <span>{formatLargeNumber(value)}</span>
       </p>
-
-      <p className="text-sm leading-normal text-[#CCC]">{`${formatLargeNumber(min)} - ${formatLargeNumber(max)}`}</p>
+      <p className="text-xs font-medium leading-tight text-[#42496B] mt-0.5">
+        {formatLargeNumber(min)} – {formatLargeNumber(max)}
+      </p>
     </div>
   );
 };
@@ -148,32 +155,32 @@ const Player = ({ choice, imgUrl, status, userid }) => {
   return (
     <div
       className={cn(
-        "relative box-border h-14 w-14 flex-[0_0_auto] rounded-full border border-solid border-[#2F3347] bg-[#1A1D2B] transition-colors",
-        status === "winner" && "border-2 border-[#8B5CF6]",
-        status === "loser" && "opacity-60",
+        "relative box-border h-12 w-12 flex-shrink-0 rounded-full border-2 border-solid border-[#1e2035] bg-[#0f1220] transition-all",
+        status === "winner" && "border-[#8B5CF6] shadow-[0_0_12px_rgba(139,92,246,0.4)]",
+        status === "loser" && "opacity-40",
       )}
     >
       <button
-        className={`block h-full w-full overflow-hidden rounded-[inherit] border-none bg-transparent ${userid ? "cursor-pointer" : "cursor-help"}`}
+        className={`block h-full w-full overflow-hidden rounded-[inherit] border-none bg-transparent ${userid ? "cursor-pointer" : "cursor-default"}`}
         onClick={() => userid && setModalState(<Profile userId={userid} />)}
       >
         <img
           loading="lazy"
-          height={56}
-          width={56}
+          height={48}
+          width={48}
           alt=""
           src={imgUrl}
-          className="box-border block w-full object-contain"
+          className="box-border block w-full h-full object-contain"
         />
       </button>
 
+      {/* Coin badge */}
       <div
-        className="absolute right-0 top-0 box-border h-7 w-7 overflow-hidden rounded-full"
-        style={{ transform: "translate(25%, -25%)" }}
+        className="absolute -right-1 -top-1 box-border h-5 w-5 overflow-hidden rounded-full border border-solid border-[#0f1220]"
       >
         <img
           loading="lazy"
-          className="block w-full object-contain"
+          className="block w-full h-full object-contain"
           alt={choice}
           src={choice === "heads" ? Heads : Trails}
         />
@@ -183,9 +190,8 @@ const Player = ({ choice, imgUrl, status, userid }) => {
 };
 
 /**
- * This is a bit complicated, for "column" alignment in wide screens, this needs to be of a fixed width,
- * but in mobile screens, it is centered, so it can't be of fixed width.
- * @type {import("react").FC<{itemsA: unknown[], itemsB: unknown[]}>} */
+ * @type {import("react").FC<{itemsA: unknown[], itemsB: unknown[]}>}
+ */
 const ItemsCell = memo(({ itemsA, itemsB }) => {
   const max = 5;
   const totalCount = itemsA.length + itemsB.length;
@@ -193,16 +199,16 @@ const ItemsCell = memo(({ itemsA, itemsB }) => {
     .sort((a, b) => b.itemvalue - a.itemvalue)
     .slice(0, max);
 
-  const shiftPercent = 35.7;
-
   return (
-    <div className="flex justify-self-center xl:grid xl:grid-cols-5 xl:justify-self-start">
+    <div className="flex items-center">
       <TooltipProvider delayDuration={0}>
         {sorted.map((item, index) => (
           <Tooltip key={item._id}>
             <TooltipTrigger
-              style={{ "--shift": `translate(${index * shiftPercent * -1}%)` }}
-              className="relative box-border block h-14 w-14 flex-[0_0_auto] cursor-pointer overflow-hidden rounded-full border-2 border-solid border-[#2F3347] bg-[#1A1D2B] transition-colors hover:border-[#8B5CF6] xl:[transform:var(--shift)] max-xl:[&+*]:-ml-5"
+              className={cn(
+                "relative box-border block h-10 w-10 flex-shrink-0 cursor-pointer overflow-hidden rounded-full border-2 border-solid border-[#1e2035] bg-[#0f1220] transition-all hover:border-[#8B5CF6] hover:z-10",
+                index > 0 && "-ml-3"
+              )}
             >
               <img
                 src={item.itemimage}
@@ -213,17 +219,17 @@ const ItemsCell = memo(({ itemsA, itemsB }) => {
                 <div
                   style={{
                     backdropFilter: "blur(1px)",
-                    background: "rgba(23,25,37,0.8)",
+                    background: "rgba(15,18,32,0.85)",
                   }}
-                  className="pointer-events-none absolute left-0 top-0 z-[1] box-border grid h-full w-full select-none place-items-center text-white"
+                  className="pointer-events-none absolute left-0 top-0 z-[1] box-border grid h-full w-full select-none place-items-center text-[10px] font-bold text-white"
                 >
                   +{totalCount - max}
                 </div>
               )}
             </TooltipTrigger>
             {(index < max - 1 || (index === max - 1 && totalCount <= max)) && (
-              <TooltipContent className="rounded-[5px] border border-solid border-[#252839] bg-[#171925] px-3">
-                <p className="text-white">{item.itemname || "Unknown Item"}</p>
+              <TooltipContent className="rounded-lg border border-solid border-[#252839] bg-[#1C1F2E] px-3 py-1.5">
+                <p className="text-sm text-white">{item.itemname || "Unknown Item"}</p>
               </TooltipContent>
             )}
           </Tooltip>
@@ -239,11 +245,13 @@ const ItemsCell = memo(({ itemsA, itemsB }) => {
  * @param {"heads" | "tails"} [props.winner]
  */
 const CoinCountDown = ({ countdown, winner }) => {
-  const width = `xl:w-16 ${typeof countdown !== "number" && !winner ? "w-0" : "w-16"}`;
+  const show = typeof countdown === "number" || !!winner;
+
+  if (!show) return <div className="w-10 flex-shrink-0" />;
 
   return (
     <svg
-      className={`${width} justify-self-center`}
+      className="w-10 h-10 flex-shrink-0"
       viewBox="-50 -50 100 100"
       fill="none"
     >
@@ -251,7 +259,7 @@ const CoinCountDown = ({ countdown, winner }) => {
         <g>
           <circle
             r="49"
-            fill="#171925"
+            fill="#0f1220"
             strokeWidth="2"
             stroke="#8B5CF6"
             pathLength="100"
@@ -259,7 +267,6 @@ const CoinCountDown = ({ countdown, winner }) => {
             transform="rotate(-90)"
             className={CoinflipStyles.countdown}
           />
-
           <text
             style={{ fontFamily: "Poppins" }}
             className="text-2xl font-bold leading-none"

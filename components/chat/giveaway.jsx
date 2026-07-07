@@ -1,6 +1,4 @@
-// very undone would need a ui update too
-
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import GiveawayStyles from "./giveaway.module.css";
 import { useModal } from "../../utils/ModalContext.jsx";
@@ -27,6 +25,7 @@ export default function Giveaways() {
   const [giveaways, setGiveaways] = useState([]);
   const [currentGiveawayIndex, setCurrentGiveawayIndex] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [carouselApi, setCarouselApi] = useState(null);
   const socket = useContext(SocketContext);
   const { userData } = useContext(UserContext);
   const currentGiveawayIdRef = useRef();
@@ -34,6 +33,16 @@ export default function Giveaways() {
   useEffect(() => {
     currentGiveawayIdRef.current = giveaways[currentGiveawayIndex]?._id;
   }, [currentGiveawayIndex, giveaways]);
+
+  // Wire up embla's select event for accurate slide tracking
+  useEffect(() => {
+    if (!carouselApi) return;
+    const onSelect = () => {
+      setCurrentGiveawayIndex(carouselApi.selectedScrollSnap());
+    };
+    carouselApi.on("select", onSelect);
+    return () => carouselApi.off("select", onSelect);
+  }, [carouselApi]);
 
   const fetchGiveaways = async () => {
     try {
@@ -49,13 +58,13 @@ export default function Giveaways() {
     }
   };
 
-  const handleGiveaway = (newGiveaway) => {
+  const handleGiveaway = useCallback((newGiveaway) => {
     if (newGiveaway?._id) {
       setGiveaways((prev) => [...prev, newGiveaway]);
     }
-  };
+  }, []);
 
-  const handleGiveawayUpdate = (updatedGiveaway) => {
+  const handleGiveawayUpdate = useCallback((updatedGiveaway) => {
     setGiveaways((prev) =>
       prev.map((g) =>
         g._id === updatedGiveaway._id ? { ...g, ...updatedGiveaway } : g,
@@ -69,11 +78,11 @@ export default function Giveaways() {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
     }
-  };
+  }, []);
 
-  const handleGiveawayDone = (data) => {
+  const handleGiveawayDone = useCallback((data) => {
     data?.giveaways && setGiveaways(data.giveaways);
-  };
+  }, []);
 
   useEffect(() => {
     fetchGiveaways();
@@ -89,7 +98,7 @@ export default function Giveaways() {
         socket.off("GIVEAWAY_DONE", handleGiveawayDone);
       }
     };
-  }, [socket]);
+  }, [socket, handleGiveaway, handleGiveawayUpdate, handleGiveawayDone]);
 
   const joinGiveaway = async (giveawayId) => {
     if (!giveawayId) return toast.error("Select a giveaway!");
@@ -127,9 +136,7 @@ export default function Giveaways() {
       <Carousel
         opts={{ align: "center", loop: false, containScroll: "trimSnaps" }}
         className={GiveawayStyles.carousel}
-        onSlideChange={(embla) =>
-          setCurrentGiveawayIndex(embla.selectedScrollSnap())
-        }
+        setApi={setCarouselApi}
       >
         <CarouselContent className={GiveawayStyles.carouselContent}>
           {giveaways.map((giveaway) => (
@@ -138,25 +145,31 @@ export default function Giveaways() {
               className={GiveawayStyles.carouselItem}
             >
               <div className={GiveawayStyles.giveawayWrapper}>
+                {/* Header: creator + entries */}
                 <div className={GiveawayStyles.giveawayHeader}>
-                  <p
+                  <button
+                    type="button"
                     className={GiveawayStyles.starterusername}
                     onClick={() =>
                       setModalState(<Profile userId={giveaway.starterid} />)
                     }
+                    aria-label={`View profile of ${giveaway.starterusername}`}
                   >
                     {giveaway.starterusername}
-                  </p>
-                  <p className={GiveawayStyles.entries}>
+                  </button>
+                  <span className={GiveawayStyles.entries}>
                     {giveaway.entries} Entries
-                  </p>
+                  </span>
                 </div>
+
+                {/* Item display */}
                 {giveaway.item?.length > 0 && (
                   <div className={GiveawayStyles.itemWrapper}>
                     <div className={GiveawayStyles.itemImageWrapper}>
                       <img
                         src={giveaway.item[0].itemimage}
-                        alt={giveaway.item[0].itemname}
+                        alt=""
+                        aria-hidden="true"
                         className={GiveawayStyles.bluritem}
                       />
                       <img
@@ -174,37 +187,41 @@ export default function Giveaways() {
                           className={GiveawayStyles.bobuxImage}
                         />
                         <p className={GiveawayStyles.itemValue}>
-                          {giveaway.item[0].itemvalue}
+                          {typeof giveaway.item[0].itemvalue === "number"
+                            ? giveaway.item[0].itemvalue.toLocaleString()
+                            : giveaway.item[0].itemvalue}
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
+
+                {/* Countdown + Join */}
                 <Countdown
                   date={new Date(giveaway.enddate).getTime()}
                   renderer={({ hours, minutes, seconds, completed }) => (
                     <div className={GiveawayStyles.timerContainer}>
                       {completed ? (
-                        <p className={GiveawayStyles.timer}>
+                        <p className={giveaway.winner ? GiveawayStyles.winner : GiveawayStyles.timer}>
                           {giveaway.winner || "Rolling..."}
                         </p>
                       ) : (
                         <>
                           <p className={GiveawayStyles.timer}>
-                            {hours}h {minutes}m {seconds}s
+                            {String(hours).padStart(2, "0")}h{" "}
+                            {String(minutes).padStart(2, "0")}m{" "}
+                            {String(seconds).padStart(2, "0")}s
                           </p>
                           <button
+                            type="button"
                             className={`button ${GiveawayStyles.joinButton}`}
                             disabled={loading}
                             onClick={() => joinGiveaway(giveaway._id)}
+                            aria-label={`Join giveaway for ${giveaway.item?.[0]?.itemname ?? "item"}`}
                           >
                             {loading && (
-                              <div
-                                className={GiveawayStyles.loaderWrapperSmall}
-                              >
-                                <div
-                                  className={GiveawayStyles.loaderSmall}
-                                ></div>
+                              <div className={GiveawayStyles.loaderWrapperSmall}>
+                                <div className={GiveawayStyles.loaderSmall} />
                               </div>
                             )}
                             Join
@@ -220,9 +237,11 @@ export default function Giveaways() {
         </CarouselContent>
         <CarouselPrevious
           className={`${GiveawayStyles.navButton} ${GiveawayStyles.prevButton}`}
+          aria-label="Previous giveaway"
         />
         <CarouselNext
           className={`${GiveawayStyles.navButton} ${GiveawayStyles.nextButton}`}
+          aria-label="Next giveaway"
         />
       </Carousel>
     </div>

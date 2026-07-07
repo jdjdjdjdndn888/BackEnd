@@ -1,20 +1,13 @@
 .carouselContainer {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  background-color: rgb(15, 18, 29);
-  width: 104%;
-  border: 1px solid #181a28;
-  border-radius: 5px;
+  background: linear-gradient(135deg, #12141f 0%, #0f1220 100%);
+  width: 100%;
+  border-bottom: 1px solid #1e2035;
   position: relative;
-  padding: 0;
-  margin-left: -6px;
   overflow: hidden;
 }
 
 .carousel {
   width: 100%;
-  max-width: 500px;
 }
 
 .carouselContent {
@@ -30,67 +23,77 @@
   flex: 0 0 100%;
   width: 100%;
   scroll-snap-align: center;
-  padding: 12px 0;
+  padding: 14px 16px;
   box-sizing: border-box;
 }
 
 .giveawayWrapper {
-  border-radius: 5px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px;
   color: #fff;
-  justify-content: space-between;
   width: 100%;
   box-sizing: border-box;
   position: relative;
+  gap: 10px;
 }
 
 .giveawayHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  font-weight: bold;
   width: 100%;
 }
 
 .starterusername {
   cursor: pointer;
-  color: #1e90ff;
+  color: #8B5CF6;
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: color 0.15s;
+}
+.starterusername:hover {
+  color: #a78bfa;
 }
 
 .entries {
-  font-size: 10px;
-  color: #aaa;
+  font-size: 11px;
+  color: #6B7280;
+  font-weight: 600;
+  background: #1c1f2e;
+  border: 1px solid #252839;
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .itemWrapper {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 15px;
+  gap: 8px;
   width: 100%;
-  margin-top: 6px;
-  flex-grow: 1;
-  padding-left: 20px;
 }
 
 .itemImageWrapper {
   position: relative;
-  width: 70px;
-  height: 70px;
+  width: 76px;
+  height: 76px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .bluritem {
-  width: 110%;
-  height: 110%;
-  filter: blur(5px);
+  width: 130%;
+  height: 130%;
+  filter: blur(18px);
   position: absolute;
-  top: -5%;
-  left: -5%;
+  top: -15%;
+  left: -15%;
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .itemImage {
@@ -98,46 +101,53 @@
   height: 100%;
   position: relative;
   object-fit: contain;
+  z-index: 1;
+  filter: drop-shadow(0 4px 12px rgba(139, 92, 246, 0.3));
 }
 
 .itemDetails {
-  text-align: left;
-  flex: 1;
+  text-align: center;
+  width: 100%;
   overflow: hidden;
 }
 
 .itemDetails h3 {
-  margin: 0;
-  font-size: 16px;
-  margin-bottom: 5px;
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
+  color: #fff;
+  letter-spacing: 0.01em;
 }
 
 .itemValueWrapper {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
+  background: rgba(30, 160, 255, 0.12);
+  border: 1px solid rgba(30, 160, 255, 0.25);
+  border-radius: 999px;
+  padding: 2px 10px;
 }
 
 .bobuxImage {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 .itemValue {
-  font-weight: bold;
-  font-size: 14px;
-  color: white;
+  font-weight: 700;
+  font-size: 12px;
+  color: #60a5fa;
 }
 
 .timerContainer {
   width: 100%;
-  margin-top: 10px;
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 13px;
+  font-weight: 700;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -146,134 +156,74 @@
 }
 
 .timerContainer .timer {
-  font-size: 16px;
+  font-size: 13px;
+  color: #9ca3af;
+  letter-spacing: 0.03em;
 }
 
 .timerContainer .winner {
-  font-size: 16px;
-  color: #1e90ff;
+  font-size: 13px;
+  color: #60a5fa;
 }
 
 .joinButton {
-  height: 40px;
+  height: 38px;
   width: 100%;
-  max-width: 250px;
-  border-radius: 5px;
+  border-radius: 8px;
   font-size: 14px;
-  padding: 0 15px;
-  margin: 0 auto;
+  font-weight: 700;
+  padding: 0;
+  letter-spacing: 0.02em;
 }
 
 .navButton {
   position: absolute;
   top: 50%;
-  transform: translateY(-10%);
+  transform: translateY(-50%) scale(0.85);
   border: none;
-  color: rgb(255, 255, 255);
-  padding: 8px;
-  width: 30px;
-  height: 30px;
+  color: #6B7280;
+  background: #1c1f2e;
+  border: 1px solid #252839;
+  padding: 0;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
-  transform: scale(1.2);
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
+  transition: color 0.15s, background 0.15s;
+  z-index: 5;
 }
 
 .navButton:hover {
-  color: rgb(255, 255, 255);
-  opacity: 0.8;
+  color: #fff;
+  background: #252839;
 }
 
 .prevButton {
-  left: 10px;
+  left: 4px;
 }
 
 .nextButton {
-  right: 10px;
+  right: 4px;
 }
 
 .loaderWrapperSmall {
   display: inline-block;
   margin-right: 7px;
-  margin-left: -15px;
+  margin-left: -10px;
 }
 
 .loaderSmall {
-  border: 4px solid #1c1f30;
+  border: 3px solid #1c1f30;
   border-radius: 50%;
-  border-top: 4px solid #297bff;
-  width: 15px;
-  height: 15px;
+  border-top: 3px solid #8B5CF6;
+  width: 13px;
+  height: 13px;
   animation: spin 0.45s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 500px) {
-  .carouselContainer {
-    height: 280px;
-  }
-
-  .carouselItem {
-    padding: 10px;
-  }
-
-  .giveawayWrapper {
-    width: 95%;
-    min-height: 240px;
-  }
-
-  .itemImageWrapper {
-    width: 60px !important;
-    height: 60px !important;
-  }
-
-  .itemDetails h3 {
-    font-size: 14px;
-    max-width: 120px;
-  }
-
-  .timerContainer .timer,
-  .timerContainer .winner {
-    font-size: 14px;
-  }
-
-  .joinButton {
-    max-width: 220px;
-  }
-}
-
-@media (max-width: 400px) {
-  .giveawayWrapper {
-    padding: 8px;
-    min-height: 230px;
-  }
-
-  .itemImageWrapper {
-    width: 50px !important;
-    height: 50px !important;
-  }
-
-  .itemDetails h3 {
-    font-size: 13px;
-    max-width: 100px;
-  }
-
-  .timerContainer .timer,
-  .timerContainer .winner {
-    font-size: 13px;
-  }
-
-  .joinButton {
-    height: 36px;
-    font-size: 13px;
-    max-width: 200px;
-  }
+  to { transform: rotate(360deg); }
 }

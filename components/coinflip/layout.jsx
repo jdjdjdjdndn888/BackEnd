@@ -179,8 +179,8 @@ export default function Coinflip() {
         <StatCard title="Items" value={totalItems.toLocaleString()} />
       </div>
 
-      <div className="my-2.5 flex items-center gap-2.5">
-        <div className="mr-auto flex gap-2.5">
+      <div className="my-3 flex items-center gap-2.5">
+        <div className="mr-auto flex gap-2">
           <button
             onClick={() => {
               setModalState(null);
@@ -197,12 +197,12 @@ export default function Coinflip() {
                 );
               });
             }}
-            className="min-w-24 cursor-pointer rounded-lg border-none bg-[#8B5CF6] p-2.5 text-center text-base font-semibold text-white transition-colors hover:bg-[#7C3AED] active:bg-[#8B5CF6] disabled:cursor-not-allowed disabled:opacity-80"
+            className="min-w-[90px] cursor-pointer rounded-xl border-none bg-[#8B5CF6] px-4 py-2 text-center text-sm font-bold text-white tracking-wide transition-all hover:bg-[#7C3AED] active:scale-95 disabled:cursor-not-allowed disabled:opacity-80"
           >
             Create
           </button>
           <button
-            className="min-w-24 cursor-pointer rounded-lg border-none bg-[#2A2E44] p-2.5 text-center text-base font-semibold text-white transition-colors hover:opacity-80 active:opacity-100"
+            className="min-w-[90px] cursor-pointer rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-2 text-center text-sm font-bold text-[#8B93B8] tracking-wide transition-all hover:border-[#252839] hover:text-white active:scale-95"
             onClick={() => {
               setSelectedFlip(null);
               setModalState(userData ? <History /> : <LoginModal />);
@@ -268,17 +268,15 @@ export default function Coinflip() {
       </div>
 
       {coinflips.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#252839] py-24 text-center">
-          <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#8B5CF620] text-[#8B5CF6]">
-            <Coins className="w-7 h-7" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-[#1e2035] bg-[#0d0f1a] py-24 text-center">
+          <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#8B5CF615] border border-[#8B5CF630] text-[#8B5CF6]">
+            <Coins className="w-6 h-6" />
           </span>
-          <p className="text-lg font-semibold text-white">
-            No Active Bets Right Now
-          </p>
-          <p className="text-sm text-[#6B7280]">
-            Come Back Later Or Create One
-          </p>
-          <p className="text-xs font-medium text-[#42496B]">
+          <div>
+            <p className="text-base font-bold text-white">No Active Bets Right Now</p>
+            <p className="text-sm text-[#42496B] mt-1">Come back later or create one</p>
+          </div>
+          <p className="text-xs font-mono font-medium text-[#2a2e44]">
             {currentTime.toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -308,11 +306,11 @@ export default function Coinflip() {
 /** @type {import("react").FC<{value: import("react").ReactNode, title: string}>} */
 const StatCard = ({ title, value }) => {
   return (
-    <div className="rounded-md border border-solid border-[#252839] px-3 pb-3 pt-2 text-sm font-bold text-[#6B7280]">
-      <strong className="flex items-center gap-1 text-xl text-white">
+    <div className="rounded-xl border border-solid border-[#1e2035] bg-[#12141f] px-4 py-3">
+      <strong className="flex items-center gap-1.5 text-2xl font-bold text-white tracking-tight">
         {value}
       </strong>
-      <p>{title}</p>
+      <p className="mt-0.5 text-xs font-semibold uppercase tracking-widest text-[#42496B]">{title}</p>
     </div>
   );
 };
