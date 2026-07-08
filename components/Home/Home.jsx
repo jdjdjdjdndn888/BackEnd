@@ -192,38 +192,38 @@ export const Home = () => {
     <div style={{ backgroundColor: "#0c0c0c", color: "#fff", fontFamily: "'Inter', -apple-system, sans-serif", minHeight: "100vh" }}>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden w-full flex flex-col justify-center" style={{ minHeight: "80vh", backgroundColor: "#0c0c0c" }}>
+      <section className="relative overflow-hidden w-full flex flex-col justify-center" style={{ minHeight: "72vh", backgroundColor: "#0c0c0c" }}>
         <img src="/login-banner.png" alt="PS99Bet" className="hero-banner-img" />
         <div className="hero-gradient" />
         <div className="hero-content">
-          <div className="inline-flex items-center px-3 py-1 mb-6 rounded-full"
+          <div className="inline-flex items-center px-3 py-1 mb-5 rounded-full"
             style={{ border: "1px solid rgba(255,255,255,0.1)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", backgroundColor: "transparent" }}>
             Season 2 Active
           </div>
-          <h1 style={{ fontWeight: 800, fontSize: "clamp(52px,6vw,88px)", letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: 24 }}>
+          <h1 style={{ fontWeight: 800, fontSize: "clamp(36px,4.5vw,68px)", letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: 20 }}>
             <div style={{ color: "#ccc" }}>WIN BIG ON</div>
             <div style={{ color: "#fff" }}>PS99BET</div>
           </h1>
-          <p style={{ color: "#888", fontSize: 16, marginBottom: 40 }}>
+          <p style={{ color: "#888", fontSize: 14, marginBottom: 28 }}>
             Provably fair games for PS99 pets &amp; gems.
           </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
             <button
               onClick={() => navigate("/coinflip")}
-              style={{ padding: "12px 28px", borderRadius: 6, background: "#fff", color: "#0c0c0c", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer" }}
+              style={{ padding: "10px 22px", borderRadius: 6, background: "#fff", color: "#0c0c0c", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
               onMouseOver={(e) => e.currentTarget.style.background = "#e6e6e6"}
               onMouseOut={(e) => e.currentTarget.style.background = "#fff"}>
               Play Now →
             </button>
             <button
               onClick={() => document.getElementById("home-games")?.scrollIntoView({ behavior: "smooth" })}
-              style={{ padding: "12px 28px", borderRadius: 6, background: "transparent", color: "#fff", fontWeight: 500, fontSize: 15, border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer" }}
+              style={{ padding: "10px 22px", borderRadius: 6, background: "transparent", color: "#fff", fontWeight: 500, fontSize: 13, border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer" }}
               onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
               onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
               View Games
             </button>
           </div>
-          <div className="hero-stats" style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "#888" }}>
+          <div className="hero-stats" style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#888" }}>
             <span>{fmt(onlineCount)} Online</span>
             <span style={{ color: "#333" }}>·</span>
             <span>4.2M Gems Wagered</span>
@@ -258,8 +258,8 @@ export const Home = () => {
       </div>
 
       {/* ── GAMES GRID ── */}
-      <div id="home-games" style={{ maxWidth: 1152, margin: "0 auto", padding: "80px 24px 96px" }}>
-        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: 24, fontWeight: 600 }}>Games</div>
+      <div id="home-games" style={{ maxWidth: 1152, margin: "0 auto", padding: "56px 24px 72px" }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: 20, fontWeight: 600 }}>Games</div>
         <div className="home-game-grid">
           {GAMES.map((game) => (
             <div key={game.href} className="home-game-cell" onClick={() => navigate(game.href)}>
@@ -269,13 +269,13 @@ export const Home = () => {
                 className="home-game-banner"
                 style={{ width: "100%", height: 160, objectFit: "cover", objectPosition: "center top", display: "block" }}
               />
-              <div style={{ padding: "20px 24px 24px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <game.icon className="home-game-icon" style={{ width: 20, height: 20, color: "#888" }} />
-                  <span className="home-game-play" style={{ fontSize: 12, fontWeight: 500 }}>Play →</span>
+              <div style={{ padding: "14px 18px 18px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <game.icon className="home-game-icon" style={{ width: 18, height: 18, color: "#888" }} />
+                  <span className="home-game-play" style={{ fontSize: 11, fontWeight: 500 }}>Play →</span>
                 </div>
-                <div style={{ color: "#fff", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{game.name}</div>
-                <div style={{ color: "#888", fontSize: 12, lineHeight: 1.6 }}>{game.desc}</div>
+                <div style={{ color: "#fff", fontWeight: 600, fontSize: 13, marginBottom: 3 }}>{game.name}</div>
+                <div style={{ color: "#888", fontSize: 11, lineHeight: 1.5 }}>{game.desc}</div>
               </div>
             </div>
           ))}
@@ -293,9 +293,9 @@ export const Home = () => {
               { icon: DiamondIcon, value: "4.2M+",           label: "Gems Wagered"  },
             ].map(({ icon: Icon, value, label }, i) => (
               <div key={label} className="home-stat-cell" style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                <Icon style={{ width: 22, height: 22, color: "#555", marginBottom: 16 }} />
-                <div style={{ color: "#fff", fontSize: 28, fontWeight: 700, fontVariantNumeric: "tabular-nums", marginBottom: 4 }}>{value}</div>
-                <div style={{ color: "#888", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>{label}</div>
+                <Icon style={{ width: 18, height: 18, color: "#555", marginBottom: 12 }} />
+                <div style={{ color: "#fff", fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums", marginBottom: 3 }}>{value}</div>
+                <div style={{ color: "#888", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -303,19 +303,19 @@ export const Home = () => {
       </div>
 
       {/* ── HOW IT WORKS ── */}
-      <div style={{ maxWidth: 1152, margin: "0 auto", padding: "96px 24px" }}>
-        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: 48, fontWeight: 600, textAlign: "center" }}>How It Works</div>
+      <div style={{ maxWidth: 1152, margin: "0 auto", padding: "72px 24px" }}>
+        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: 36, fontWeight: 600, textAlign: "center" }}>How It Works</div>
         <div className="home-how-grid">
           {[
             { num: "01", icon: RobloxIcon, title: "Login with Roblox",         body: "Connect your account securely using OAuth. No passwords or personal information required."   },
             { num: "02", icon: WalletIcon, title: "Deposit your pets",          body: "Send your huge pets or gems to our verified secure bots. Balances update instantly."          },
             { num: "03", icon: ZapIcon,    title: "Play & withdraw instantly",  body: "Win provably fair games and withdraw your multiplied inventory whenever you want."             },
           ].map(({ num, icon: Icon, title, body }) => (
-            <div key={num} style={{ position: "relative", paddingTop: 24 }}>
-              <div style={{ position: "absolute", top: -24, left: -8, fontSize: 100, fontWeight: 700, lineHeight: 1, color: "#1a1a1a", userSelect: "none", zIndex: 0, letterSpacing: "-0.05em" }}>{num}</div>
-              <Icon style={{ width: 20, height: 20, color: "#555", marginBottom: 16, position: "relative", zIndex: 1 }} />
-              <div style={{ color: "#fff", fontSize: 15, fontWeight: 600, marginBottom: 8, position: "relative", zIndex: 1 }}>{title}</div>
-              <div style={{ color: "#888", fontSize: 13, lineHeight: 1.6, position: "relative", zIndex: 1 }}>{body}</div>
+            <div key={num} style={{ position: "relative", paddingTop: 20 }}>
+              <div style={{ position: "absolute", top: -20, left: -8, fontSize: 80, fontWeight: 700, lineHeight: 1, color: "#1a1a1a", userSelect: "none", zIndex: 0, letterSpacing: "-0.05em" }}>{num}</div>
+              <Icon style={{ width: 18, height: 18, color: "#555", marginBottom: 12, position: "relative", zIndex: 1 }} />
+              <div style={{ color: "#fff", fontSize: 13, fontWeight: 600, marginBottom: 6, position: "relative", zIndex: 1 }}>{title}</div>
+              <div style={{ color: "#888", fontSize: 12, lineHeight: 1.6, position: "relative", zIndex: 1 }}>{body}</div>
             </div>
           ))}
         </div>

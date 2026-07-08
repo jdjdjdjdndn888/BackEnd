@@ -46,6 +46,15 @@ html, body, #root {
   height: 100%;
 }
 
+/* ─── Hide scrollbars globally ─────────────────────────────────────────── */
+* {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE/Edge */
+}
+*::-webkit-scrollbar {
+  display: none;               /* Chrome/Safari/Opera */
+}
+
 /* ─── Global button classes ────────────────────────────────────────────── */
 .button {
   display: inline-flex;
