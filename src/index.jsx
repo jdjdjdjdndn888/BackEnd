@@ -28,9 +28,7 @@ import DicePage from "../components/dice/layout.jsx";
 import BlackjackPage from "../components/blackjack/layout.jsx";
 import MobileChat from "../components/chat/mobilechat.jsx";
 
-const BACKEND_URL = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL.replace(/\/api$/, "")
-  : "https://ps99bet-backend.onrender.com";
+const BACKEND_URL = import.meta.env.VITE_SOCKET_URL || "";
 
 const socket = io(BACKEND_URL, {
   path: "/socket.io",
