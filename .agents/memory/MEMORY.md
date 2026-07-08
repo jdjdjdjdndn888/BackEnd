@@ -1,3 +1,5 @@
 - [PS99 Bot Backend](ps99-bot-backend.md) — bot controller auth, userId coercion, game regex matching patterns for PS99 script endpoints
 - [GitHub Push Setup](github-push-setup.md) — no origin remote by default; must add with GITHUB_PAT; squashed history to clear old secret leaks
 - [Mongo withTransaction side effects](mongo-transaction-side-effects.md) — never put res.json/io.emit/manual commit inside session.withTransaction() callbacks
+- [Lua file edit pitfalls](lua-edit-pitfalls.md) — Edit tool mangles backslash regex literals; use Python script for those replacements; always verify Lua block nesting after edits
+- [Lookup endpoint auth](lookup-endpoint-auth.md) — all /users/lookup /user/lookup /trading/users/lookup /discord/lookup routes must use bothandler.real middleware; never expose balance or banned fields publicly
