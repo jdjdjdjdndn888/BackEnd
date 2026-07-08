@@ -700,7 +700,12 @@ exports.getleaderboard = asyncHandler(async (req, res) => {
 // Also reads the same fields from req.body for POST compatibility.
 exports.lookup = asyncHandler(async (req, res) => {
   const p = { ...req.query, ...(req.body || {}) };
-  const { userid, username, discordid, discordusername } = p;
+  // Accept both camelCase (userId, discordId) from Lua/bot scripts and
+  // snake_case/lowercase (userid, discordid) from web clients.
+  const userid        = p.userid        || p.userId;
+  const username      = p.username;
+  const discordid     = p.discordid     || p.discordId     || p.discord_id;
+  const discordusername = p.discordusername || p.discordUsername;
 
   let query = null;
 
@@ -708,26 +713,20 @@ exports.lookup = asyncHandler(async (req, res) => {
     const n = Number(userid);
     query = Number.isFinite(n) ? { userid: n } : null;
   } else if (username) {
-    query = { username: { $regex: new RegExp("^" + username.replace(/[.*+?^${}()|[\]\\]/g, "\\    const leaders = await users.find({}).sort({ wager: -1 }).limit(10);
-    res.status(200).json({ "message": "OK", "leaders": leaders })
-  }
-  catch (error) {
-    return res.status(500).json({ "message": "Internal Server Error"});
-  }
-})") + "$", "i") } };
+    // escape regex metacharacters
+    const esc1 = username.split("").map(function(c) {
+      return /[.*+?^${}()|[\]\\]/.test(c) ? "\\" + c : c;
+    }).join("");
+    query = { username: { $regex: "^" + esc1 + "$", $options: "i" } };
   } else if (discordid) {
     const n = Number(discordid);
     query = Number.isFinite(n) ? { discordid: n } : { discordid: discordid };
   } else if (discordusername) {
-    query = { discordusername: { $regex: new RegExp("^" + discordusername.replace(/[.*+?^${}()|[\]\\]/g, "\\    const leaders = await users.find({}).sort({ wager: -1 }).limit(10);
-    res.status(200).json({ "message": "OK", "leaders": leaders })
+    const esc2 = discordusername.split("").map(function(c) {
+      return /[.*+?^${}()|[\]\\]/.test(c) ? "\\" + c : c;
+    }).join("");
+    query = { discordusername: { $regex: "^" + esc2 + "$", $options: "i" } };
   }
-  catch (error) {
-    return res.status(500).json({ "message": "Internal Server Error"});
-  }
-})") + "$", "i") } };
-  }
-
   if (!query) {
     return res.status(400).json({ success: false, message: "Provide userid, username, discordid, or discordusername." });
   }

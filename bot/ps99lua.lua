@@ -45,47 +45,47 @@ print("[SPIN Trade Bot] initializing functions...")
 
 -- Gets the user's pets in their inventory
 local function getHugesTitanics(hugesTitanicsIds)
-	local hugesTitanics = {}
-	
-	for uuid, pet in next, saveModule.Get().Inventory.Pet do
-		if table.find(hugesTitanicsIds, pet.id) then
-			-- Use display name (e.g. "Huge Cat") so it matches withdrawal data from the API
-			local petName = speciesIdToName[pet.id] or tostring(pet.id)
-			table.insert(hugesTitanics, {
+    local hugesTitanics = {}
+
+    for uuid, pet in next, saveModule.Get().Inventory.Pet do
+        if table.find(hugesTitanicsIds, pet.id) then
+            -- Use display name (e.g. "Huge Cat") so it matches withdrawal data from the API
+            local petName = speciesIdToName[pet.id] or tostring(pet.id)
+            table.insert(hugesTitanics, {
                 ["uuid"]   = uuid,
                 ["id"]     = petName,
                 ["type"]   = (pet.pt == 1 and "Golden") or (pet.pt == 2 and "Rainbow") or "Normal",
                 ["shiny"]  = pet.sh or false
             })
-		end
-	end
-	
-	return hugesTitanics
+        end
+    end
+
+    return hugesTitanics
 end
 
 -- Gets the user's diamonds
 local function getDiamonds()
-	for currencyUid, currency in next, saveModule.Get().Inventory.Currency do
-		if currency.id == "Diamonds" then
-			return currency._am, currencyUid
-		end
-	end
-	
-	return 0
+    for currencyUid, currency in next, saveModule.Get().Inventory.Currency do
+        if currency.id == "Diamonds" then
+            return currency._am, currencyUid
+        end
+    end
+
+    return 0
 end
 
 -- Gets all new trade requests
 local function getTrades()
-	local trades          = {}
-	local functionTrades  = tradingCommands.GetAllRequests()
-	
-	for player, trade in next, functionTrades do
-		if trade[localPlayer] then
-			table.insert(trades, player)
-		end
-	end
-	
-	return trades
+    local trades          = {}
+    local functionTrades  = tradingCommands.GetAllRequests()
+
+    for player, trade in next, functionTrades do
+        if trade[localPlayer] then
+            table.insert(trades, player)
+        end
+    end
+
+    return trades
 end
 
 
@@ -100,7 +100,7 @@ local function strictgem() -- Gets Player Gems clean.
     local gemNumber = tonumber(cleanText)
     return gemNumber
   end
-  
+
   local function client_trade_gems() -- You/Bot gems.
     local gemText = localPlayer.PlayerGui.TradeWindow.Frame.ClientDiamonds.Diamonds.Input.PlaceholderText
     return gemText
@@ -114,23 +114,23 @@ local function strictgem() -- Gets Player Gems clean.
 
 -- Returns 0 if your not in a trade
 local function getTradeId()
-	return (tradingCommands.GetState() and tradingCommands.GetState()._id) or 044443
+    return (tradingCommands.GetState() and tradingCommands.GetState()._id) or 044443
 end
 -- Accept trade request
 local function acceptTradeRequest(player)
-	return tradingCommands.Request(player)
+    return tradingCommands.Request(player)
 end
 -- Reject trade request
 local function rejectTradeRequest(player)
-	return tradingCommands.Reject(player)
+    return tradingCommands.Reject(player)
 end
 -- Readys the actual trade
 local function readyTrade()
-	return tradingCommands.SetReady(true)
+    return tradingCommands.SetReady(true)
 end
 -- Declines the actual trade
 local function declineTrade()
-	return tradingCommands.Decline()
+    return tradingCommands.Decline()
 end
 
 local function confirmTrade()
@@ -172,7 +172,7 @@ end
 
 -- Adds pet to trade
 local function addPet(uuid)
-	return tradingCommands.SetItem("Pet", uuid, 1)
+    return tradingCommands.SetItem("Pet", uuid, 1)
 end
 
 local function addGems(amount)
@@ -227,13 +227,13 @@ local function sendWebhook(title, description, color, robloxName, robloxId, fiel
 end
 -- Gets name of pet through asset id
 local function getName(assetIds, assetId)
-	for index, petData in next, assetIds do
-		if table.find(petData.assetIds, assetId) then
-			return petData.name
-		end
-	end
-	
-	return "???"
+    for index, petData in next, assetIds do
+        if table.find(petData.assetIds, assetId) then
+            return petData.name
+        end
+    end
+
+    return "???"
 end
 
 
@@ -243,43 +243,43 @@ local function checkItems(assetIds, goldAssetIds, nameAssetIds)
     local itemTotal = 0
     local onlyHugesTitanics = true
     local unsupported = {}
-  
+
     print(supporteditems)
-  
+
     for index, item in next, tradingWindow.Frame.PlayerItems.Items:GetChildren() do
         if item.Name == "ItemSlot" then
             itemTotal = itemTotal + 1
-  
+
             if not table.find(assetIds, item.Icon.Image) then
                 onlyHugesTitanics = false
                 break
             end
-  
+
             local name = getName(nameAssetIds, item.Icon.Image)
-            
+
             local rarity = (item.Icon:FindFirstChild("RainbowGradient") and "Rainbow") or
                            (table.find(goldAssetIds, item.Icon.Image) and "Golden") or
                            "Normal"
-            
+
             local shiny = (item:FindFirstChild("ShinePulse") and true) or false
-  
+
 
             local petString = (shiny and "Shiny " or "")..
                               ((rarity == "Golden" and "Golden ") or (rarity == "Rainbow" and "Rainbow ") or "")..
                               name
             print(petString)
-  
+
             if not table.find(supporteditems, petString) then
               table.insert(unsupported, petString)
               print("UNSUPPORTED!")
           end
-            
+
             table.insert(items, petString)
-  
+
             print(name, rarity, shiny)
         end 
     end
-  
+
     if itemTotal == 0 then
         if client_trade_gems_2() > 0 then
             return false, items  
@@ -287,18 +287,18 @@ local function checkItems(assetIds, goldAssetIds, nameAssetIds)
             return true, "Please Deposit Pets or gems" 
         end
     end
-  
+
     if not onlyHugesTitanics then
         return true, "Please Deposit Only Huges / Titanics or gems" 
     end
-  
+
     if #unsupported >= 1 then
       return true, "remove from trade : " .. table.concat(unsupported, ",")
     end
-  
+
     return false, items
   end
-  
+
 
 --// Misc Scripts
 print("[bloxy Trade Bot] initializing misc features...")
@@ -320,84 +320,220 @@ local hugesTitanicsIds  = {}
 
 
 local function GetSupported()
-    local response = request({
-      Url = website .. "/items/all",
-      Method = "POST",
-      Body = httpService:JSONEncode({
-          ["game"] = "PS99"
-      }),
-      Headers = {
-          ["Content-Type"] = "application/json",
-          ["Authorization"] = auth
-      }
-    })
-  
-    if response.StatusCode == 200 then
-      local responseBody = httpService:JSONDecode(response.Body)
-      supporteditems = responseBody["items"]
-  
-      if supporteditems then
-        print("ITEMS LOADDED")
-      else
-        print("no items.")
-        warn("[TradeBot] GetSupported: no items loaded")
-      end
-    else
-      warn("[TradeBot] GetSupported: request failed")
+    local ok, response = pcall(function()
+        return request({
+            Url = website .. "/items/all",
+            Method = "POST",
+            Body = httpService:JSONEncode({ ["game"] = "PS99" }),
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["Authorization"] = auth
+            }
+        })
+    end)
+
+    if not ok then
+        warn("[TradeBot] GetSupported: request threw error: " .. tostring(response))
+        return
     end
-  end
+
+    if response.StatusCode == 200 then
+        local decodeOk, responseBody = pcall(function()
+            return httpService:JSONDecode(response.Body)
+        end)
+        if decodeOk and responseBody then
+            supporteditems = responseBody["items"]
+            if supporteditems then
+                print("[TradeBot] Items loaded: " .. tostring(#supporteditems))
+            else
+                warn("[TradeBot] GetSupported: no items in response")
+            end
+        else
+            warn("[TradeBot] GetSupported: JSON decode failed")
+        end
+    else
+        warn("[TradeBot] GetSupported: request failed, status " .. tostring(response.StatusCode))
+    end
+end
 
 -- Huges
 local hugeOk, hugeErr = pcall(function()
-	for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Huge:GetChildren() do
-		local ok, petData = pcall(require, pet)
-		if not ok then continue end
-		table.insert(assetIds, petData.thumbnail)
-		table.insert(assetIds, petData.goldenThumbnail)
-		table.insert(goldAssetids, petData.goldenThumbnail)
-		table.insert(nameAssetIds, {
-			["name"]      = petData.name,
-			["assetIds"]  = {
-				petData.thumbnail,
-				petData.goldenThumbnail
-			}
-		})
-		table.insert(hugesTitanicsIds, petData._id)
-		speciesIdToName[petData._id] = petData.name
-	end
+    for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Huge:GetChildren() do
+        local ok, petData = pcall(require, pet)
+        if not ok then continue end
+        table.insert(assetIds, petData.thumbnail)
+        table.insert(assetIds, petData.goldenThumbnail)
+        table.insert(goldAssetids, petData.goldenThumbnail)
+        table.insert(nameAssetIds, {
+            ["name"]      = petData.name,
+            ["assetIds"]  = {
+                petData.thumbnail,
+                petData.goldenThumbnail
+            }
+        })
+        table.insert(hugesTitanicsIds, petData._id)
+        speciesIdToName[petData._id] = petData.name
+    end
 end)
 if not hugeOk then warn("[TradeBot] Huge loop error: " .. tostring(hugeErr)) end
 
 -- Titanics
 local titanicOk, titanicErr = pcall(function()
-	for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Titanic:GetChildren() do
-		local ok, petData = pcall(require, pet)
-		if not ok then continue end
-		table.insert(assetIds, petData.thumbnail)
-		table.insert(assetIds, petData.goldenThumbnail)
-		table.insert(goldAssetids, petData.goldenThumbnail)
-		table.insert(nameAssetIds, {
-			["name"]      = petData.name,
-			["assetIds"]  = {
-				petData.thumbnail,
-				petData.goldenThumbnail
-			}
-		})
-		table.insert(hugesTitanicsIds, petData._id)
-		speciesIdToName[petData._id] = petData.name
-	end
+    for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Titanic:GetChildren() do
+        local ok, petData = pcall(require, pet)
+        if not ok then continue end
+        table.insert(assetIds, petData.thumbnail)
+        table.insert(assetIds, petData.goldenThumbnail)
+        table.insert(goldAssetids, petData.goldenThumbnail)
+        table.insert(nameAssetIds, {
+            ["name"]      = petData.name,
+            ["assetIds"]  = {
+                petData.thumbnail,
+                petData.goldenThumbnail
+            }
+        })
+        table.insert(hugesTitanicsIds, petData._id)
+        speciesIdToName[petData._id] = petData.name
+    end
 end)
 if not titanicOk then warn("[TradeBot] Titanic loop error: " .. tostring(titanicErr)) end
 
 --// Trade ID setting
 spawn(function()
-	while task.wait(0.5) do
-		tradeId = getTradeId()
-	end
+    while task.wait(0.5) do
+        tradeId = getTradeId()
+    end
 end)
 
 --// Connection Functions
 print("[bloxy Trade Bot] initializing connects...")
+
+
+local function ps99FormatNumber(n)
+    n = tonumber(n) or 0
+    return tostring(math.floor(n))
+end
+
+local function ps99ItemsText(items)
+    if items and #items > 0 then
+        return table.concat(items, "\n")
+    end
+    return "None"
+end
+
+local function ps99Now()
+    return os.date("%d/%m/%Y %I:%M:%S %p")
+end
+
+local function ps99BotStockFields()
+    local botGems = 0
+    local botPets = 0
+
+    pcall(function()
+        botGems = getDiamonds()
+    end)
+
+    pcall(function()
+        botPets = #getHugesTitanics(hugesTitanicsIds)
+    end)
+
+    return botGems, botPets
+end
+
+local function ps99MentionOrName(robloxName, robloxId)
+    -- Optional linked Discord lookup. If backend route does not exist, this safely falls back to Roblox username.
+    local ok, res = pcall(function()
+        return request({
+            Url = website .. "/trading/users/lookup",
+            Method = "POST",
+            Body = httpService:JSONEncode({
+                ["userId"] = robloxId,
+                ["authKey"] = auth,
+                ["game"] = "PS99"
+            }),
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["Authorization"] = auth
+            }
+        })
+    end)
+
+    if ok and res and res.StatusCode and res.StatusCode >= 200 and res.StatusCode < 300 and res.Body then
+        local decodeOk, body = pcall(function()
+            return httpService:JSONDecode(res.Body)
+        end)
+        if decodeOk and type(body) == "table" then
+            local discordId = body.discordId or body.discordid or body.discord_id
+            if body.user and not discordId then
+                discordId = body.user.discordId or body.user.discordid or body.user.discord_id
+            end
+            if discordId and tostring(discordId) ~= "" and tostring(discordId) ~= "0" then
+                return "<@" .. tostring(discordId) .. ">"
+            end
+        end
+    end
+
+    return tostring(robloxName or robloxId or "Unknown")
+end
+
+local function ps99SendConfirmWebhook(kind, robloxName, robloxId, items, gemAmount, totalValue, color)
+    local botGems, botPets = ps99BotStockFields()
+    local title = "✅ Deposit Confirmed"
+    local action = "Deposited"
+
+    if kind == "withdraw" then
+        title = "✅ Withdraw Confirmed"
+        action = "Withdrawn"
+    end
+
+    sendWebhook(
+        title,
+        "**User:** " .. ps99MentionOrName(robloxName, robloxId) .. "\n" ..
+        "**Roblox Username:** " .. tostring(robloxName or "Unknown") .. "\n" ..
+        "**Roblox ID:** `" .. tostring(robloxId or "Unknown") .. "`\n" ..
+        "**Bot Name:** `" .. tostring(localPlayer and localPlayer.Name or "Unknown Bot") .. "`\n" ..
+        "**Date/Time:** " .. ps99Now(),
+        color,
+        robloxName,
+        robloxId,
+        {
+            { name = action .. " Items", value = ps99ItemsText(items), inline = false },
+            { name = "Gems " .. action, value = ps99FormatNumber(gemAmount or 0), inline = true },
+            { name = "Total Value", value = tostring(totalValue or "?"), inline = true },
+            { name = "Stock Left - Gems", value = ps99FormatNumber(botGems), inline = true },
+            { name = "Stock Left - Huges/Titanics", value = tostring(botPets), inline = true }
+        }
+    )
+end
+
+local function ps99ParseGems(value)
+    if type(value) == "number" then
+        return math.floor(value)
+    end
+    if type(value) == "string" then
+        local text = string.lower(tostring(value))
+        text = string.gsub(text, ",", "")
+        text = string.gsub(text, "%s+", "")
+        local mult = 1
+        local last = string.sub(text, -1)
+        if last == "k" then
+            mult = 1000
+            text = string.sub(text, 1, -2)
+        elseif last == "m" then
+            mult = 1000000
+            text = string.sub(text, 1, -2)
+        elseif last == "b" then
+            mult = 1000000000
+            text = string.sub(text, 1, -2)
+        end
+        local n = tonumber(text)
+        if n then
+            return math.floor(n * mult)
+        end
+    end
+    return 0
+end
+
 
 -- Detect accept / declining of the trade
 local activeMessageConnection = nil  -- track connection to prevent duplicates
@@ -409,21 +545,21 @@ local function connectMessage(localId, method, tradingItemsFunc)
         pcall(function() activeMessageConnection:Disconnect() end)
         activeMessageConnection = nil
     end
-	local messageConnection
+    local messageConnection
     local tradeHandled = false  -- prevent double-fire
-	messageConnection = tradingMessage:GetPropertyChangedSignal("Enabled"):Connect(function()
+    messageConnection = tradingMessage:GetPropertyChangedSignal("Enabled"):Connect(function()
         if tradeHandled then return end
         print(tradingMessage.Enabled)
-		if tradingMessage.Enabled then
-			local text = tradingMessage.Frame.Contents.Desc.Text
-			
-			if text == "✅ Trade successfully completed!" then -- Accepted the trade
+        if tradingMessage.Enabled then
+            local text = tradingMessage.Frame.Contents.Desc.Text
+
+            if text == "✅ Trade successfully completed!" or string.find(string.lower(tostring(text)), "trade success") or string.find(string.lower(tostring(text)), "friend this player") then -- Accepted the trade
                 tradeHandled = true
                 dismissTradeDialog()
                 pcall(function() tradingWindow.Visible = false end)
                 print(method)
                 if method == "deposit" then
-                    
+
                     print("DEPOSIT")
                     print(tradeUser)
                     for i,v in next, tradingItems do
@@ -431,12 +567,15 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     end
 
                     local depositRes = request({
-                        Url = website .. "/deposit/deposit",
+                        Url = website .. "/trading/items/confirm-ps99-deposit",
                         Method = "POST",
                         Body = httpService:JSONEncode({
                           ["userId"] = tradeUser,
+                          ["items"] = tradingItems,
                           ["pets"] = tradingItems,
+                          ["diamonds"] = gems,
                           ["gems"] = gems,
+                          ["authKey"] = auth,
                           ["game"] = "PS99"
                         }),
                         Headers = {
@@ -446,28 +585,16 @@ local function connectMessage(localId, method, tradingItemsFunc)
                       })
 
                     -- Webhook: deposit completed
-                    local itemsList = #tradingItems > 0 and table.concat(tradingItems, "\n") or "Gems only"
-                    local totalVal  = "?"
+                    local totalVal = "?"
                     pcall(function()
                         local parsed = httpService:JSONDecode(depositRes.Body)
                         if parsed and parsed.totalValue then
-                            totalVal = "R" .. tostring(parsed.totalValue)
+                            totalVal = tostring(parsed.totalValue)
                         end
                     end)
                     local userName = tostring(tradeUser)
                     pcall(function() userName = players:GetNameFromUserIdAsync(tradeUser) end)
-                    sendWebhook(
-                        "📦 Deposit Completed",
-                        nil,
-                        0x2ecc71,
-                        userName,
-                        tradeUser,
-                        {
-                            { name = "Items",       value = itemsList,        inline = false },
-                            { name = "Gems",        value = tostring(gems),   inline = true  },
-                            { name = "Total Value", value = totalVal,         inline = true  }
-                        }
-                    )
+                    ps99SendConfirmWebhook("deposit", userName, tradeUser, tradingItems, gems, totalVal, 0x2ecc71)
 
                     messageConnection:Disconnect()
                     print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 5)
@@ -486,12 +613,16 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     print("trading items: ", tradingItems)
 
                     request({
-                        Url = website .. "/withdraw/withdrawed",
+                        Url = website .. "/trading/items/confirm-withdraw",
                         Method = "POST",
                         Body = httpService:JSONEncode({
                           ["userId"] = tradeUser,
+                          ["items"] = tradingItems,
                           ["pets"] = tradingItems,
-                          ["gems"] = gems
+                          ["diamonds"] = gems,
+                          ["gems"] = gems,
+                          ["authKey"] = auth,
+                          ["game"] = "PS99"
                         }),
                         Headers = {
                           ["Content-Type"] = "application/json",
@@ -500,37 +631,26 @@ local function connectMessage(localId, method, tradingItemsFunc)
                       })
 
                     -- Webhook: withdraw confirmed
-                    local wItemsList = #tradingItems > 0 and table.concat(tradingItems, "\n") or "Gems only"
-                    local wUserName  = tostring(tradeUser)
+                    local wUserName = tostring(tradeUser)
                     pcall(function() wUserName = players:GetNameFromUserIdAsync(tradeUser) end)
-                    sendWebhook(
-                        "✅ Withdraw Confirmed",
-                        nil,
-                        0x9b59b6,
-                        wUserName,
-                        tradeUser,
-                        {
-                            { name = "Items", value = wItemsList,      inline = false },
-                            { name = "Gems",  value = tostring(gems),  inline = true  }
-                        }
-                    )
+                    ps99SendConfirmWebhook("withdraw", wUserName, tradeUser, tradingItems, gems, "?", 0x9b59b6)
                 end
 
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 4)
-				messageConnection:Disconnect()
-				task.wait(1)
-				tradingMessage.Enabled = false
+                messageConnection:Disconnect()
+                task.wait(1)
+                tradingMessage.Enabled = false
                 pcall(function() tradingWindow.Visible = false end)
                 goNext = true
-			elseif (string.find(text, " cancelled the trade!")) then -- Declined the trade
+            elseif (string.find(text, " cancelled the trade!")) then -- Declined the trade
                 dismissTradeDialog()
                 local cUserName = tostring(tradeUser)
                 pcall(function() cUserName = players:GetNameFromUserIdAsync(tradeUser) end)
                 sendWebhook("❌ Trade Cancelled", "The user cancelled the trade.", 0xe74c3c, cUserName, tradeUser)
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 3)
-				messageConnection:Disconnect()
-				task.wait(1)
-				tradingMessage.Enabled = false
+                messageConnection:Disconnect()
+                task.wait(1)
+                tradingMessage.Enabled = false
                 pcall(function() tradingWindow.Visible = false end)
                 goNext = true
             elseif string.find(text, "left the game") then
@@ -540,20 +660,20 @@ local function connectMessage(localId, method, tradingItemsFunc)
                 sendWebhook("❌ Trade Cancelled", "The user left the game.", 0xe74c3c, lUserName, tradeUser)
                 print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 2)
                 messageConnection:Disconnect()
-				task.wait(1)
-				tradingMessage.Enabled = false
+                task.wait(1)
+                tradingMessage.Enabled = false
                 pcall(function() tradingWindow.Visible = false end)
                 goNext = true
-			end
-		else
+            end
+        else
             print("MESSAGE DISCONNECTION", localId, tradeId, tradeUser, 1)
             messageConnection:Disconnect()
             task.wait(1)
             tradingMessage.Enabled = false
             pcall(function() tradingWindow.Visible = false end)
             goNext = true
-		end
-	end)
+        end
+    end)
     activeMessageConnection = messageConnection
 end
 -- Detect when user accepts, make various checks, and accepts the trade
@@ -618,34 +738,52 @@ end
 print("[spinn Trade Bot] initializing main script...")
 
 spawn(function()
-	while task.wait(0.1) do
-		local incomingTrades = getTrades()
-		
-		if #incomingTrades > 0 and goNext then
-			local trade        = incomingTrades[1]
-			local username     = trade.Name
+    while task.wait(0.1) do
+        local incomingTrades = getTrades()
+
+        if #incomingTrades > 0 and goNext then
+            local trade        = incomingTrades[1]
+            local username     = trade.Name
             tradeUser          = players:GetUserIdFromNameAsync(username)
             print(username, tradeUser)
 
-            local res = request({
-                Url = website .. "/withdraw/method",
-                Method = "POST",
-                Body = httpService:JSONEncode({
-                    ["userId"] = tradeUser,
-                    ["game"] = "PS99"
-                }),
-                Headers = {
-                    ["Content-Type"] = "application/json",
-                    ["Authorization"] = auth
-                }
-            }).Body
-            local response = httpService:JSONDecode(res)
-            print(response)
-			
-            if response["method"] == "USERNOTFOUND" then
+            local reqOk, rawBody = pcall(function()
+                return request({
+                    Url = website .. "/trading/items/check-pending",
+                    Method = "POST",
+                    Body = httpService:JSONEncode({
+                        ["userId"] = tostring(tradeUser),
+                        ["authKey"] = auth,
+                        ["game"] = "PS99"
+                    }),
+                    Headers = {
+                        ["Content-Type"] = "application/json",
+                        ["Authorization"] = auth
+                    }
+                }).Body
+            end)
+
+            if not reqOk then
+                warn("[TradeBot] check-pending request failed: " .. tostring(rawBody))
+                goNext = true
+                -- skip this cycle; try again next iteration
+            end
+
+            if not reqOk then
+                -- already handled above
+            elseif true then
+
+            local decodeOk, response = pcall(function()
+                return httpService:JSONDecode(rawBody)
+            end)
+            if not decodeOk or not response then
+                warn("[TradeBot] check-pending JSON decode failed")
+                goNext = true
+            elseif response["method"] == "USERNOTFOUND" or response["method"] == "USER_NOT_FOUND" then
+                print(response)
                 pcall(function()
-					rejectTradeRequest(trade)
-				end)
+                    rejectTradeRequest(trade)
+                end)
             else
                 local accepted = acceptTradeRequest(trade)
 
@@ -674,7 +812,7 @@ spawn(function()
                     local usedPetsNamesTemp = {}
                     tradingItems        = {}
                     gems = 0
-                
+
                     -- Webhook: trade started (withdraw)
                     sendWebhook(
                         "🔄 Trade Started — Withdraw",
@@ -692,7 +830,7 @@ spawn(function()
                             goNext = true
                         end
                     end)
-                
+
                     local function countPets(tbl, id, type, shiny)
                         local c = 0
                         for i,v in next, tbl do
@@ -702,7 +840,7 @@ spawn(function()
                         end
                         return c
                     end
-                
+
                     for i, v in pairs(withdrawData) do
                         local newname = v
                         local data = {
@@ -711,12 +849,12 @@ spawn(function()
                             ["type"] = "Normal",
                             ["shiny"] = false
                         }
-                
+
                         if string.find(newname, "Shiny") then
                             newname = string.gsub(newname, "Shiny ", "")
                             data["shiny"] = true
                         end
-                
+
                         if string.find(newname, "Golden") then
                             newname = string.gsub(newname, "Golden ", "")
                             data["type"] = "Golden"
@@ -724,17 +862,17 @@ spawn(function()
                             newname = string.gsub(newname, "Rainbow ", "")
                             data["type"] = "Rainbow"
                         end
-                
+
                         data["game_name"] = newname
                         data["id"] = newname
-                
+
                         table.insert(newWithdrawData, data)
                     end
-                
+
                     for index, pet in next, newWithdrawData do
                         usedPetsNames[(tostring(pet.shiny) .. pet.type .. pet.id)] = countPets(newWithdrawData, pet.id, pet.type, pet.shiny)
                     end
-                
+
                     for index, pet in next, newWithdrawData do
                         for index, petData in next, petInventory do
                             if not table.find(usedPets, petData.uuid) and (pet.id == petData.id) and (pet.shiny == petData.shiny) and (pet.type == petData.type) and not (usedPetsNames[(tostring(pet.shiny) .. pet.type .. pet.id)] == usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)]) then
@@ -743,36 +881,51 @@ spawn(function()
                                 elseif usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] ~= usedPetsNames[(tostring(pet.shiny) .. pet.type .. pet.id)] then
                                     usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] = usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] + 1
                                 end
-                                
+
                                 table.insert(usedPets, petData.uuid)
-                
+
                                 local petstring = (petData.shiny and "Shiny " or "")..((petData.type == "Golden" and "Golden ") or (petData.type == "Rainbow" and "Rainbow ") or "")..petData.id
                                 table.insert(tradingItems, petstring)
-                
+
                                 addPet(petData.uuid)
                                 task.wait(0.2)
                                 break
                             end
                         end
                     end
-                
+
                     -- Wait for all addPet() calls to commit to the server
                     task.wait(1.5)
                     print("GEMS", response["gems"])
-                    if response["gems"] >= 1 then
-                        gems = response["gems"]
-                        addGems(response["gems"])
+                    local responseGems = ps99ParseGems(response["gems"] or response["diamonds"] or 0)
+                    local gemsAdded = true
+                    if responseGems >= 1 then
+                        gems = responseGems
+                        gemsAdded = addGems(responseGems)
+                        if gemsAdded then
+                            print("[TradeBot] withdraw gems added:", responseGems)
+                        else
+                            print("[TradeBot] ERROR withdraw gems failed to add:", responseGems)
+                            sendWebhook("Withdraw Gems Failed", "Gems failed to add to the trade, backend confirm blocked.", 0xe74c3c, username, tradeUser, {
+                                { name = "Gems", value = ps99FormatNumber(responseGems), inline = true }
+                            })
+                        end
                         task.wait(0.5)
                     end
-                
-                    if #tradingItems == 0 and response["gems"] == 0 then
+
+                    if responseGems >= 1 and not gemsAdded then
+                        print("[TradeBot] gems failed to add for withdraw — declining")
+                        if tradeId == localId then
+                            declineTrade()
+                        end
+                    elseif #tradingItems == 0 and responseGems == 0 then
                         print("[TradeBot] no stock for withdraw — declining")
                         if tradeId == localId then
                             declineTrade()
                         end
-                    elseif #tradingItems ~= #withdrawData then
+                    elseif #tradingItems ~= #withdrawData and not (responseGems >= 1 and #withdrawData == 0) then
                         local missingPets = {}
-                    
+
                         for _, withdrawPet in ipairs(withdrawData) do
                             local found = false
                             for _, tradingPet in ipairs(tradingItems) do
@@ -785,11 +938,11 @@ spawn(function()
                                 table.insert(missingPets, withdrawPet)
                             end
                         end
-                        
+
                         if #missingPets > 0 then
                             print("Missing pets: " .. table.concat(missingPets, ", "))
                         end
-                
+
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
                         goNext = false
@@ -801,7 +954,7 @@ spawn(function()
                                 task.wait(2)
                             end
                         end)
-                    elseif #tradingItems == #withdrawData then
+                    elseif #tradingItems == #withdrawData or (responseGems >= 1 and #withdrawData == 0) then
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
                         goNext = false
@@ -840,8 +993,9 @@ spawn(function()
                     goNext = false
                 end
             end
-		end
-	end
+        end
+        end -- closes: if not reqOk / elseif true
+    end
 end)
 
 spawn(function()
@@ -851,5 +1005,26 @@ spawn(function()
 
 
 
+
+spawn(function()
+    while task.wait(300) do
+        pcall(function()
+            local botGems, botPets = ps99BotStockFields()
+            sendWebhook(
+                "Bot Stock Snapshot",
+                "**Bot Name:** `" .. tostring(localPlayer and localPlayer.Name or "Unknown Bot") .. "`\n" ..
+                "**Date/Time:** " .. ps99Now(),
+                0x5865F2,
+                localPlayer and localPlayer.Name or nil,
+                localPlayer and localPlayer.UserId or nil,
+                {
+                    { name = "Gems", value = ps99FormatNumber(botGems), inline = true },
+                    { name = "Huges/Titanics", value = tostring(botPets), inline = true }
+                }
+            )
+        end)
+    end
+end)
+
 print("[bloxyspinny Trade Bot] script loaded in " .. tostring(tick() - startTick) .. "s")
-GetSupported()
+pcall(GetSupported)
