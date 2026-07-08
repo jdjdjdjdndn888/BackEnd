@@ -1,136 +1,116 @@
-import { Timer, TrendingUp } from "lucide-react";
+import { Timer, Plus } from "lucide-react";
 
 const rbx = (userId: number) =>
   `https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=150&height=150&format=png`;
 
-const RbxAvatar = ({ userId, size = 30, color }: { userId: number; size?: number; color: string }) => (
-  <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: `2px solid ${color}`, flexShrink: 0 }}>
-    <img src={rbx(userId)} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-  </div>
-);
-
 const PLAYERS = [
-  { name: "DragonSlayer99", userId: 156,      color: "#e74c3c", items: "14 items", pct: "33.6%" },
-  { name: "HugeCatKing",    userId: 4178,     color: "#3498db", items: "9 items",  pct: "26.0%" },
-  { name: "TitanicCorgi",   userId: 261,      color: "#2ecc71", items: "6 items",  pct: "16.8%" },
-  { name: "PS99Master",     userId: 2470023,  color: "#f39c12", items: "4 items",  pct: "11.9%" },
-  { name: "GemHunter",      userId: 55549240, color: "#9b59b6", items: "3 items",  pct: "7.6%"  },
-  { name: "LuckyPet007",    userId: 1,        color: "#1abc9c", items: "2 items",  pct: "4.1%"  },
+  { name: "DragonSlayer99", userId: 156,      color: "#e85d4a", items: 14, pct: 33.6 },
+  { name: "HugeCatKing",    userId: 4178,     color: "#4a9eff", items: 9,  pct: 26.0 },
+  { name: "TitanicCorgi",   userId: 261,      color: "#34c77b", items: 6,  pct: 16.8 },
+  { name: "PS99Master",     userId: 2470023,  color: "#f5a623", items: 4,  pct: 11.9 },
+  { name: "GemHunter",      userId: 55549240, color: "#b57bee", items: 3,  pct:  7.6 },
+  { name: "LuckyPet007",    userId: 1,        color: "#4ecdc4", items: 2,  pct:  4.1 },
 ];
 
-const TOTAL_ITEMS = "38 items";
-const COUNTDOWN = "0:18";
+const TOTAL_ITEMS = PLAYERS.reduce((s, p) => s + p.items, 0);
 
 export function Jackpot() {
   return (
-    <div style={{ minHeight: "100vh", background: "#0c0c0c", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#0c0c0c", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" }}>
 
-      {/* ── Header ── */}
-      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 11, letterSpacing: "0.15em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Jackpot</span>
-          <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" }} />
-          <span style={{ fontSize: 13, color: "#888" }}>Round #1,247</span>
+      {/* ══════════════════════════════════════════
+          TOP HERO — pot + countdown
+      ══════════════════════════════════════════ */}
+      <div style={{ padding: "36px 32px 28px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+
+        {/* Left: label + round */}
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "#555", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Jackpot</div>
+          <div style={{ fontSize: 13, color: "#444" }}>Round #1,247</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#111", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "7px 14px" }}>
-          <Timer size={13} color="#888" />
-          <span style={{ fontSize: 13, color: "#fff", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>Draws in {COUNTDOWN}</span>
+
+        {/* Center: big pot */}
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", marginBottom: 8 }}>Current Pot</div>
+          <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>
+            {TOTAL_ITEMS}
+          </div>
+          <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>items across 6 players</div>
+        </div>
+
+        {/* Right: countdown */}
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", marginBottom: 8 }}>Draws In</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+            <Timer size={16} color="#888" />
+            <span style={{ fontSize: 32, fontWeight: 800, fontVariantNumeric: "tabular-nums", fontFamily: "monospace" }}>0:18</span>
+          </div>
         </div>
       </div>
 
-      {/* ── Two-column layout ── */}
-      <div style={{ display: "flex", minHeight: "calc(100vh - 65px)" }}>
-
-        {/* LEFT — Wheel + Bet */}
-        <div style={{ flex: "0 0 58%", padding: "40px 24px 32px", display: "flex", flexDirection: "column", alignItems: "center", borderRight: "1px solid rgba(255,255,255,0.07)" }}>
-
-          {/* Wheel */}
-          <div style={{ position: "relative", width: 260, height: 260, marginBottom: 32 }}>
-            <div style={{
-              position: "absolute", inset: 0, borderRadius: "50%",
-              background: `conic-gradient(
-                ${PLAYERS[0].color}55 0% 33.6%,
-                ${PLAYERS[1].color}55 33.6% 59.6%,
-                ${PLAYERS[2].color}55 59.6% 76.4%,
-                ${PLAYERS[3].color}55 76.4% 88.3%,
-                ${PLAYERS[4].color}55 88.3% 95.9%,
-                ${PLAYERS[5].color}55 95.9% 100%
-              )`,
-              border: "5px solid rgba(255,255,255,0.06)"
-            }} />
-            <div style={{
-              position: "absolute", inset: 22, borderRadius: "50%",
-              background: "#0c0c0c", border: "1px solid rgba(255,255,255,0.08)",
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center"
-            }}>
-              <div style={{ fontSize: 10, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", marginBottom: 6 }}>Total Pot</div>
-              <div style={{ fontSize: 34, fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{TOTAL_ITEMS}</div>
+      {/* ══════════════════════════════════════════
+          PROBABILITY BAR — horizontal colour split
+      ══════════════════════════════════════════ */}
+      <div style={{ padding: "0 32px" }}>
+        {/* Bar */}
+        <div style={{ display: "flex", height: 6, overflow: "hidden", borderRadius: "0 0 3px 3px" }}>
+          {PLAYERS.map((p) => (
+            <div key={p.name} style={{ flex: p.pct, background: p.color, transition: "flex 0.4s ease" }} />
+          ))}
+        </div>
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 16, paddingTop: 10, paddingBottom: 20, flexWrap: "wrap" }}>
+          {PLAYERS.map((p) => (
+            <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: "#666" }}>{p.name.split(/(?=[A-Z])/)[0]}</span>
+              <span style={{ fontSize: 11, color: p.color, fontWeight: 700 }}>{p.pct}%</span>
             </div>
-            {/* Arrow */}
-            <div style={{ position: "absolute", top: -4, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "14px solid #fff" }} />
-          </div>
-
-          {/* Bet button */}
-          <button style={{ width: "100%", maxWidth: 320, height: 52, background: "#fff", color: "#000", border: "none", borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>
-            Place a Bet
-          </button>
-          <div style={{ marginTop: 10, fontSize: 12, color: "#444" }}>
-            Min 1 item · No value cap
-          </div>
-
-          {/* Quick stats */}
-          <div style={{ marginTop: 32, display: "flex", gap: 32, width: "100%", maxWidth: 320 }}>
-            {[["Players", "6"], ["Items", "38"], ["Rounds", "1,247"]].map(([label, val], i) => (
-              <>
-                {i > 0 && <div key={`d${i}`} style={{ width: 1, background: "rgba(255,255,255,0.07)" }} />}
-                <div key={label} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 11, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{val}</div>
-                </div>
-              </>
-            ))}
-          </div>
-        </div>
-
-        {/* RIGHT — Entries */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "20px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Entries (6)</span>
-            <TrendingUp size={13} color="#555" />
-          </div>
-
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            {PLAYERS.map((p, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "12px 20px",
-                borderLeft: `3px solid ${p.color}`,
-                borderBottom: "1px solid rgba(255,255,255,0.05)",
-                background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <RbxAvatar userId={p.userId} color={p.color} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: "#888" }}>{p.items}</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: p.color, fontVariantNumeric: "tabular-nums" }}>{p.pct}</div>
-                  <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: p.pct, background: p.color, borderRadius: 2 }} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 12, color: "#444" }}>Your Win Chance</span>
-            <span style={{ fontSize: 12, color: "#444" }}>— Login to bet</span>
-          </div>
+          ))}
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════
+          ENTRIES GRID
+      ══════════════════════════════════════════ */}
+      <div style={{ flex: 1, padding: "0 32px 24px" }}>
+        <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600, marginBottom: 14 }}>Entries</div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          {PLAYERS.map((p, i) => (
+            <div key={i} style={{ background: "#111", padding: "18px 16px", borderLeft: `3px solid ${p.color}`, display: "flex", alignItems: "center", gap: 12 }}>
+              {/* Avatar */}
+              <div style={{ width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: `2px solid ${p.color}`, flexShrink: 0 }}>
+                <img src={rbx(p.userId)} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{p.items} items</div>
+              </div>
+
+              {/* Win % badge */}
+              <div style={{ flexShrink: 0, textAlign: "right" }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: p.color, fontVariantNumeric: "tabular-nums" }}>{p.pct}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════
+          BET CTA — sticky bottom strip
+      ══════════════════════════════════════════ */}
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "16px 32px", display: "flex", alignItems: "center", gap: 16 }}>
+        <button style={{ flex: 1, height: 48, background: "#fff", color: "#000", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", letterSpacing: "0.01em", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Plus size={16} />
+          Place a Bet
+        </button>
+        <div style={{ fontSize: 12, color: "#444", flexShrink: 0 }}>Min 1 item · No cap</div>
+        <div style={{ fontSize: 12, color: "#444", flexShrink: 0 }}>Your chance: —</div>
+      </div>
+
     </div>
   );
 }
