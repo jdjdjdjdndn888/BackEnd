@@ -100,14 +100,29 @@
   transition: color 0.15s ease;
 }
 
-/* ── Hero responsive ── */
+/* ── Hero — mobile ── */
 
 @media (max-width: 767px) {
+  /* Show banner as a faded bottom element on mobile */
   .hero-banner-img {
-    display: none;
+    display: block;
+    position: absolute;
+    bottom: 0;
+    right: -10%;
+    height: 55%;
+    width: auto;
+    object-fit: contain;
+    object-position: bottom right;
+    z-index: 0;
+    opacity: 0.25;
+    pointer-events: none;
   }
   .hero-gradient {
-    display: none;
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 10%, #0c0c0c 75%);
+    z-index: 1;
   }
   .hero-content {
     padding: 32px 20px 36px;
@@ -116,28 +131,51 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+    position: relative;
+    z-index: 10;
   }
   .hero-stats {
     justify-content: center;
   }
 
-  /* Stack games 1 column on mobile */
+  /* 2 columns on mobile for games */
   .home-game-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   /* Smaller game banners on mobile */
   .home-game-banner {
-    height: 110px !important;
+    height: 90px !important;
   }
 
-  /* Stack stats 2 columns on mobile */
+  /* Tighter game card text on mobile */
+  .home-game-cell div {
+    padding: 8px 10px 12px !important;
+  }
+
+  /* Stats: 2 columns on mobile */
   .home-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
   .home-stat-cell {
-    padding: 20px 16px;
+    padding: 16px 12px;
+  }
+
+  /* Shrink stat icons on mobile */
+  .home-stat-cell svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Shrink stat values/labels on mobile */
+  .home-stat-cell > div:nth-child(2) {
+    font-size: 18px !important;
+  }
+
+  .home-stat-cell > div:nth-child(3) {
+    font-size: 9px !important;
   }
 
   .home-stat-cell:nth-child(2) {
@@ -148,10 +186,22 @@
     border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
   }
 
-  /* Stack how-it-works 1 column on mobile */
+  /* How it works: 1 column, tighter */
   .home-how-grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 28px;
+  }
+
+  /* Shrink how-it-works icons on mobile */
+  .home-how-grid svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Games section padding on mobile */
+  #home-games {
+    padding: 32px 16px 48px !important;
   }
 
   /* Hide footer dots on mobile */
@@ -160,8 +210,9 @@
   }
 }
 
+/* ── Tablet ── */
+
 @media (min-width: 768px) and (max-width: 1023px) {
-  /* 2 columns for games on tablet */
   .home-game-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -171,6 +222,8 @@
     gap: 36px;
   }
 }
+
+/* ── Desktop ── */
 
 @media (min-width: 768px) {
   .hero-banner-img {

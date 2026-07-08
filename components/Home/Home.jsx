@@ -267,15 +267,12 @@ export const Home = () => {
                 src={game.banner}
                 alt={game.name}
                 className="home-game-banner"
-                style={{ width: "100%", height: 160, objectFit: "cover", objectPosition: "center top", display: "block" }}
+                style={{ width: "100%", height: 140, objectFit: "cover", objectPosition: "center top", display: "block" }}
               />
-              <div style={{ padding: "14px 18px 18px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <game.icon className="home-game-icon" style={{ width: 18, height: 18, color: "#888" }} />
-                  <span className="home-game-play" style={{ fontSize: 11, fontWeight: 500 }}>Play →</span>
-                </div>
+              <div style={{ padding: "12px 16px 16px" }}>
                 <div style={{ color: "#fff", fontWeight: 600, fontSize: 13, marginBottom: 3 }}>{game.name}</div>
-                <div style={{ color: "#888", fontSize: 11, lineHeight: 1.5 }}>{game.desc}</div>
+                <div style={{ color: "#666", fontSize: 11, lineHeight: 1.5, marginBottom: 10 }}>{game.desc}</div>
+                <span className="home-game-play" style={{ fontSize: 11, fontWeight: 500 }}>Play →</span>
               </div>
             </div>
           ))}
