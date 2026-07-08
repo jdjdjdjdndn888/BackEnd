@@ -235,14 +235,14 @@ export const Home = () => {
 
       {/* ── LIVE BETS TICKER ── */}
       <div style={{ width: "100%", display: "flex", alignItems: "center", overflow: "hidden", height: 56, backgroundColor: "#0c0c0c", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ display: "flex", alignItems: "center", padding: "0 32px", height: "100%", flexShrink: 0, backgroundColor: "#0c0c0c", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ display: "flex", alignItems: "center", padding: "0 20px", height: "100%", flexShrink: 0, backgroundColor: "#0c0c0c", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
           <div className="home-dot-pulse" style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#fff", marginRight: 10 }} />
-          <span style={{ fontSize: 13, letterSpacing: "0.1em", color: "#888", fontWeight: 600, textTransform: "uppercase" }}>Live Bets</span>
+          <span style={{ fontSize: 12, letterSpacing: "0.1em", color: "#888", fontWeight: 600, textTransform: "uppercase" }}>Live Bets</span>
         </div>
         <div style={{ flex: 1, overflow: "hidden", height: "100%", display: "flex", alignItems: "center" }}>
           <div className="home-ticker-track">
             {TICKER_ITEMS.concat(TICKER_ITEMS).map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", fontSize: 15, color: "#888", padding: "0 32px", flexShrink: 0, height: "100%", whiteSpace: "nowrap" }}>
+              <div key={i} className="home-ticker-item" style={{ display: "flex", alignItems: "center", fontSize: 13, color: "#888", padding: "0 24px", flexShrink: 0, height: "100%", whiteSpace: "nowrap" }}>
                 <span style={{ fontWeight: 500 }}>{item.user}</span>
                 <span style={{ margin: "0 14px", color: "#333" }}>·</span>
                 <span>{item.game}</span>
@@ -269,7 +269,7 @@ export const Home = () => {
                 className="home-game-banner"
                 style={{ width: "100%", height: 140, objectFit: "cover", objectPosition: "center top", display: "block" }}
               />
-              <div style={{ padding: "12px 16px 16px" }}>
+              <div className="home-game-card-body">
                 <div style={{ color: "#fff", fontWeight: 600, fontSize: 13, marginBottom: 3 }}>{game.name}</div>
                 <div style={{ color: "#666", fontSize: 11, lineHeight: 1.5, marginBottom: 10 }}>{game.desc}</div>
                 <span className="home-game-play" style={{ fontSize: 11, fontWeight: 500 }}>Play →</span>
@@ -281,7 +281,7 @@ export const Home = () => {
 
       {/* ── STATS ROW ── */}
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ maxWidth: 1152, margin: "0 auto", padding: "0 24px" }}>
+        <div className="home-stats-wrapper" style={{ maxWidth: 1152, margin: "0 auto", padding: "0 24px" }}>
           <div className="home-stats-grid">
             {[
               { icon: UsersIcon,   value: fmt(onlineCount), label: "Online Now"    },
@@ -300,7 +300,7 @@ export const Home = () => {
       </div>
 
       {/* ── HOW IT WORKS ── */}
-      <div style={{ maxWidth: 1152, margin: "0 auto", padding: "72px 24px" }}>
+      <div className="home-how-section" style={{ maxWidth: 1152, margin: "0 auto", padding: "72px 24px" }}>
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: 36, fontWeight: 600, textAlign: "center" }}>How It Works</div>
         <div className="home-how-grid">
           {[
@@ -319,7 +319,7 @@ export const Home = () => {
       </div>
 
       {/* ── FOOTER ── */}
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "32px 48px" }}>
+      <footer className="home-footer-outer" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "32px 24px" }}>
         <div className="home-footer-inner">
           <a href="https://discord.gg/ps99bet" target="_blank" rel="noreferrer" className="home-footer-link"
             onMouseOver={(e) => e.currentTarget.style.color = "#fff"} onMouseOut={(e) => e.currentTarget.style.color = "#444"}>
