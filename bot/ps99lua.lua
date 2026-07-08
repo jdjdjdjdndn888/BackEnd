@@ -566,23 +566,29 @@ local function connectMessage(localId, method, tradingItemsFunc)
                         print(i,v)
                     end
 
-                    local depositRes = request({
-                        Url = website .. "/trading/items/confirm-ps99-deposit",
-                        Method = "POST",
-                        Body = httpService:JSONEncode({
-                          ["userId"] = tradeUser,
-                          ["items"] = tradingItems,
-                          ["pets"] = tradingItems,
-                          ["diamonds"] = gems,
-                          ["gems"] = gems,
-                          ["authKey"] = auth,
-                          ["game"] = "PS99"
-                        }),
-                        Headers = {
-                          ["Content-Type"] = "application/json",
-                          ["Authorization"] = auth
-                        }
-                      })
+                    local depositOk, depositRes = pcall(function()
+                        return request({
+                            Url = website .. "/trading/items/confirm-ps99-deposit",
+                            Method = "POST",
+                            Body = httpService:JSONEncode({
+                                ["userId"] = tradeUser,
+                                ["items"] = tradingItems,
+                                ["pets"] = tradingItems,
+                                ["diamonds"] = gems,
+                                ["gems"] = gems,
+                                ["authKey"] = auth,
+                                ["game"] = "PS99"
+                            }),
+                            Headers = {
+                                ["Content-Type"] = "application/json",
+                                ["Authorization"] = auth
+                            }
+                        })
+                    end)
+                    if not depositOk then
+                        warn("[TradeBot] confirm-deposit request failed: " .. tostring(depositRes))
+                        depositRes = { Body = "{}" }
+                    end
 
                     -- Webhook: deposit completed
                     local totalVal = "?"
@@ -612,23 +618,25 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     end
                     print("trading items: ", tradingItems)
 
-                    request({
-                        Url = website .. "/trading/items/confirm-withdraw",
-                        Method = "POST",
-                        Body = httpService:JSONEncode({
-                          ["userId"] = tradeUser,
-                          ["items"] = tradingItems,
-                          ["pets"] = tradingItems,
-                          ["diamonds"] = gems,
-                          ["gems"] = gems,
-                          ["authKey"] = auth,
-                          ["game"] = "PS99"
-                        }),
-                        Headers = {
-                          ["Content-Type"] = "application/json",
-                          ["Authorization"] = auth
-                        }
-                      })
+                    pcall(function()
+                        request({
+                            Url = website .. "/trading/items/confirm-withdraw",
+                            Method = "POST",
+                            Body = httpService:JSONEncode({
+                                ["userId"] = tradeUser,
+                                ["items"] = tradingItems,
+                                ["pets"] = tradingItems,
+                                ["diamonds"] = gems,
+                                ["gems"] = gems,
+                                ["authKey"] = auth,
+                                ["game"] = "PS99"
+                            }),
+                            Headers = {
+                                ["Content-Type"] = "application/json",
+                                ["Authorization"] = auth
+                            }
+                        })
+                    end)
 
                     -- Webhook: withdraw confirmed
                     local wUserName = tostring(tradeUser)
@@ -766,12 +774,7 @@ spawn(function()
             if not reqOk then
                 warn("[TradeBot] check-pending request failed: " .. tostring(rawBody))
                 goNext = true
-                -- skip this cycle; try again next iteration
-            end
-
-            if not reqOk then
-                -- already handled above
-            elseif true then
+            else
 
             local decodeOk, response = pcall(function()
                 return httpService:JSONDecode(rawBody)
@@ -994,7 +997,7 @@ spawn(function()
                 end
             end
         end
-        end -- closes: if not reqOk / elseif true
+        end
     end
 end)
 
