@@ -1,0 +1,190 @@
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.home-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker 40s linear infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.home-dot-pulse {
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Games Grid ── */
+
+.home-game-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background-color: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.home-game-cell {
+  background-color: #111111;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.home-game-cell:hover {
+  background-color: #161616;
+}
+
+.home-game-cell:hover .home-game-play {
+  color: #ffffff;
+}
+
+.home-game-cell:hover .home-game-banner {
+  opacity: 1;
+}
+
+.home-game-play {
+  color: #888888;
+  transition: color 0.2s ease;
+}
+
+.home-game-banner {
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+/* ── Stats Grid ── */
+
+.home-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.home-stat-cell {
+  display: flex;
+  flex-direction: column;
+  padding: 40px 24px;
+}
+
+/* ── How It Works ── */
+
+.home-how-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 64px;
+}
+
+/* ── Footer ── */
+
+.home-footer-inner {
+  max-width: 1152px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  font-size: 13px;
+  color: #444;
+}
+
+.home-footer-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #444;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+/* ── Hero responsive ── */
+
+@media (max-width: 767px) {
+  .hero-banner-img {
+    display: none;
+  }
+  .hero-gradient {
+    display: none;
+  }
+  .hero-content {
+    padding: 48px 24px 48px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .hero-stats {
+    justify-content: center;
+  }
+
+  /* Stack games 1 column on mobile */
+  .home-game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stack stats 2 columns on mobile */
+  .home-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .home-stat-cell:nth-child(2) {
+    border-right: none !important;
+  }
+
+  .home-stat-cell:nth-child(3) {
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+
+  /* Stack how-it-works 1 column on mobile */
+  .home-how-grid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+
+  /* Hide footer dots on mobile */
+  .home-footer-dot {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* 2 columns for games on tablet */
+  .home-game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .home-how-grid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-banner-img {
+    display: block;
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 55%;
+    object-fit: cover;
+    object-position: center top;
+    z-index: 0;
+  }
+  .hero-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, #0c0c0c 35%, transparent 65%);
+    z-index: 1;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 10;
+    padding: 80px 0 80px 80px;
+    max-width: 560px;
+  }
+}

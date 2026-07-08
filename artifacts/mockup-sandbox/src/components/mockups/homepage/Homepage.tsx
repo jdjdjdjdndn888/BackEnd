@@ -244,23 +244,23 @@ export default function Homepage() {
       </section>
 
       {/* Live Bets Ticker */}
-      <div className="w-full flex items-center overflow-hidden" style={{ height: '40px', backgroundColor: '#0c0c0c', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center px-6 h-full shrink-0 z-10" style={{ backgroundColor: '#0c0c0c', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="w-1.5 h-1.5 bg-white rounded-full animate-dot-pulse mr-3" />
-          <span className="text-[11px] tracking-[0.1em] text-[#888] font-semibold uppercase">LIVE BETS</span>
+      <div className="w-full flex items-center overflow-hidden" style={{ height: '56px', backgroundColor: '#0c0c0c', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center px-8 h-full shrink-0 z-10" style={{ backgroundColor: '#0c0c0c', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="w-2 h-2 bg-white rounded-full animate-dot-pulse mr-3" />
+          <span className="text-[13px] tracking-[0.1em] text-[#888] font-semibold uppercase">Live Bets</span>
         </div>
         <div className="flex-1 overflow-hidden h-full flex items-center relative">
           <div className="animate-ticker h-full items-center whitespace-nowrap">
             {tickerItems.concat(tickerItems).map((item, i) => (
-              <div key={i} className="flex items-center text-[13px] text-[#888] px-6 shrink-0 h-full">
-                <span>{item.user}</span>
-                <span className="mx-3 text-[#444]">·</span>
+              <div key={i} className="flex items-center text-[15px] text-[#888] px-8 shrink-0 h-full">
+                <span className="font-medium">{item.user}</span>
+                <span className="mx-4 text-[#333]">·</span>
                 <span>{item.game}</span>
-                <span className="mx-3 text-[#444]">·</span>
-                <span className="text-white">{item.item}</span>
-                <span className="mx-3 text-[#444]">·</span>
-                <span className="text-white tabular-nums">{item.amount}</span>
-                <span className="ml-12 text-[rgba(255,255,255,0.06)]">|</span>
+                <span className="mx-4 text-[#333]">·</span>
+                <span className="text-white font-medium">{item.item}</span>
+                <span className="mx-4 text-[#333]">·</span>
+                <span className="text-white font-semibold tabular-nums">{item.amount}</span>
+                <span className="ml-14 text-[rgba(255,255,255,0.05)]">|</span>
               </div>
             ))}
           </div>
