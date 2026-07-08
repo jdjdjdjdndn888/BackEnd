@@ -49,14 +49,15 @@ router.post("/users/tip", accountController.verifyToken, accountController.tip);
 router.get("/users/leaderboard", accountController.getleaderboard);
 
 // ── User lookup endpoints (bot scripts + trading system) ──────────────────────
-router.get("/users/lookup",          accountController.lookup);
-router.post("/users/lookup",         accountController.lookup);
-router.get("/user/lookup",           accountController.lookup);
-router.post("/user/lookup",          accountController.lookup);
-router.get("/trading/users/lookup",  accountController.lookup);
-router.post("/trading/users/lookup", accountController.lookup);
-router.get("/discord/lookup",        accountController.lookup);
-router.post("/discord/lookup",       accountController.lookup);
+// Protected: requires bot API key (Authorization header = jwt_secret)
+router.get("/users/lookup",          bothandler.real, accountController.lookup);
+router.post("/users/lookup",         bothandler.real, accountController.lookup);
+router.get("/user/lookup",           bothandler.real, accountController.lookup);
+router.post("/user/lookup",          bothandler.real, accountController.lookup);
+router.get("/trading/users/lookup",  bothandler.real, accountController.lookup);
+router.post("/trading/users/lookup", bothandler.real, accountController.lookup);
+router.get("/discord/lookup",        bothandler.real, accountController.lookup);
+router.post("/discord/lookup",       bothandler.real, accountController.lookup);
 
 router.post("/items/all", bothandler.GetSupported);
 router.get("/items/all", bothandler.GetSupported);

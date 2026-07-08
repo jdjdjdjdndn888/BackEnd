@@ -746,13 +746,11 @@ exports.lookup = asyncHandler(async (req, res) => {
         rank:            user.rank,
         level:           user.level,
         xp:              user.xp,
-        balance:         user.balance,
         wager:           user.wager,
         won:             user.won,
         lost:            user.lost,
         discordid:       user.discordid       ?? null,
         discordusername: user.discordusername ?? null,
-        banned:          user.banned,
       },
     });
   } catch (err) {
