@@ -1,53 +1,50 @@
 import { Search, ChevronDown, Plus, ArrowLeftRight } from "lucide-react";
 
+const rbx = (userId: number) =>
+  `https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=150&height=150&format=png`;
+
+const RbxAvatar = ({ userId, size = 26, color }: { userId: number; size?: number; color: string }) => (
+  <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${color}`, flexShrink: 0 }}>
+    <img src={rbx(userId)} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+  </div>
+);
+
 const LISTINGS = [
   {
-    owner: "DragonSlayer99",
-    ownerColor: "#e74c3c",
-    listed: "3h ago",
+    owner: "DragonSlayer99", userId: 156,      ownerColor: "#e74c3c", listed: "3h ago",
     offering: [
       { name: "Huge Cat",      value: "3,200" },
       { name: "Titanic Corgi", value: "800"   },
     ],
-    lookingFor: "Any Titanic pet or 4,500+ gem equivalent",
-    total: "4,000",
-    status: null,
+    lookingFor: "Any Titanic pet or 4,500+ value equivalent",
+    totalItems: 2, status: null,
   },
   {
-    owner: "PS99Master",
-    ownerColor: "#3498db",
-    listed: "6h ago",
+    owner: "PS99Master",     userId: 4178,     ownerColor: "#3498db", listed: "6h ago",
     offering: [
       { name: "Huge Dragon",   value: "2,100" },
       { name: "Massive Eagle", value: "950"   },
       { name: "Golden Panda",  value: "450"   },
     ],
     lookingFor: "Huge Cat or better",
-    total: "3,500",
-    status: "pending",
+    totalItems: 3, status: "pending",
   },
   {
-    owner: "GemHunter",
-    ownerColor: "#2ecc71",
-    listed: "1d ago",
+    owner: "GemHunter",      userId: 261,      ownerColor: "#2ecc71", listed: "1d ago",
     offering: [
-      { name: "Titanic Dog",   value: "12,000" },
+      { name: "Titanic Dog", value: "12,000" },
     ],
-    lookingFor: "Best offer — DM me",
-    total: "12,000",
-    status: null,
+    lookingFor: "Best offer — DM me on Discord",
+    totalItems: 1, status: null,
   },
   {
-    owner: "LuckyPet007",
-    ownerColor: "#f39c12",
-    listed: "2d ago",
+    owner: "LuckyPet007",    userId: 55549240, ownerColor: "#f39c12", listed: "2d ago",
     offering: [
-      { name: "Huge Bunny",    value: "1,400" },
-      { name: "Massive Fox",   value: "600"   },
+      { name: "Huge Bunny", value: "1,400" },
+      { name: "Massive Fox", value: "600"  },
     ],
-    lookingFor: "Any huge pet + gems",
-    total: "2,000",
-    status: null,
+    lookingFor: "Any huge pet + items",
+    totalItems: 2, status: null,
   },
 ];
 
@@ -59,16 +56,13 @@ export function Trades() {
       <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
           <span style={{ fontSize: 11, letterSpacing: "0.15em", color: "#555", textTransform: "uppercase", fontWeight: 600, marginRight: 20 }}>Trades</span>
-          {/* Tabs */}
           {["Browse", "My Trades"].map((tab, i) => (
             <button key={tab} style={{
               fontSize: 13, fontWeight: i === 0 ? 600 : 400,
               color: i === 0 ? "#fff" : "#555",
               background: "transparent", border: "none",
               borderBottom: i === 0 ? "2px solid #fff" : "2px solid transparent",
-              padding: "4px 16px 14px",
-              cursor: "pointer",
-              marginBottom: -21,
+              padding: "4px 16px 14px", cursor: "pointer", marginBottom: -21,
             }}>{tab}</button>
           ))}
         </div>
@@ -97,16 +91,14 @@ export function Trades() {
           {LISTINGS.map((l, i) => (
             <div key={i} style={{ background: "#111", padding: "18px 18px 16px", position: "relative" }}>
 
-              {/* Status badge */}
+              {/* Pending badge */}
               {l.status === "pending" && (
                 <div style={{ position: "absolute", top: 14, right: 14, fontSize: 10, padding: "2px 8px", background: "rgba(250,204,21,0.1)", color: "#facc15", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, border: "1px solid rgba(250,204,21,0.2)" }}>Pending</div>
               )}
 
               {/* Owner row */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 26, height: 26, borderRadius: "50%", background: l.ownerColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                  {l.owner[0]}
-                </div>
+                <RbxAvatar userId={l.userId} color={l.ownerColor} />
                 <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{l.owner}</span>
                 <span style={{ fontSize: 12, color: "#444", marginLeft: "auto" }}>Listed {l.listed}</span>
               </div>
@@ -134,11 +126,10 @@ export function Trades() {
               {/* Divider */}
               <div style={{ height: 1, background: "rgba(255,255,255,0.06)", marginBottom: 14 }} />
 
-              {/* Footer row */}
+              {/* Footer */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <span style={{ fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>≈ {l.total}</span>
-                  <span style={{ fontSize: 12, color: "#555", marginLeft: 5 }}>gems</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{l.totalItems} item{l.totalItems !== 1 ? "s" : ""}</span>
                 </div>
                 <button style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, padding: "7px 14px", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 6, background: "transparent", color: "#fff", cursor: "pointer" }}>
                   <ArrowLeftRight size={12} />
@@ -150,7 +141,6 @@ export function Trades() {
           ))}
         </div>
 
-        {/* Count hint */}
         <div style={{ textAlign: "center", fontSize: 12, color: "#333", marginTop: 16 }}>
           Showing 4 of 47 listings
         </div>

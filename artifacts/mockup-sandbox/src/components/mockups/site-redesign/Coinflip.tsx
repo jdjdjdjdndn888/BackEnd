@@ -1,11 +1,21 @@
 import { Plus, ChevronDown, Clock, RotateCcw } from "lucide-react";
 
+// Roblox headshot URL helper
+const rbx = (userId: number) =>
+  `https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=150&height=150&format=png`;
+
+const RbxAvatar = ({ userId, size = 36, color }: { userId: number; size?: number; color: string }) => (
+  <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: `2px solid ${color}`, flexShrink: 0 }}>
+    <img src={rbx(userId)} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+  </div>
+);
+
 const rooms = [
-  { id: 1, player: { name: "DragonSlayer99", color: "#e74c3c", value: "4,200" }, age: "2m ago", total: "4,200", items: 12 },
-  { id: 2, player: { name: "HugeCatKing", color: "#3498db", value: "1,850" }, age: "5m ago", total: "1,850", items: 6 },
-  { id: 3, player: { name: "PS99Master", color: "#2ecc71", value: "12,500" }, age: "1m ago", total: "12,500", items: 31 },
-  { id: 4, player: { name: "GemHunter", color: "#f39c12", value: "750" }, age: "8m ago", total: "750", items: 4 },
-  { id: 5, player: { name: "TitanicCorgi", color: "#9b59b6", value: "6,000" }, age: "12m ago", total: "6,000", items: 18 },
+  { id: 1, player: { name: "DragonSlayer99", userId: 156,      color: "#e74c3c", value: "4,200" }, age: "2m ago",  total: "4,200",  items: 12 },
+  { id: 2, player: { name: "HugeCatKing",    userId: 4178,     color: "#3498db", value: "1,850" }, age: "5m ago",  total: "1,850",  items: 6  },
+  { id: 3, player: { name: "PS99Master",     userId: 261,      color: "#2ecc71", value: "12,500"}, age: "1m ago",  total: "12,500", items: 31 },
+  { id: 4, player: { name: "GemHunter",      userId: 2470023,  color: "#f39c12", value: "750"   }, age: "8m ago",  total: "750",    items: 4  },
+  { id: 5, player: { name: "TitanicCorgi",   userId: 55549240, color: "#9b59b6", value: "6,000" }, age: "12m ago", total: "6,000",  items: 18 },
 ];
 
 const STAT_DIVIDER = <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />;
@@ -31,9 +41,9 @@ export function Coinflip() {
       <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 24, padding: "0 24px", height: 48, background: "#0c0c0c" }}>
         <span style={{ fontSize: 13, color: "#888" }}><span style={{ color: "#fff", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>5</span> Rooms</span>
         {STAT_DIVIDER}
-        <span style={{ fontSize: 13, color: "#888" }}><span style={{ color: "#fff", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>25,300</span> Gems Total</span>
+        <span style={{ fontSize: 13, color: "#888" }}><span style={{ color: "#fff", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>71</span> Items Total</span>
         {STAT_DIVIDER}
-        <span style={{ fontSize: 13, color: "#888" }}><span style={{ color: "#fff", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>71</span> Items</span>
+        <span style={{ fontSize: 13, color: "#888" }}>≈ <span style={{ color: "#fff", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>25,300</span> Value</span>
       </div>
 
       {/* ── Filters ── */}
@@ -60,17 +70,15 @@ export function Coinflip() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
               {/* Filled slot */}
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: room.player.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                  {room.player.name[0]}
-                </div>
+                <RbxAvatar userId={room.player.userId} color={room.player.color} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{room.player.name}</div>
-                  <div style={{ fontSize: 12, color: "#888", fontVariantNumeric: "tabular-nums" }}>{room.player.value} gems</div>
+                  <div style={{ fontSize: 12, color: "#888", fontVariantNumeric: "tabular-nums" }}>{room.player.value} val</div>
                 </div>
               </div>
 
               {/* VS */}
-              <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#555", fontWeight: 700, letterSpacing: "0.05em" }}>VS</div>
               </div>
 
@@ -79,15 +87,15 @@ export function Coinflip() {
                 <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px dashed rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "rgba(255,255,255,0.2)", flexShrink: 0 }}>?</div>
                 <div>
                   <div style={{ fontSize: 13, color: "#444" }}>Waiting...</div>
-                  <div style={{ fontSize: 12, color: "#333" }}>Any value</div>
+                  <div style={{ fontSize: 12, color: "#333" }}>Any items</div>
                 </div>
               </div>
             </div>
 
             {/* Center info */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 80 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{room.total}</div>
-              <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>gems</div>
+              <div style={{ fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{room.items}</div>
+              <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>items</div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#555" }}>
                 <Clock size={11} />
                 {room.age}
@@ -102,7 +110,7 @@ export function Coinflip() {
         ))}
       </div>
 
-      {/* ── Empty hint ── */}
+      {/* ── Load more ── */}
       <div style={{ padding: "24px", textAlign: "center" }}>
         <span style={{ fontSize: 12, color: "#333" }}>Showing 5 active rooms · <span style={{ color: "#555", cursor: "pointer" }}>Load more</span></span>
       </div>

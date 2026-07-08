@@ -1,15 +1,24 @@
-import { Timer, TrendingUp, Gem } from "lucide-react";
+import { Timer, TrendingUp } from "lucide-react";
+
+const rbx = (userId: number) =>
+  `https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=150&height=150&format=png`;
+
+const RbxAvatar = ({ userId, size = 30, color }: { userId: number; size?: number; color: string }) => (
+  <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: `2px solid ${color}`, flexShrink: 0 }}>
+    <img src={rbx(userId)} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+  </div>
+);
 
 const PLAYERS = [
-  { name: "DragonSlayer99", color: "#e74c3c", gems: "6,200", pct: "33.6%" },
-  { name: "HugeCatKing",    color: "#3498db", gems: "4,800", pct: "26.0%" },
-  { name: "TitanicCorgi",   color: "#2ecc71", gems: "3,100", pct: "16.8%" },
-  { name: "PS99Master",     color: "#f39c12", gems: "2,200", pct: "11.9%" },
-  { name: "GemHunter",      color: "#9b59b6", gems: "1,400", pct: "7.6%" },
-  { name: "LuckyPet007",    color: "#1abc9c", gems: "750",   pct: "4.1%" },
+  { name: "DragonSlayer99", userId: 156,      color: "#e74c3c", items: "14 items", pct: "33.6%" },
+  { name: "HugeCatKing",    userId: 4178,     color: "#3498db", items: "9 items",  pct: "26.0%" },
+  { name: "TitanicCorgi",   userId: 261,      color: "#2ecc71", items: "6 items",  pct: "16.8%" },
+  { name: "PS99Master",     userId: 2470023,  color: "#f39c12", items: "4 items",  pct: "11.9%" },
+  { name: "GemHunter",      userId: 55549240, color: "#9b59b6", items: "3 items",  pct: "7.6%"  },
+  { name: "LuckyPet007",    userId: 1,        color: "#1abc9c", items: "2 items",  pct: "4.1%"  },
 ];
 
-const TOTAL = "18,450";
+const TOTAL_ITEMS = "38 items";
 const COUNTDOWN = "0:18";
 
 export function Jackpot() {
@@ -29,15 +38,14 @@ export function Jackpot() {
         </div>
       </div>
 
-      {/* ── Main two-column layout ── */}
-      <div style={{ display: "flex", gap: 0, minHeight: "calc(100vh - 65px)" }}>
+      {/* ── Two-column layout ── */}
+      <div style={{ display: "flex", minHeight: "calc(100vh - 65px)" }}>
 
         {/* LEFT — Wheel + Bet */}
         <div style={{ flex: "0 0 58%", padding: "40px 24px 32px", display: "flex", flexDirection: "column", alignItems: "center", borderRight: "1px solid rgba(255,255,255,0.07)" }}>
-          
+
           {/* Wheel */}
           <div style={{ position: "relative", width: 260, height: 260, marginBottom: 32 }}>
-            {/* Outer ring segments (decorative arcs using conic-gradient) */}
             <div style={{
               position: "absolute", inset: 0, borderRadius: "50%",
               background: `conic-gradient(
@@ -50,52 +58,37 @@ export function Jackpot() {
               )`,
               border: "5px solid rgba(255,255,255,0.06)"
             }} />
-            {/* Inner dark circle */}
             <div style={{
               position: "absolute", inset: 22, borderRadius: "50%",
-              background: "#0c0c0c",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "#0c0c0c", border: "1px solid rgba(255,255,255,0.08)",
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center"
             }}>
               <div style={{ fontSize: 10, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", marginBottom: 6 }}>Total Pot</div>
-              <div style={{ fontSize: 38, fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{TOTAL}</div>
-              <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>GEMS</div>
+              <div style={{ fontSize: 34, fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{TOTAL_ITEMS}</div>
             </div>
-            {/* Arrow indicator */}
-            <div style={{
-              position: "absolute", top: -4, left: "50%", transform: "translateX(-50%)",
-              width: 0, height: 0,
-              borderLeft: "6px solid transparent",
-              borderRight: "6px solid transparent",
-              borderTop: "14px solid #fff"
-            }} />
+            {/* Arrow */}
+            <div style={{ position: "absolute", top: -4, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "14px solid #fff" }} />
           </div>
 
           {/* Bet button */}
           <button style={{ width: "100%", maxWidth: 320, height: 52, background: "#fff", color: "#000", border: "none", borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>
             Place a Bet
           </button>
-          <div style={{ marginTop: 10, fontSize: 12, color: "#444", display: "flex", alignItems: "center", gap: 6 }}>
-            <Gem size={11} />
-            Min 10 gems · Max 10,000 gems
+          <div style={{ marginTop: 10, fontSize: 12, color: "#444" }}>
+            Min 1 item · No value cap
           </div>
 
           {/* Quick stats */}
           <div style={{ marginTop: 32, display: "flex", gap: 32, width: "100%", maxWidth: 320 }}>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 11, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 4 }}>Players</div>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>6</div>
-            </div>
-            <div style={{ width: 1, background: "rgba(255,255,255,0.07)" }} />
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 11, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 4 }}>Entries</div>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>18</div>
-            </div>
-            <div style={{ width: 1, background: "rgba(255,255,255,0.07)" }} />
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 11, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 4 }}>Rounds</div>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>1,247</div>
-            </div>
+            {[["Players", "6"], ["Items", "38"], ["Rounds", "1,247"]].map(([label, val], i) => (
+              <>
+                {i > 0 && <div key={`d${i}`} style={{ width: 1, background: "rgba(255,255,255,0.07)" }} />}
+                <div key={label} style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{val}</div>
+                </div>
+              </>
+            ))}
           </div>
         </div>
 
@@ -116,17 +109,14 @@ export function Jackpot() {
                 background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: p.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                    {p.name[0]}
-                  </div>
+                  <RbxAvatar userId={p.userId} color={p.color} />
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: "#888", fontVariantNumeric: "tabular-nums" }}>{p.gems} gems</div>
+                    <div style={{ fontSize: 12, color: "#888" }}>{p.items}</div>
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: p.color, fontVariantNumeric: "tabular-nums" }}>{p.pct}</div>
-                  {/* Win chance bar */}
                   <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                     <div style={{ height: "100%", width: p.pct, background: p.color, borderRadius: 2 }} />
                   </div>
@@ -135,13 +125,11 @@ export function Jackpot() {
             ))}
           </div>
 
-          {/* Your chance row */}
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 12, color: "#444" }}>Your Win Chance</span>
             <span style={{ fontSize: 12, color: "#444" }}>— Login to bet</span>
           </div>
         </div>
-
       </div>
     </div>
   );
