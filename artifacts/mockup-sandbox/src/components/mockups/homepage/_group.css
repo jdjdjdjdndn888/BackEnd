@@ -47,3 +47,51 @@
 .stats-grid > div {
   background-color: #0c0c0c;
 }
+
+@media (max-width: 767px) {
+  .hero-banner-img {
+    display: none;
+  }
+  .hero-gradient {
+    display: none;
+  }
+  .hero-content {
+    padding-left: 24px;
+    padding-right: 24px;
+    width: 100%;
+    align-items: center;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+  }
+  .hero-stats {
+    justify-content: center;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-banner-img {
+    display: block;
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 55%;
+    object-fit: cover;
+    object-position: center top;
+    z-index: 0;
+  }
+  .hero-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, #0c0c0c 35%, transparent 65%);
+    z-index: 1;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 10;
+    padding-left: 80px;
+    padding-top: 120px;
+    max-width: 560px;
+  }
+}
