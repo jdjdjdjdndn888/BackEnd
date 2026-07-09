@@ -10,16 +10,10 @@ import { cn } from "@/lib/utils";
 const SUIT_COLOR = { "♥": "#EF4444", "♦": "#EF4444", "♠": "#E5E7EB", "♣": "#E5E7EB" };
 
 export const CardFace = ({ card, size = "md" }) => {
-  const sizes = {
-    xs: "w-6 h-8 text-[10px]",
-    sm: "w-9 h-12 text-xs",
-    md: "w-14 h-20 text-lg",
-  };
+  const sizes = { xs: "w-6 h-8 text-[10px]", sm: "w-9 h-12 text-xs", md: "w-14 h-20 text-lg" };
   if (!card) {
     return (
-      <div className={cn("rounded-md border-2 border-dashed border-[#3A3F5C] bg-[#1a1d2b] flex items-center justify-center font-bold text-[#3A3F5C]", sizes[size])}>
-        ?
-      </div>
+      <div className={cn("rounded-md border-2 border-dashed border-[#3A3F5C] bg-[#1a1d2b] flex items-center justify-center font-bold text-[#3A3F5C]", sizes[size])}>?</div>
     );
   }
   return (
@@ -37,6 +31,10 @@ export default function BlackjackView({ game, onClose }) {
   const { setModalState } = useModal();
   const { userData } = useContext(UserContext);
   const [acting, setActing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const isCreator = userData?.userid === game.PlayerOne?.id;
+  const canCancel = isCreator && !game.PlayerTwo && game.active;
 
   const dealerKey = game.PlayerOne.isDealer ? "PlayerOne" : "PlayerTwo";
   const playerKey = dealerKey === "PlayerOne" ? "PlayerTwo" : "PlayerOne";
@@ -63,20 +61,48 @@ export default function BlackjackView({ game, onClose }) {
     setActing(false);
   };
 
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch(`${api}/blackjack/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ gameid: game._id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Game cancelled!");
+        onClose?.();
+        setModalState(null);
+      } else {
+        toast.error(data.message || "Something went wrong");
+      }
+    } catch { toast.error("Something went wrong"); }
+    setCancelling(false);
+  };
+
   const winnerKey = game.winner === game.PlayerOne.id ? "PlayerOne" : game.winner === game.PlayerTwo?.id ? "PlayerTwo" : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => { onClose?.(); setModalState(null); }}>
-      <div
-        className="relative w-full max-w-lg rounded-2xl bg-[#131520] border border-[#252839] shadow-2xl overflow-hidden p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          className="absolute right-4 top-4 text-[#68749C] hover:text-white bg-transparent border-none text-xl cursor-pointer z-10"
-          onClick={() => { onClose?.(); setModalState(null); }}
-        >✕</button>
+      <div className="relative w-full max-w-lg rounded-2xl bg-[#131520] border border-[#252839] shadow-2xl overflow-hidden p-6"
+        onClick={(e) => e.stopPropagation()}>
+
+        <button className="absolute right-4 top-4 text-[#68749C] hover:text-white bg-transparent border-none text-xl cursor-pointer z-10"
+          onClick={() => { onClose?.(); setModalState(null); }}>✕</button>
 
         <h2 className="text-center text-lg font-bold text-white mb-6">🃏 Blackjack 1v1</h2>
+
+        {/* Cancel button for creator before anyone joined */}
+        {canCancel && (
+          <button
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="w-full mb-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm font-semibold transition-colors bg-transparent disabled:opacity-40"
+          >
+            {cancelling ? "Cancelling…" : "Cancel Game"}
+          </button>
+        )}
 
         {!game.PlayerTwo ? (
           <p className="text-center text-sm text-[#68749C] py-8">Waiting for an opponent to join…</p>
@@ -108,18 +134,12 @@ export default function BlackjackView({ game, onClose }) {
           <div className="mt-6 flex flex-col items-center gap-2">
             {isMyTurn ? (
               <div className="flex gap-3">
-                <button
-                  disabled={acting}
-                  onClick={() => act("hit")}
-                  className="min-w-24 rounded-lg border-none bg-[#8B5CF6] py-2 text-sm font-bold text-white transition-colors hover:bg-[#7C3AED] disabled:opacity-60"
-                >
+                <button disabled={acting} onClick={() => act("hit")}
+                  className="min-w-24 rounded-lg border-none bg-[#8B5CF6] py-2 text-sm font-bold text-white transition-colors hover:bg-[#7C3AED] disabled:opacity-60">
                   Hit
                 </button>
-                <button
-                  disabled={acting}
-                  onClick={() => act("stand")}
-                  className="min-w-24 rounded-lg border-none bg-[#2A2E44] py-2 text-sm font-bold text-white transition-colors hover:opacity-80 disabled:opacity-60"
-                >
+                <button disabled={acting} onClick={() => act("stand")}
+                  className="min-w-24 rounded-lg border-none bg-[#2A2E44] py-2 text-sm font-bold text-white transition-colors hover:opacity-80 disabled:opacity-60">
                   Stand
                 </button>
               </div>
@@ -136,9 +156,7 @@ export default function BlackjackView({ game, onClose }) {
             <p className="text-lg font-bold" style={{ color: "#8B5CF6" }}>
               🏆 {game[winnerKey]?.username} wins!
             </p>
-            <p className="text-sm text-[#68749C] mt-1">
-              R${(game.requirements.static || 0).toLocaleString()} pot
-            </p>
+            <p className="text-sm text-[#68749C] mt-1">R${(game.requirements.static || 0).toLocaleString()} pot</p>
           </div>
         )}
       </div>

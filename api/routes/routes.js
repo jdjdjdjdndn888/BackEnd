@@ -13,6 +13,7 @@ const tradesController = require("../controllers/trades/index.js");
 const diceController = require("../controllers/dice/index.js");
 const blackjackController = require("../controllers/blackjack/index.js");
 const upgraderController = require("../controllers/upgrader/index.js");
+const minesController = require("../controllers/mines/index.js");
 
 router.use(express.json());
 
@@ -111,6 +112,16 @@ router.post("/blackjack/hit", accountController.verifyToken, blackjackController
 router.post("/blackjack/stand", accountController.verifyToken, blackjackController.stand);
 router.post("/blackjack/cancel", accountController.verifyToken, blackjackController.cancelmatch);
 router.post("/blackjack/history/me", accountController.verifyToken, blackjackController.historyme);
+
+router.get("/stats/all", gamesController.getvalue);
+
+router.get("/mines/games", minesController.getgames);
+router.post("/mines/create", accountController.verifyToken, minesController.creatematch);
+router.post("/mines/join", accountController.verifyToken, minesController.joinmatch);
+router.post("/mines/reveal", accountController.verifyToken, minesController.revealtile);
+router.post("/mines/cashout", accountController.verifyToken, minesController.cashout);
+router.post("/mines/cancel", accountController.verifyToken, minesController.cancelmatch);
+router.post("/mines/history/me", accountController.verifyToken, minesController.historyme);
 
 router.get("/admin/stats", accountController.verifyToken, adminController.isAdmin, adminController.stats);
 router.get("/admin/users", accountController.verifyToken, adminController.isAdmin, adminController.getUsers);

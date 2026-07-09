@@ -527,6 +527,11 @@ async function finishSideEffects(finalUpdate, payout, req) {
 
   req.app.get("io").emit("BLACKJACK_UPDATE", finalUpdate);
 
+  // Broadcast live win for homepage ticker
+  try {
+    req.app.get("io").emit("LIVE_WIN", { user: finalUpdate[winnerKey].username, game: "Blackjack", amount: finalUpdate.requirements.static });
+  } catch {}
+
   setTimeout(async () => {
     try {
       if (winnerItems.length) {

@@ -68,7 +68,7 @@ export default function Footer() {
 
   return (
     <div
-      className="lg:hidden"
+      className=""
       style={{
         height: "var(--footer-height)",
         background: "#080808",

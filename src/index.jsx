@@ -26,6 +26,7 @@ import Admin from "../components/admin/Admin.jsx";
 import Trades from "../components/trades/Trades.jsx";
 import DicePage from "../components/dice/layout.jsx";
 import BlackjackPage from "../components/blackjack/layout.jsx";
+import MinesPage from "../components/mines/layout.jsx";
 
 const BACKEND_URL = import.meta.env.VITE_SOCKET_URL || "";
 
@@ -106,6 +107,7 @@ function App() {
                         <Route path="/trades" element={<Trades />} />
                         <Route path="/dice" element={<DicePage />} />
                         <Route path="/blackjack" element={<BlackjackPage />} />
+                        <Route path="/mines" element={<MinesPage />} />
                       </Routes>
                     </div>
                     <aside className="hidden lg:flex flex-col w-[17rem] shrink-0 border-l border-[#252839] bg-[#171925] overflow-hidden">

@@ -396,6 +396,12 @@ exports.joinmatch = asyncHandler(async (req, res) => {
     try {
       req.app.get("io").emit("DICE_UPDATE", finalUpdate);
 
+      // Broadcast live win for homepage ticker
+      try {
+        const winnerName = winner === "PlayerOne" ? game.PlayerOne.username : user.username;
+        req.app.get("io").emit("LIVE_WIN", { user: winnerName, game: "Dice", amount: game.requirements.static + totalJoinerValue });
+      } catch {}
+
       await emituser(
         "NOTIFICATION",
         {

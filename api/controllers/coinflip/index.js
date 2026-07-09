@@ -410,6 +410,12 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       try {
         req.app.get("io").emit("COINFLIP_UPDATE", finalUpdate);
 
+        // Broadcast live win for homepage ticker
+        try {
+          const winnerName = finalUpdate.winner === coinflip.PlayerOne.id ? coinflip.PlayerOne.username : user.username;
+          req.app.get("io").emit("LIVE_WIN", { user: winnerName, game: "Coinflip", amount: coinflip.requirements.static + totalJoinerValue });
+        } catch {}
+
         await emituser("NOTIFICATION", {
           type: "info",
           title: "Someone joined your coinflip!",

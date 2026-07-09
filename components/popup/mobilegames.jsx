@@ -8,6 +8,7 @@ const GAMES = [
   { label: "Dice",      href: "/dice",      img: "/dice-icon.png"      },
   { label: "Jackpot",   href: "/jackpot",   img: "/jackpot-icon.png"   },
   { label: "Blackjack", href: "/blackjack", img: "/blackjack-icon.png" },
+  { label: "Mines",     href: "/mines",     img: "/mines-gem.png"      },
   { label: "Upgrader",  href: "/upgrader",  img: "/upgrader-icon.png"  },
   { label: "Trades",    href: "/trades",    icon: () => <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zm-4 9a1 1 0 11-2 0 1 1 0 012 0zm0-2a3 3 0 100 6 3 3 0 000-6zm10 3a1 1 0 11-2 0 1 1 0 012 0zm0-2a3 3 0 100 6 3 3 0 000-6z" /></svg> },
 ];

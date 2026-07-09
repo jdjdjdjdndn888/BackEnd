@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: "Dice",          href: "/dice",      icon: null,            img: "/dice-icon.png"      },
   { label: "Jackpot",       href: "/jackpot",   icon: null,            img: "/jackpot-icon.png"   },
   { label: "Blackjack",     href: "/blackjack", icon: null,            img: "/blackjack-icon.png" },
+  { label: "Mines",         href: "/mines",     icon: null,            img: "/mines-gem.png"      },
   { label: "Upgrader",      href: "/upgrader",  icon: null,            img: "/upgrader-icon.png"  },
   { label: "Trades",        href: "/trades",    icon: MarketPlaceIcon, img: null             },
 ];
@@ -33,7 +34,7 @@ export default function Sidenav() {
   const location = useLocation();
 
   return (
-    <aside className="hidden lg:flex" style={{
+    <aside className="hidden lg:flex" id="sidenav" style={{
       width: 210,
       flexShrink: 0,
       flexDirection: "column",

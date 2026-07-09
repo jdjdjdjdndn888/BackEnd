@@ -1,15 +1,21 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useModal } from "../../../utils/ModalContext";
+import UserContext from "../../../utils/user.js";
+import { getauth } from "../../../utils/getauth.js";
+import { api } from "../../../config.js";
 import Profile from "../../popup/profile";
+import toast from "react-hot-toast";
 
 export default function DiceView({ game, onClose }) {
   const { setModalState } = useModal();
-  const [displayDice, setDisplayDice] = useState({
-    p1: [null, null, null],
-    p2: [null, null, null],
-  });
+  const { userData } = useContext(UserContext);
+  const [displayDice, setDisplayDice] = useState({ p1: [null, null, null], p2: [null, null, null] });
   const [rolling, setRolling] = useState(false);
   const [done, setDone] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const isCreator = userData?.userid === game.PlayerOne.id;
+  const canCancel = isCreator && !game.PlayerTwo && game.active;
 
   useEffect(() => {
     if (!game.PlayerTwo || game.active) {
@@ -17,53 +23,58 @@ export default function DiceView({ game, onClose }) {
       setDisplayDice({ p1: [null, null, null], p2: [null, null, null] });
       return;
     }
-
-    // Start rolling animation
     setRolling(true);
     setDone(false);
-
     let frame = 0;
     const totalFrames = 25;
     const interval = setInterval(() => {
       frame++;
-      setDisplayDice({
-        p1: [rand(), rand(), rand()],
-        p2: [rand(), rand(), rand()],
-      });
+      setDisplayDice({ p1: [rand(), rand(), rand()], p2: [rand(), rand(), rand()] });
       if (frame >= totalFrames) {
         clearInterval(interval);
-        setDisplayDice({
-          p1: game.PlayerOne.dice || [1, 1, 1],
-          p2: game.PlayerTwo.dice || [1, 1, 1],
-        });
+        setDisplayDice({ p1: game.PlayerOne.dice || [1, 1, 1], p2: game.PlayerTwo.dice || [1, 1, 1] });
         setRolling(false);
         setDone(true);
       }
     }, 80);
-
     return () => clearInterval(interval);
   }, [game._id, game.PlayerTwo, game.active]);
 
   const rand = () => Math.floor(Math.random() * 6) + 1;
-
   const p1Won = game.winner === game.PlayerOne.id;
   const p2Won = game.winner === game.PlayerTwo?.id;
 
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch(`${api}/dice/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ gameid: game._id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Game cancelled!");
+        onClose?.();
+        setModalState(null);
+      } else {
+        toast.error(data.message || "Something went wrong");
+      }
+    } catch { toast.error("Something went wrong"); }
+    setCancelling(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => { onClose?.(); setModalState(null); }}>
-      <div
-        className="relative w-full max-w-lg rounded-2xl bg-[#131520] border border-[#252839] shadow-2xl overflow-hidden p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          className="absolute right-4 top-4 text-[#68749C] hover:text-white bg-transparent border-none text-xl cursor-pointer z-10"
-          onClick={() => { onClose?.(); setModalState(null); }}
-        >✕</button>
+      <div className="relative w-full max-w-lg rounded-2xl bg-[#131520] border border-[#252839] shadow-2xl overflow-hidden p-6"
+        onClick={(e) => e.stopPropagation()}>
+
+        <button className="absolute right-4 top-4 text-[#68749C] hover:text-white bg-transparent border-none text-xl cursor-pointer z-10"
+          onClick={() => { onClose?.(); setModalState(null); }}>✕</button>
 
         <h2 className="text-center text-lg font-bold text-white mb-6">🎲 Dice Roll</h2>
 
         <div className="flex items-center justify-around gap-4">
-          {/* Player 1 */}
           <PlayerDicePanel
             player={game.PlayerOne}
             dice={displayDice.p1}
@@ -82,7 +93,6 @@ export default function DiceView({ game, onClose }) {
             )}
           </div>
 
-          {/* Player 2 */}
           {game.PlayerTwo ? (
             <PlayerDicePanel
               player={game.PlayerTwo}
@@ -108,9 +118,7 @@ export default function DiceView({ game, onClose }) {
             <p className="text-lg font-bold" style={{ color: "#8B5CF6" }}>
               🏆 {p1Won ? game.PlayerOne.username : game.PlayerTwo?.username} wins!
             </p>
-            <p className="text-sm text-[#68749C] mt-1">
-              R${(game.requirements.static || 0).toLocaleString()} pot
-            </p>
+            <p className="text-sm text-[#68749C] mt-1">R${(game.requirements.static || 0).toLocaleString()} pot</p>
           </div>
         )}
         {!game.PlayerTwo && (
@@ -118,6 +126,19 @@ export default function DiceView({ game, onClose }) {
         )}
         {game.PlayerTwo && !done && (
           <p className="mt-4 text-center text-sm text-[#8B5CF6] font-semibold animate-pulse">Rolling dice…</p>
+        )}
+
+        {/* Cancel button for creator when no one joined */}
+        {canCancel && (
+          <div className="mt-4">
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="w-full py-2.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm font-semibold transition-colors bg-transparent disabled:opacity-40"
+            >
+              {cancelling ? "Cancelling…" : "Cancel Game"}
+            </button>
+          </div>
         )}
       </div>
     </div>

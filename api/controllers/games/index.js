@@ -1,29 +1,49 @@
 const asyncHandler = require("express-async-handler");
 const coinflips = require("../../modules/coinflips.js");
-const Jackpot = require("../../modules/jackpots.js");
+const dice = require("../../modules/dice.js");
+const blackjack = require("../../modules/blackjack.js");
+const Jackpot = require("../../modules/jackpotjoins.js");
 const moment = require("moment");
 
 exports.getvalue = asyncHandler(async (req, res) => {
-    try {
-        const flips = await coinflips.find({
-            $or: [
-                { active: true },
-                { active: false, end: { $gte: moment().subtract(1, 'minutes').toDate() } }
-            ]
-        });
+  try {
+    const [totalFlips, totalDice, totalBJ, jackpotJoins] = await Promise.all([
+      coinflips.countDocuments({ active: false, winner: { $ne: null } }),
+      dice.countDocuments({ active: false, winner: { $ne: null } }),
+      blackjack.countDocuments({ active: false, winner: { $ne: null } }),
+      Jackpot.countDocuments({}),
+    ]);
 
-        const coinflipsvalues = flips.reduce((sum, flip) => sum + (flip.requirements?.static || 0), 0);
+    const [flipWager, diceWager, bjWager] = await Promise.all([
+      coinflips.aggregate([
+        { $match: { active: false, winner: { $ne: null } } },
+        { $group: { _id: null, total: { $sum: "$requirements.static" } } },
+      ]),
+      dice.aggregate([
+        { $match: { active: false, winner: { $ne: null } } },
+        { $group: { _id: null, total: { $sum: "$requirements.static" } } },
+      ]),
+      blackjack.aggregate([
+        { $match: { active: false, winner: { $ne: null } } },
+        { $group: { _id: null, total: { $sum: "$requirements.static" } } },
+      ]),
+    ]);
 
-        const activeJackpot = await Jackpot.findOne({ state: { $ne: "Ended" } }).exec();
+    const totalGamesPlayed = totalFlips + totalDice + totalBJ + jackpotJoins;
+    const totalWagered =
+      (flipWager[0]?.total || 0) +
+      (diceWager[0]?.total || 0) +
+      (bjWager[0]?.total || 0);
 
-        return res.status(200).json({ 
-            coinflip: coinflipsvalues, 
-            jackpot: activeJackpot ? activeJackpot.value : 0, 
-            giveaway: 0, 
-            BALANCE_RAIN: "???" 
-        });
-    } catch (error) {
-        console.error("Error in getvalue:", error);
-        return res.status(500).json({ message: "Internal Server Error" });
-    }
+    res.json({
+      success: true,
+      data: {
+        gamesPlayed: totalGamesPlayed,
+        gemsWagered: totalWagered,
+      },
+    });
+  } catch (e) {
+    console.error("getvalue error:", e);
+    res.status(500).json({ success: false, data: { gamesPlayed: 0, gemsWagered: 0 } });
+  }
 });
