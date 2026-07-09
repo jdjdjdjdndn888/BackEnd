@@ -6,7 +6,7 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
-const TABS = ["Overview", "Users", "Items", "Bots", "Inventory"];
+const TABS = ["Overview", "Users", "Items", "Bots", "Inventory", "Withdrawals", "Danger"];
 const GAMES = ["PS99", "MM2"];
 
 // ── Value helpers ────────────────────────────────────────────────────────────
@@ -67,11 +67,13 @@ export default function Admin() {
           ))}
         </div>
 
-        {tab === "Overview"   && <OverviewTab />}
-        {tab === "Users"      && <UsersTab />}
-        {tab === "Items"      && <ItemsTab />}
-        {tab === "Bots"       && <BotsTab />}
-        {tab === "Inventory"  && <InventoryTab />}
+        {tab === "Overview"     && <OverviewTab />}
+        {tab === "Users"        && <UsersTab />}
+        {tab === "Items"        && <ItemsTab />}
+        {tab === "Bots"         && <BotsTab />}
+        {tab === "Inventory"    && <InventoryTab />}
+        {tab === "Withdrawals"  && <WithdrawalsTab />}
+        {tab === "Danger"       && <DangerTab />}
       </div>
     </div>
   );
@@ -752,6 +754,209 @@ function BotsTab() {
             ))}
           </div>
         )}
+    </div>
+  );
+}
+
+// ── Withdrawals Tab ───────────────────────────────────────────────────────────
+function WithdrawalsTab() {
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [deletingAll, setDeletingAll] = useState(false);
+
+  const fetchWithdrawals = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${api}/admin/withdrawals`, { headers: { authorization: `Bearer ${getauth()}` } });
+      if (res.ok) { const d = await res.json(); setWithdrawals(d.data || []); }
+      else toast.error("Failed to load withdrawals");
+    } catch { toast.error("Network error"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchWithdrawals(); }, []);
+
+  const deleteOne = async (id) => {
+    setDeleting(id);
+    try {
+      const res = await fetch(`${api}/admin/withdrawals/${id}`, {
+        method: "DELETE", headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      if (res.ok) { toast.success(d.message); setWithdrawals(prev => prev.filter(w => String(w._id) !== String(id))); }
+      else toast.error(d.message);
+    } catch { toast.error("Network error"); }
+    finally { setDeleting(null); }
+  };
+
+  const deleteAll = async () => {
+    if (!confirm(`Delete ALL ${withdrawals.length} pending withdrawal(s)? This cannot be undone.`)) return;
+    setDeletingAll(true);
+    try {
+      const res = await fetch(`${api}/admin/withdrawals/delete-all`, {
+        method: "POST", headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      if (res.ok) { toast.success(d.message); setWithdrawals([]); }
+      else toast.error(d.message);
+    } catch { toast.error("Network error"); }
+    finally { setDeletingAll(false); }
+  };
+
+  // Group by user
+  const byUser = withdrawals.reduce((acc, w) => {
+    const key = String(w.userid);
+    if (!acc[key]) acc[key] = { userid: w.userid, username: w.username, thumbnail: w.thumbnail, items: [] };
+    acc[key].items.push(w);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-white">Pending Withdrawals</h3>
+          <p className="text-xs text-[#6B7280] mt-0.5">{withdrawals.length} withdrawal request{withdrawals.length !== 1 ? "s" : ""} waiting</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={fetchWithdrawals} disabled={loading}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[#1e2035] text-[#6B7280] hover:text-white bg-transparent cursor-pointer disabled:opacity-40">
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+          {withdrawals.length > 0 && (
+            <button onClick={deleteAll} disabled={deletingAll}
+              className="px-4 py-1.5 text-xs rounded-lg border-none text-white font-semibold cursor-pointer hover:opacity-90 disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}>
+              {deletingAll ? "Cancelling…" : `🗑 Cancel All (${withdrawals.length})`}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-center text-[#6B7280] py-10">Loading…</p>
+      ) : withdrawals.length === 0 ? (
+        <div className="rounded-xl border border-[#1e2035] bg-[#13151f] p-10 text-center text-[#6B7280]">
+          <p className="text-2xl mb-2">✅</p>
+          <p className="font-medium">No pending withdrawals</p>
+          <p className="text-xs mt-1">All caught up!</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {Object.values(byUser).map(group => (
+            <div key={group.userid} className="rounded-xl border border-[#1e2035] bg-[#13151f] overflow-hidden">
+              {/* User header */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-[#0d0f1a] border-b border-[#1e2035]">
+                {group.thumbnail && <img src={group.thumbnail} alt="" className="w-8 h-8 rounded-full" />}
+                <div>
+                  <p className="text-sm font-semibold text-white">{group.username}</p>
+                  <p className="text-xs text-[#6B7280]">ID: {group.userid} · {group.items.length} item{group.items.length !== 1 ? "s" : ""}</p>
+                </div>
+              </div>
+              {/* Items */}
+              <div className="divide-y divide-[#1e2035]">
+                {group.items.map(w => (
+                  <div key={String(w._id)} className="flex items-center gap-3 px-4 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{w.itemname}</p>
+                      <p className="text-xs text-[#6B7280]">Item ID: {w.itemid} · {w.game}</p>
+                    </div>
+                    <button
+                      onClick={() => deleteOne(String(w._id))}
+                      disabled={deleting === String(w._id)}
+                      className="px-3 py-1 rounded-lg border border-[#EF444440] text-xs text-red-400 cursor-pointer hover:bg-red-900/30 bg-transparent disabled:opacity-40"
+                    >
+                      {deleting === String(w._id) ? "…" : "Cancel"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Danger Zone Tab ───────────────────────────────────────────────────────────
+function DangerTab() {
+  const { userData } = useContext(UserContext);
+  const [cancellingBets, setCancellingBets] = useState(false);
+  const [resettingInv, setResettingInv] = useState(false);
+  const isOwner = userData?.rank === "OWNER";
+
+  const cancelAllBets = async () => {
+    if (!confirm("⚠️ CANCEL ALL ACTIVE BETS\n\nThis will cancel every active coinflip, dice, blackjack, and mines game and return items to players.\n\nProceed?")) return;
+    setCancellingBets(true);
+    try {
+      const res = await fetch(`${api}/admin/cancel-all-bets`, {
+        method: "POST", headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      res.ok ? toast.success(d.message) : toast.error(d.message || "Failed");
+    } catch { toast.error("Network error"); }
+    finally { setCancellingBets(false); }
+  };
+
+  const resetInventories = async () => {
+    if (!confirm("⚠️ WIPE ALL INVENTORIES\n\nThis will DELETE every item from every player's inventory.\n\nThis CANNOT be undone. Proceed?")) return;
+    setResettingInv(true);
+    try {
+      const res = await fetch(`${api}/admin/reset-inventories`, {
+        method: "POST", headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      res.ok ? toast.success(d.message) : toast.error(d.message || "Failed");
+    } catch { toast.error("Network error"); }
+    finally { setResettingInv(false); }
+  };
+
+  const actions = [
+    {
+      label: "🚫 Cancel All Active Bets",
+      desc: "Cancels every waiting/in-progress coinflip, dice, blackjack, and mines game. Items are returned to each player.",
+      btn: "Cancel All Bets",
+      color: "#F59E0B",
+      loading: cancellingBets,
+      onClick: cancelAllBets,
+      ownerOnly: false,
+    },
+    {
+      label: "🗑 Reset All Inventories",
+      desc: "Permanently deletes every inventory item from every player. Cannot be undone.",
+      btn: "Wipe All Inventories",
+      color: "#EF4444",
+      loading: resettingInv,
+      onClick: resetInventories,
+      ownerOnly: true,
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-[#EF444440] bg-[#13151f] p-4">
+        <p className="text-xs font-bold text-red-400 mb-1">⚠️ Danger Zone</p>
+        <p className="text-xs text-[#6B7280]">Actions here are irreversible. Use with extreme caution.</p>
+      </div>
+      {actions.map(action => (
+        (!action.ownerOnly || isOwner) && (
+          <div key={action.label} className="rounded-xl border bg-[#13151f] p-5"
+            style={{ borderColor: action.color + "40" }}>
+            <p className="text-sm font-bold mb-1" style={{ color: action.color }}>{action.label}</p>
+            <p className="text-xs text-[#6B7280] mb-4">{action.desc}</p>
+            <button
+              onClick={action.onClick}
+              disabled={action.loading}
+              className="px-5 py-2.5 rounded-lg border-none text-white text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50"
+              style={{ background: `linear-gradient(135deg,${action.color},${action.color}cc)` }}
+            >
+              {action.loading ? "Working…" : action.btn}
+            </button>
+          </div>
+        )
+      ))}
     </div>
   );
 }

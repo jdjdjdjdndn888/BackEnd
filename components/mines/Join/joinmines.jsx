@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useModal } from "../../../utils/ModalContext";
 import UserContext from "../../../utils/user.js";
@@ -11,7 +11,18 @@ export default function JoinMines({ game, onClose }) {
   const { userData } = useContext(UserContext);
   const [selectedItems, setSelectedItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const inventory = userData?.inventory || [];
+  const [inventory, setInventory] = useState([]);
+
+  useEffect(() => {
+    if (!userData) return;
+    fetch(`${api}/me/inventory`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${getauth()}` },
+    })
+      .then((r) => r.json())
+      .then((d) => setInventory(d.data || []))
+      .catch(() => {});
+  }, [userData]);
 
   const min = game.requirements.min;
   const max = game.requirements.max;

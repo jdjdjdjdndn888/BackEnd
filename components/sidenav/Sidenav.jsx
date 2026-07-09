@@ -54,7 +54,7 @@ function HamburgerIcon({ open }) {
 export default function Sidenav() {
   const { setModalState } = useModal();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const W = collapsed ? 62 : 210;
 

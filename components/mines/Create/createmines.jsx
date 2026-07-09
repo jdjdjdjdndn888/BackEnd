@@ -22,12 +22,12 @@ export default function CreateMines({ onCreate, onClose }) {
     if (!userData) return;
     setLoadingInv(true);
     fetch(`${api}/me/inventory`, {
-      method: "GET",
+      method: "POST",
       headers: { authorization: `Bearer ${getauth()}` },
     })
       .then((r) => r.json())
       .then((d) => {
-        setInventory(d.inventory || []);
+        setInventory(d.data || []);
       })
       .catch(() => toast.error("Failed to load inventory."))
       .finally(() => setLoadingInv(false));

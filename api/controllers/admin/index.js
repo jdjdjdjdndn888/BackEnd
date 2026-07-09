@@ -5,6 +5,9 @@ const items = require("../../modules/items.js");
 const inventorys = require("../../modules/inventorys.js");
 const bots = require("../../modules/bots.js");
 const coinflips = require("../../modules/coinflips.js");
+const diceGames = require("../../modules/dice.js");
+const blackjackGames = require("../../modules/blackjack.js");
+const minesGames = require("../../modules/mines.js");
 const jackpots = require("../../modules/jackpots.js");
 const jackpotjoins = require("../../modules/jackpotjoins.js");
 const giveaways = require("../../modules/giveaways.js");
@@ -371,6 +374,106 @@ exports.resetBalances = asyncHandler(async (req, res) => {
 });
 
 // ── Scrape items ────────────────────────────────────────────────────────────
+// ── Withdrawals management ───────────────────────────────────────────────────
+exports.getWithdrawals = asyncHandler(async (req, res) => {
+  const all = await withdraws.find({}).sort({ _id: -1 }).lean();
+  // Enrich with usernames
+  const userIds = [...new Set(all.map(w => w.userid))];
+  const userList = await users.find({ userid: { $in: userIds } }, { userid: 1, username: 1, thumbnail: 1 }).lean();
+  const userMap = new Map(userList.map(u => [u.userid, u]));
+  const enriched = all.map(w => ({
+    ...w,
+    username: userMap.get(w.userid)?.username || String(w.userid),
+    thumbnail: userMap.get(w.userid)?.thumbnail || null,
+  }));
+  res.json({ success: true, data: enriched, total: enriched.length });
+});
+
+exports.deleteWithdrawal = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ message: "ID required" });
+  const result = await withdraws.deleteOne({ _id: id });
+  if (result.deletedCount === 0) return res.status(404).json({ message: "Not found" });
+  res.json({ success: true, message: "Withdrawal deleted." });
+});
+
+exports.deleteAllWithdrawals = asyncHandler(async (req, res) => {
+  const result = await withdraws.deleteMany({});
+  res.json({ success: true, message: `Deleted ${result.deletedCount} pending withdrawal(s).` });
+});
+
+// ── Cancel all active bets ───────────────────────────────────────────────────
+exports.cancelAllBets = asyncHandler(async (req, res) => {
+  const mongoose = require("mongoose");
+  let cancelled = 0, itemsRestored = 0;
+
+  // Helper — restore items from a waiting game's PlayerOne and cancel it
+  const cancelWaiting = async (model, filter) => {
+    const games = await model.find({ ...filter, active: true, $or: [{ state: "waiting" }, { state: { $exists: false } }] }).lean();
+    for (const g of games) {
+      const creatorItems = g.PlayerOne?.items || [];
+      if (creatorItems.length) {
+        await inventorys.insertMany(
+          creatorItems.map(item => ({ _id: item.id || item._id, owner: g.creatorid || g.PlayerOne?.id, itemid: item.itemid, locked: false })),
+          { ordered: false }
+        ).catch(() => {});
+        itemsRestored += creatorItems.length;
+      }
+      await model.updateOne({ _id: g._id }, { $set: { active: false, state: "finished" } });
+      cancelled++;
+    }
+  };
+
+  // Also cancel in-progress games (return both sides)
+  const cancelActive = async (model) => {
+    const games = await model.find({ active: true, PlayerTwo: { $ne: null } }).lean();
+    for (const g of games) {
+      const allItems = [...(g.PlayerOne?.items || []), ...(g.PlayerTwo?.items || [])];
+      if (allItems.length) {
+        const p1Items = g.PlayerOne?.items || [];
+        const p2Items = g.PlayerTwo?.items || [];
+        const inserts = [
+          ...p1Items.map(i => ({ _id: i.id || i._id, owner: g.PlayerOne?.id, itemid: i.itemid, locked: false })),
+          ...p2Items.map(i => ({ _id: i.id || i._id, owner: g.PlayerTwo?.id, itemid: i.itemid, locked: false })),
+        ];
+        await inventorys.insertMany(inserts, { ordered: false }).catch(() => {});
+        itemsRestored += inserts.length;
+      }
+      await model.updateOne({ _id: g._id }, { $set: { active: false, state: "finished" } });
+      cancelled++;
+    }
+  };
+
+  await cancelWaiting(coinflips, {});
+  await cancelWaiting(diceGames, {});
+  await cancelWaiting(blackjackGames, {});
+  await cancelWaiting(minesGames, {});
+  await cancelActive(coinflips);
+  await cancelActive(diceGames);
+  await cancelActive(blackjackGames);
+  await cancelActive(minesGames);
+
+  const io = req.app.get("io");
+  if (io) {
+    io.emit("NOTIFICATION", { title: "All Bets Cancelled", message: `${cancelled} active game(s) cancelled by admin.`, type: "warning", target: "all" });
+  }
+
+  res.json({ success: true, message: `Cancelled ${cancelled} game(s). Restored ${itemsRestored} items to players.` });
+});
+
+// ── Reset all inventories ────────────────────────────────────────────────────
+exports.resetAllInventories = asyncHandler(async (req, res) => {
+  if (!req.adminUser || req.adminUser.rank?.toUpperCase() !== "OWNER") {
+    return res.status(403).json({ message: "Owner only." });
+  }
+  const result = await inventorys.deleteMany({});
+  const io = req.app.get("io");
+  if (io) {
+    io.emit("NOTIFICATION", { title: "Inventories Wiped", message: "All player inventories have been reset.", type: "warning", target: "all" });
+  }
+  res.json({ success: true, message: `Deleted ${result.deletedCount} inventory entries.` });
+});
+
 exports.scrapeItems = asyncHandler(async (req, res) => {
   const { game = "PS99", source = "auto", manualItems } = req.body;
 
