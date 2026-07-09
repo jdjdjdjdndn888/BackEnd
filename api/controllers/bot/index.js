@@ -8,6 +8,7 @@ const withdraws = require("../../modules/withdraws.js");
 const botss = require("../../modules/bots.js");
 const { addHistory, updateuser } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
+const depositLog = require("../../modules/depositlog.js");
 const axios = require("axios");
 
 const userCodes = {};
@@ -138,6 +139,23 @@ exports.Deposit = asyncHandler(async (req, res) => {
 
   if (!acquireLock(numUserId, "deposit")) {
     return res.status(429).json({ method: "DUPLICATE", message: "Deposit already in progress for this user" });
+  }
+
+  // ── Idempotency check ────────────────────────────────────────────────────
+  // If the bot sends a stable depositId, record it atomically before
+  // touching inventory. A duplicate-key error means this exact payload was
+  // already processed — return success so the bot doesn't retry.
+  const depositId = req.body.depositId || req.headers["x-deposit-id"];
+  if (depositId) {
+    try {
+      await depositLog.create({ depositId: String(depositId), userid: numUserId });
+    } catch (idempErr) {
+      releaseLock(numUserId, "deposit");
+      if (idempErr.code === 11000) {
+        return res.status(200).json({ method: "ALREADY_PROCESSED", message: "Deposit already processed (idempotency key matched)" });
+      }
+      throw idempErr;
+    }
   }
 
   const user = await users.findOne({ userid: numUserId });

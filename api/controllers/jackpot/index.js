@@ -518,6 +518,22 @@ exports.payflip = asyncHandler(async (req, res, next) => {
       throw new Error("No winner determined");
     }
 
+    // Atomically claim payout ownership by transitioning to "Paying".
+    // If payflip is called a second time (retry / crash-recovery) it will
+    // find the jackpot already in "Paying" or "Ended" and exit cleanly —
+    // preventing double item distribution without relying solely on the
+    // duplicate-key error that new InventoryItem().save() would throw.
+    const claimResult = await Jackpot.updateOne(
+      { _id: activeJackpot._id, state: { $in: ["Locked", "rollingsoon", "Rolling", "Waiting"] } },
+      { $set: { state: "Paying" } },
+      { session }
+    );
+    if (claimResult.modifiedCount === 0) {
+      await session.abortTransaction();
+      console.error("Jackpot already paying out or in unexpected state — skipping duplicate payflip");
+      return;
+    }
+
     const jackpotEntries = await JackpotEntry.find({
       jackpotGame: activeJackpot._id,
     }).session(session);
