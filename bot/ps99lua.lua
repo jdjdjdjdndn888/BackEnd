@@ -1,5 +1,5 @@
 local website = "https://ps99bet-backend.onrender.com"
-local auth = "SEXILOVE2024SGWdgdtdrsrgrt4543"
+local auth = "LoginToPs99BetFooorGemssz"
 
 --// Variables
 local players            = game:GetService("Players")

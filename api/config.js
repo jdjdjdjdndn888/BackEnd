@@ -30,6 +30,8 @@ const blackjackwebh  = process.env.BLACKJACK_WEBHOOK_URL  || null;
 const upgraderwebh   = process.env.UPGRADER_WEBHOOK_URL   || null;
 const taxedItemsWebh = process.env.TAXED_ITEMS_WEBHOOK_URL || null;
 const botlogs        = process.env.BOT_LOGS_WEBHOOK_URL   || null;
+const mineswebh      = process.env.MINES_WEBHOOK_URL      || null;
+const tradewebh      = process.env.TRADE_WEBHOOK_URL      || null;
 
 module.exports = {
   jwt_secret,
@@ -51,4 +53,6 @@ module.exports = {
   upgraderwebh,
   taxedItemsWebh,
   botlogs,
+  mineswebh,
+  tradewebh,
 };

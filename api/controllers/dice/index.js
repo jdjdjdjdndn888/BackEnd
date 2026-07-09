@@ -8,7 +8,7 @@ const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { taxer, taxes, dicewebh } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser, sendwebhook } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -189,7 +189,9 @@ exports.creatematch = asyncHandler(async (req, res) => {
           "🎲 Dice Game Created",
           `**${savedUser.username}** created a R$${totalItemValue.toLocaleString()} dice game.`,
           [{ name: "Value", value: `R$${totalItemValue.toLocaleString()}`, inline: true }],
-          savedUser.thumbnail
+          savedUser.thumbnail,
+          null,
+          WEBHOOK_COLORS.CREATE
         ),
       ]);
     } catch (sideEffectError) {
@@ -451,7 +453,9 @@ exports.joinmatch = asyncHandler(async (req, res) => {
             { name: "Player 1", value: game.PlayerOne.username, inline: true },
             { name: "Player 2", value: user.username, inline: true },
           ],
-          null
+          null,
+          null,
+          WEBHOOK_COLORS.WIN
         ),
       ]);
     } catch (sideEffectError) {

@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const axios = require("axios");
 const crypto = require('crypto');
 const { taxer, taxes, coinflipwebh } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser, sendwebhook } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -192,7 +192,9 @@ exports.creatematch = asyncHandler(async (req, res) => {
             { name: "Coin", value: publicCoinflip.PlayerOne.coin, inline: true },
             { name: "Value", value: `R$${totalItemValue.toLocaleString()}`, inline: true },
           ],
-          savedUser.thumbnail
+          savedUser.thumbnail,
+          null,
+          WEBHOOK_COLORS.CREATE
         ),
       ]);
     } catch (sideEffectError) {
@@ -439,7 +441,9 @@ exports.joinmatch = asyncHandler(async (req, res) => {
                 { name: "Player 2", value: user.username, inline: true },
                 { name: "Winning Coin", value: finalUpdate.winnercoin, inline: true },
               ],
-              null
+              null,
+              null,
+              WEBHOOK_COLORS.WIN
             ),
         ]);
 

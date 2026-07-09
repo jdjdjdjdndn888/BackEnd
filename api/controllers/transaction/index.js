@@ -33,7 +33,17 @@ exports.addHistory = async function (userid, type, amount) {
     }
 };
 
-exports.sendwebhook = async function (webhook, title, description, fields, thumbnail, banner) {
+// Standard embed colors so every game log reads at a glance:
+// green = win, red = loss, blue = created/pending, gold = jackpot.
+exports.WEBHOOK_COLORS = {
+    WIN: 0x2ecc71,
+    LOSS: 0xe74c3c,
+    CREATE: 0x3498db,
+    JACKPOT: 0xf1c40f,
+    NEUTRAL: 0x2061822 & 0xffffff,
+};
+
+exports.sendwebhook = async function (webhook, title, description, fields, thumbnail, banner, color) {
     if (!webhook) return { success: false, message: "No webhook URL" };
 
     const embed = {};
@@ -50,7 +60,7 @@ exports.sendwebhook = async function (webhook, title, description, fields, thumb
         });
     }
     embed.footer = { text: "ps99bet.vercel.app" };
-    embed.color = 2061822;
+    embed.color = typeof color === "number" ? color : 2061822;
     embed.timestamp = new Date().toISOString();
 
     const MAX_RETRIES = 3;

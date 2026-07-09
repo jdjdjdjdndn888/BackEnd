@@ -6,8 +6,8 @@ const items = require("../../modules/items.js");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const { taxer, taxes, coinflipwebh } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser, sendwebhook } = require("../transaction/index.js");
+const { taxer, taxes, mineswebh } = require("../../config.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -419,6 +419,19 @@ exports.revealtile = asyncHandler(async (req, res) => {
           level(winnerId, loserValue),
           level(loserId, loserValue),
           updatestats(req.app.get("io")),
+          sendwebhook(
+            mineswebh,
+            "💣 Mines Finished",
+            `**${winnerName}** won a R$${loserValue.toLocaleString()} mines game!`,
+            [
+              { name: "Result", value: isBomb ? "💥 Hit a mine" : "✅ Cleared the board", inline: true },
+              { name: "Tiles Revealed", value: `${finalUpdate.revealed.length}`, inline: true },
+              { name: "Value", value: `R$${loserValue.toLocaleString()}`, inline: true },
+            ],
+            null,
+            null,
+            WEBHOOK_COLORS.WIN
+          ).catch((e) => console.error("mines reveal webhook:", e)),
         ]);
       }
     } catch (e) { console.error("mines reveal side-effects:", e); }
@@ -535,6 +548,18 @@ exports.cashout = asyncHandler(async (req, res) => {
         level(winnerId, loserValue),
         level(loserId, loserValue),
         updatestats(req.app.get("io")),
+        sendwebhook(
+          mineswebh,
+          "💰 Mines Cash Out",
+          `**${finalUpdate.PlayerTwo.username}** cashed out a R$${loserValue.toLocaleString()} mines game!`,
+          [
+            { name: "Tiles Revealed", value: `${finalUpdate.revealed.length}`, inline: true },
+            { name: "Value", value: `R$${loserValue.toLocaleString()}`, inline: true },
+          ],
+          null,
+          null,
+          WEBHOOK_COLORS.WIN
+        ).catch((e) => console.error("mines cashout webhook:", e)),
       ]);
     } catch (e) { console.error("mines cashout side-effects:", e); }
   } catch (error) {

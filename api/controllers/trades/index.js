@@ -6,7 +6,8 @@ const inventorys = require("../../modules/inventorys.js");
 const items = require("../../modules/items.js");
 const users = require("../../modules/users.js");
 const userSockets = require("../../socket/usersockets.js");
-const { emituser } = require("../transaction/index.js");
+const { emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
+const { tradewebh } = require("../../config.js");
 const { httpError } = require("../../utils/httpError.js");
 
 function emitToUser(io, userid, event, data) {
@@ -354,6 +355,19 @@ exports.respondRequest = asyncHandler(async (req, res) => {
       message: `${trade.ownerusername} accepted your trade! Items have been swapped.`,
       target: request.senderid,
     });
+
+    sendwebhook(
+      tradewebh,
+      "🔄 Trade Completed",
+      `**${trade.ownerusername}** and **${request.senderusername || request.senderid}** completed a trade.`,
+      [
+        { name: "Listing Owner", value: trade.ownerusername, inline: true },
+        { name: "Trade Partner", value: String(request.senderusername || request.senderid), inline: true },
+      ],
+      null,
+      null,
+      WEBHOOK_COLORS.CREATE
+    ).catch((e) => console.error("trade webhook:", e));
 
     return res.status(200).json({ message: "Trade accepted! Items swapped." });
   } catch (err) {

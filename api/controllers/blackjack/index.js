@@ -7,7 +7,7 @@ const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { taxer, taxes, blackjackwebh } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser, sendwebhook } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -255,7 +255,9 @@ exports.creatematch = asyncHandler(async (req, res) => {
           "🃏 Blackjack Created",
           `**${savedUser.username}** created a R$${totalItemValue.toLocaleString()} blackjack 1v1.`,
           [{ name: "Value", value: `R$${totalItemValue.toLocaleString()}`, inline: true }],
-          savedUser.thumbnail
+          savedUser.thumbnail,
+          null,
+          WEBHOOK_COLORS.CREATE
         ),
       ]);
     } catch (sideEffectError) {
@@ -458,7 +460,9 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           "🃏 Blackjack Joined",
           `**${user.username}** joined a R$${(game.requirements.static + totalJoinerValue).toLocaleString()} blackjack game against **${game.PlayerOne.username}**.`,
           [],
-          user.thumbnail
+          user.thumbnail,
+          null,
+          WEBHOOK_COLORS.CREATE
         ),
       ]);
     } catch (sideEffectError) {
@@ -571,7 +575,9 @@ async function finishSideEffects(finalUpdate, payout, req) {
         { name: "Player 1", value: `${finalUpdate.PlayerOne.username} (${finalUpdate.PlayerOne.total})`, inline: true },
         { name: "Player 2", value: `${finalUpdate.PlayerTwo.username} (${finalUpdate.PlayerTwo.total})`, inline: true },
       ],
-      null
+      null,
+      null,
+      WEBHOOK_COLORS.WIN
     ),
   ]);
 }

@@ -8,7 +8,7 @@ const users = require("../../modules/users.js");
 const items = require("../../modules/items.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
-const { addHistory, updateuser, updatestats, level, sendwebhook } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
 
 const MAX_WIN_CHANCE = 90;
 
@@ -245,7 +245,9 @@ exports.upgrade = [
             { name: "Bet Value", value: `R$${betValue.toLocaleString()}`, inline: true },
             { name: "Target Value", value: `R$${targetValue.toLocaleString()}`, inline: true },
           ],
-          user.thumbnail
+          user.thumbnail,
+          null,
+          won ? WEBHOOK_COLORS.WIN : WEBHOOK_COLORS.LOSS
         ).catch((e) => console.error("upgrader webhook:", e));
       } catch (e) {
         console.error("upgrader side-effects:", e);

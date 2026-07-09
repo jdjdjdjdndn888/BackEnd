@@ -7,7 +7,7 @@ const asyncHandler = require("express-async-handler");
 const InventoryItem = require("../../modules/inventorys");
 const JackpotEntry = require("../../modules/jackpotjoins");
 const items = require("../../modules/items");
-const { addHistory, updateuser, updatestats, level, sendwebhook } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -499,7 +499,9 @@ exports.play_jackpot = asyncHandler(async (req, res, next) => {
         { name: "Pot Value", value: `R$${totalAmount.toLocaleString()}`, inline: true },
         { name: "Players", value: `${jackpotEntries.length}`, inline: true },
       ],
-      null
+      null,
+      null,
+      WEBHOOK_COLORS.JACKPOT
     ).catch((e) => console.error("jackpot webhook:", e));
 
     return res.status(200).json({ message: "Successfully joined jackpot", data: jackpotDataResponse });
