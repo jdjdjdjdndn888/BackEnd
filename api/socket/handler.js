@@ -1,47 +1,35 @@
-const socketRateLimit = new Map();
 const jwt = require("jsonwebtoken");
 const { jwt_secret } = require("../config.js");
 const userSockets = require("./usersockets.js");
 
 module.exports = (io) => {
   io.on("connect", (socket) => {
-    const ip = socket.handshake.address;
-    const now = Date.now();
-
-    if (!socketRateLimit.has(ip)) {
-      socketRateLimit.set(ip, { count: 1, lastConnection: now });
-    } else {
-      const ipData = socketRateLimit.get(ip);
-      const timeElapsed = now - ipData.lastConnection;
-
-      if (ipData.count >= 5 && timeElapsed < 60 * 1000) {
-        socket.disconnect(true);
-        return;
-      }
-
-      if (timeElapsed >= 60 * 1000) {
-        ipData.count = 0;
-        ipData.lastConnection = now;
-      }
-
-      ipData.count++;
-      socketRateLimit.set(ip, ipData);
-    }
-
+    // Authenticate on connect
     const token = socket.handshake.auth?.token;
-
     try {
       const decoded = jwt.verify(token, jwt_secret);
       socket.userId = decoded.id;
-
       userSockets.set(decoded.id, socket.id);
-
     } catch {
-      return;
+      // Not authenticated — socket stays connected but userId is unset.
+      // Unauthenticated clients still receive all public broadcast events.
     }
 
+    // Allow the client to re-authenticate without a full disconnect/reconnect.
+    // Called after login so the server maps the new userId → socketId.
+    socket.on("reauth", (data) => {
+      try {
+        const decoded = jwt.verify(data?.token, jwt_secret);
+        if (socket.userId) userSockets.delete(socket.userId, socket.id);
+        socket.userId = decoded.id;
+        userSockets.set(decoded.id, socket.id);
+      } catch {
+        // Invalid token — leave userId as-is
+      }
+    });
+
     socket.on("disconnect", () => {
-      userSockets.delete(socket.userId, socket.id);
+      if (socket.userId) userSockets.delete(socket.userId, socket.id);
     });
   });
 

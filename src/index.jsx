@@ -70,8 +70,9 @@ function App() {
     return () => socket.off("BALANCE_RESET", fetchMe);
   }, []);
 
-  // Re-authenticate the socket only when the logged-in user actually changes
-  // (not on every UPDATE_ME, which would cause an infinite reconnect loop)
+  // Re-authenticate when the logged-in user changes.
+  // Use a "reauth" event so we never disconnect/reconnect — a full reconnect
+  // was burning the old per-IP rate-limit slots and breaking live updates.
   const prevUserIdRef = useRef(null);
   useEffect(() => {
     if (!userData) return;
@@ -80,8 +81,11 @@ function App() {
     const token = getauth();
     if (!token) return;
     socket.auth = { token };
-    socket.disconnect();
-    socket.connect();
+    if (socket.connected) {
+      socket.emit("reauth", { token });
+    } else {
+      socket.connect();
+    }
   }, [userData]);
 
   return (
