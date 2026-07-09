@@ -51,6 +51,10 @@ export default function Coinflip() {
   const [countdowns, setCountdowns] = useState({});
   const [currentTime, setCurrentTime] = useState(new Date());
   const [recentResults, setRecentResults] = useState([]);
+  // Keep a ref to selectedFlip so socket handlers always read the latest value
+  // without needing to be in the dependency array (which caused constant re-registration)
+  const selectedFlipRef = React.useRef(selectedFlip);
+  useEffect(() => { selectedFlipRef.current = selectedFlip; }, [selectedFlip]);
 
   useEffect(() => {
     const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -91,33 +95,40 @@ export default function Coinflip() {
   }, [gameFilter, sortCoinflips]);
 
   useEffect(() => {
-    socket.on("NEW_COINFLIP", (newCoinflip) => {
+    const onNew = (newCoinflip) => {
       setCoinflips((prev) => sortCoinflips([newCoinflip, ...prev]));
-    });
-    socket.on("COINFLIP_UPDATE", (updatedFlip) => {
+    };
+    const onUpdate = (updatedFlip) => {
+      // Track whether this update introduces a winner so we can trigger side
+      // effects OUTSIDE the state updater (keeps the updater pure).
+      let winnerJustAppeared = false;
       setCoinflips((prev) => {
         const existing = prev.find((f) => f._id === updatedFlip._id);
-        if (updatedFlip.winnercoin && !existing?.winnercoin) {
-          setCountdowns((p) => ({ ...p, [updatedFlip._id]: 3 }));
-          setRecentResults((p) => [updatedFlip.winnercoin, ...p].slice(0, 10));
-        }
-        if (selectedFlip?._id === updatedFlip._id) {
-          setSelectedFlip(updatedFlip);
-          setModalState(<View coinflip={updatedFlip} onClose={() => setSelectedFlip(null)} />);
-        }
+        winnerJustAppeared = !!(updatedFlip.winnercoin && !existing?.winnercoin);
         return sortCoinflips(prev.map((f) => f._id === updatedFlip._id ? updatedFlip : f));
       });
-    });
-    socket.on("COINFLIP_CANCEL", (data) => {
+      if (winnerJustAppeared) {
+        setCountdowns((p) => ({ ...p, [updatedFlip._id]: 3 }));
+        setRecentResults((p) => [updatedFlip.winnercoin, ...p].slice(0, 10));
+      }
+      if (selectedFlipRef.current?._id === updatedFlip._id) {
+        setSelectedFlip(updatedFlip);
+        setModalState(<View coinflip={updatedFlip} onClose={() => setSelectedFlip(null)} />);
+      }
+    };
+    const onCancel = (data) => {
       setCoinflips((prev) => sortCoinflips(prev.filter((f) => f._id !== data._id)));
       setCountdowns((p) => { const n = { ...p }; delete n[data._id]; return n; });
-    });
-    return () => {
-      socket.off("NEW_COINFLIP");
-      socket.off("COINFLIP_UPDATE");
-      socket.off("COINFLIP_CANCEL");
     };
-  }, [socket, sortCoinflips, selectedFlip]);
+    socket.on("NEW_COINFLIP", onNew);
+    socket.on("COINFLIP_UPDATE", onUpdate);
+    socket.on("COINFLIP_CANCEL", onCancel);
+    return () => {
+      socket.off("NEW_COINFLIP", onNew);
+      socket.off("COINFLIP_UPDATE", onUpdate);
+      socket.off("COINFLIP_CANCEL", onCancel);
+    };
+  }, [socket, sortCoinflips]);
 
   const openCreate = () => {
     setModalState(null);

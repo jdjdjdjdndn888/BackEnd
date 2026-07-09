@@ -34,6 +34,8 @@ export default function MinesLayout() {
   const [sortCriteria, setSortCriteria] = useState("high");
   const [gameFilter, setGameFilter] = useState("all");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const selectedGameRef = React.useRef(selectedGame);
+  useEffect(() => { selectedGameRef.current = selectedGame; }, [selectedGame]);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -62,13 +64,10 @@ export default function MinesLayout() {
     const onNew = (g) => setGames((prev) => sortGames([g, ...prev]));
     const onUpdate = (updated) => {
       setGames((prev) => sortGames(prev.map((g) => g._id === updated._id ? updated : g)));
-      setSelectedGame((prev) => {
-        if (prev?._id === updated._id) {
-          setModalState(<MinesView game={updated} onClose={() => setSelectedGame(null)} />);
-          return updated;
-        }
-        return prev;
-      });
+      if (selectedGameRef.current?._id === updated._id) {
+        setSelectedGame(updated);
+        setModalState(<MinesView game={updated} onClose={() => { setSelectedGame(null); setModalState(null); }} />);
+      }
     };
     const onCancel = (data) => setGames((prev) => sortGames(prev.filter((g) => g._id !== data._id)));
 

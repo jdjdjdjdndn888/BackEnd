@@ -404,12 +404,23 @@ exports.deleteAllWithdrawals = asyncHandler(async (req, res) => {
 
 // ── Cancel all active bets ───────────────────────────────────────────────────
 exports.cancelAllBets = asyncHandler(async (req, res) => {
-  const mongoose = require("mongoose");
   let cancelled = 0, itemsRestored = 0;
+  const io = req.app.get("io");
+
+  // Map model → socket cancel event name
+  const cancelEvent = new Map([
+    [coinflips,      "COINFLIP_CANCEL"],
+    [diceGames,      "DICE_CANCEL"],
+    [blackjackGames, "BLACKJACK_CANCEL"],
+    [minesGames,     "MINES_CANCEL"],
+  ]);
 
   // Helper — restore items from a waiting game's PlayerOne and cancel it
-  const cancelWaiting = async (model, filter) => {
-    const games = await model.find({ ...filter, active: true, $or: [{ state: "waiting" }, { state: { $exists: false } }] }).lean();
+  const cancelWaiting = async (model) => {
+    const games = await model.find({
+      active: true,
+      $or: [{ state: "waiting" }, { state: { $exists: false } }],
+    }).lean();
     for (const g of games) {
       const creatorItems = g.PlayerOne?.items || [];
       if (creatorItems.length) {
@@ -421,6 +432,7 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
       }
       await model.updateOne({ _id: g._id }, { $set: { active: false, state: "finished" } });
       cancelled++;
+      if (io) io.emit(cancelEvent.get(model), { _id: String(g._id), active: false });
     }
   };
 
@@ -428,37 +440,66 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
   const cancelActive = async (model) => {
     const games = await model.find({ active: true, PlayerTwo: { $ne: null } }).lean();
     for (const g of games) {
-      const allItems = [...(g.PlayerOne?.items || []), ...(g.PlayerTwo?.items || [])];
-      if (allItems.length) {
-        const p1Items = g.PlayerOne?.items || [];
-        const p2Items = g.PlayerTwo?.items || [];
-        const inserts = [
-          ...p1Items.map(i => ({ _id: i.id || i._id, owner: g.PlayerOne?.id, itemid: i.itemid, locked: false })),
-          ...p2Items.map(i => ({ _id: i.id || i._id, owner: g.PlayerTwo?.id, itemid: i.itemid, locked: false })),
-        ];
+      const p1Items = g.PlayerOne?.items || [];
+      const p2Items = g.PlayerTwo?.items || [];
+      const inserts = [
+        ...p1Items.map(i => ({ _id: i.id || i._id, owner: g.PlayerOne?.id, itemid: i.itemid, locked: false })),
+        ...p2Items.map(i => ({ _id: i.id || i._id, owner: g.PlayerTwo?.id, itemid: i.itemid, locked: false })),
+      ];
+      if (inserts.length) {
         await inventorys.insertMany(inserts, { ordered: false }).catch(() => {});
         itemsRestored += inserts.length;
       }
       await model.updateOne({ _id: g._id }, { $set: { active: false, state: "finished" } });
       cancelled++;
+      if (io) io.emit(cancelEvent.get(model), { _id: String(g._id), active: false });
     }
   };
 
-  await cancelWaiting(coinflips, {});
-  await cancelWaiting(diceGames, {});
-  await cancelWaiting(blackjackGames, {});
-  await cancelWaiting(minesGames, {});
+  await cancelWaiting(coinflips);
+  await cancelWaiting(diceGames);
+  await cancelWaiting(blackjackGames);
+  await cancelWaiting(minesGames);
   await cancelActive(coinflips);
   await cancelActive(diceGames);
   await cancelActive(blackjackGames);
   await cancelActive(minesGames);
 
-  const io = req.app.get("io");
-  if (io) {
-    io.emit("NOTIFICATION", { title: "All Bets Cancelled", message: `${cancelled} active game(s) cancelled by admin.`, type: "warning", target: "all" });
+  // ── Cancel active jackpot(s) ──────────────────────────────────────────────
+  let jackpotCancelled = 0;
+  const activeJackpots = await jackpots.find({ state: { $ne: "Ended" } }).lean();
+  for (const jp of activeJackpots) {
+    // Restore each entrant's items
+    const entries = await jackpotjoins.find({ jackpotGame: String(jp._id) }).lean();
+    for (const entry of entries) {
+      const entryItems = entry.items || [];
+      if (entryItems.length) {
+        await inventorys.insertMany(
+          entryItems.map(item => ({ _id: item.id || item._id, owner: entry.joinerid, itemid: item.itemid, locked: false })),
+          { ordered: false }
+        ).catch(() => {});
+        itemsRestored += entryItems.length;
+      }
+    }
+    await jackpots.updateOne({ _id: jp._id }, { $set: { state: "Ended", inactive: true } });
+    await jackpotjoins.deleteMany({ jackpotGame: String(jp._id) });
+    jackpotCancelled++;
+    if (io) io.emit("JACKPOT_CANCELLED", { jackpotId: String(jp._id) });
   }
 
-  res.json({ success: true, message: `Cancelled ${cancelled} game(s). Restored ${itemsRestored} items to players.` });
+  if (io) {
+    io.emit("NOTIFICATION", {
+      title: "All Bets Cancelled",
+      message: `${cancelled} game(s) and ${jackpotCancelled} jackpot(s) cancelled by admin.`,
+      type: "warning",
+      target: "all",
+    });
+  }
+
+  res.json({
+    success: true,
+    message: `Cancelled ${cancelled} game(s) and ${jackpotCancelled} jackpot(s). Restored ${itemsRestored} items to players.`,
+  });
 });
 
 // ── Reset all inventories ────────────────────────────────────────────────────
