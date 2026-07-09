@@ -422,12 +422,13 @@ exports.joinmatch = asyncHandler(async (req, res) => {
               owner: winnerId,
               itemid: item.itemid,
               locked: false,
-            }))
+            })),
+            { ordered: false }
           );
           await updateuser(winnerId, req.app.get("io"));
           await updateuser(loserId, req.app.get("io"));
         } catch (error) {
-          console.error("Dice setTimeout error:", error);
+          if (error.code !== 11000) console.error("Dice setTimeout error:", error);
         }
       }, 5000);
 
@@ -474,6 +475,9 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 });
 
 exports.cancelmatch = asyncHandler(async (req, res) => {
+  if (!acquireLock(req.user.id, "dice_cancel")) {
+    return res.status(429).json({ message: "Request already in progress, please wait." });
+  }
   const session = await mongoose.startSession();
   let user, game;
 
@@ -530,6 +534,7 @@ exports.cancelmatch = asyncHandler(async (req, res) => {
     }
     return res.status(500).json({ message: "Internal Server Error" });
   } finally {
+    releaseLock(req.user.id, "dice_cancel");
     session.endSession();
   }
 });

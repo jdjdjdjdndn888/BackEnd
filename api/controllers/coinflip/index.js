@@ -492,6 +492,9 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 });
   
 exports.cancelcoinflip = asyncHandler(async (req, res) => {
+  if (!acquireLock(req.user.id, "coinflip_cancel")) {
+    return res.status(429).json({ message: "Request already in progress, please wait." });
+  }
   const session = await mongoose.startSession();
 
   let flip, user, updatedFlip;
@@ -588,6 +591,7 @@ exports.cancelcoinflip = asyncHandler(async (req, res) => {
       return res.status(500).json({ message: "Internal Server Error" });
     }
   } finally {
+    releaseLock(req.user.id, "coinflip_cancel");
     session.endSession();
   }
 });

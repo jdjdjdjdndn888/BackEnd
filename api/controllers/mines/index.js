@@ -399,12 +399,13 @@ exports.revealtile = asyncHandler(async (req, res) => {
           try {
             if (winnerItems.length) {
               await inventorys.insertMany(
-                winnerItems.map((item) => ({ _id: item.id || item._id, owner: winnerId, itemid: item.itemid, locked: false }))
+                winnerItems.map((item) => ({ _id: item.id || item._id, owner: winnerId, itemid: item.itemid, locked: false })),
+                { ordered: false }
               );
             }
             await updateuser(winnerId, req.app.get("io"));
             await updateuser(loserId, req.app.get("io"));
-          } catch (e) { console.error("mines reveal payout:", e); }
+          } catch (e) { if (e.code !== 11000) console.error("mines reveal payout:", e); }
         }, 2000);
 
         setTimeout(() => {
@@ -514,12 +515,13 @@ exports.cashout = asyncHandler(async (req, res) => {
         try {
           if (winnerItems.length) {
             await inventorys.insertMany(
-              winnerItems.map((item) => ({ _id: item.id || item._id, owner: winnerId, itemid: item.itemid, locked: false }))
+              winnerItems.map((item) => ({ _id: item.id || item._id, owner: winnerId, itemid: item.itemid, locked: false })),
+              { ordered: false }
             );
           }
           await updateuser(winnerId, req.app.get("io"));
           await updateuser(loserId, req.app.get("io"));
-        } catch (e) { console.error("mines cashout payout:", e); }
+        } catch (e) { if (e.code !== 11000) console.error("mines cashout payout:", e); }
       }, 2000);
 
       setTimeout(() => {
@@ -546,6 +548,9 @@ exports.cashout = asyncHandler(async (req, res) => {
 });
 
 exports.cancelmatch = asyncHandler(async (req, res) => {
+  if (!acquireLock(req.user.id, "mines_cancel")) {
+    return res.status(429).json({ message: "Request already in progress, please wait." });
+  }
   const session = await mongoose.startSession();
   let user, game;
 
@@ -599,6 +604,7 @@ exports.cancelmatch = asyncHandler(async (req, res) => {
     if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     return res.status(500).json({ message: "Internal Server Error" });
   } finally {
+    releaseLock(req.user.id, "mines_cancel");
     session.endSession();
   }
 });

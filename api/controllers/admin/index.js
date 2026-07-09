@@ -415,13 +415,23 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
     [minesGames,     "MINES_CANCEL"],
   ]);
 
-  // Helper — restore items from a waiting game's PlayerOne and cancel it
+  // Helper — restore items from a waiting game's PlayerOne and cancel it.
+  // Uses a conditional updateOne so that if a game resolves between the
+  // initial find() and this write, modifiedCount === 0 and we skip the
+  // item restore — preventing a TOCTOU double-restore.
   const cancelWaiting = async (model) => {
     const games = await model.find({
       active: true,
       $or: [{ state: "waiting" }, { state: { $exists: false } }],
     }).lean();
     for (const g of games) {
+      const updateResult = await model.updateOne(
+        { _id: g._id, active: true, $or: [{ state: "waiting" }, { state: { $exists: false } }] },
+        { $set: { active: false, state: "finished" } }
+      );
+      // Skip if already resolved by the time we got here
+      if (updateResult.modifiedCount === 0) continue;
+
       const creatorItems = g.PlayerOne?.items || [];
       if (creatorItems.length) {
         await inventorys.insertMany(
@@ -430,16 +440,25 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
         ).catch(() => {});
         itemsRestored += creatorItems.length;
       }
-      await model.updateOne({ _id: g._id }, { $set: { active: false, state: "finished" } });
       cancelled++;
       if (io) io.emit(cancelEvent.get(model), { _id: String(g._id), active: false });
     }
   };
 
-  // Also cancel in-progress games (return both sides)
+  // Also cancel in-progress games (return both sides).
+  // Same TOCTOU guard: only restore items if WE are the ones that flipped
+  // active to false — otherwise the game already resolved and the winner
+  // payout setTimeout will (or already did) handle item distribution.
   const cancelActive = async (model) => {
     const games = await model.find({ active: true, PlayerTwo: { $ne: null } }).lean();
     for (const g of games) {
+      const updateResult = await model.updateOne(
+        { _id: g._id, active: true, PlayerTwo: { $ne: null } },
+        { $set: { active: false, state: "finished" } }
+      );
+      // Skip if already resolved (game finished between our find and this write)
+      if (updateResult.modifiedCount === 0) continue;
+
       const p1Items = g.PlayerOne?.items || [];
       const p2Items = g.PlayerTwo?.items || [];
       const inserts = [
@@ -450,7 +469,6 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
         await inventorys.insertMany(inserts, { ordered: false }).catch(() => {});
         itemsRestored += inserts.length;
       }
-      await model.updateOne({ _id: g._id }, { $set: { active: false, state: "finished" } });
       cancelled++;
       if (io) io.emit(cancelEvent.get(model), { _id: String(g._id), active: false });
     }

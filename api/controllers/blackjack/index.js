@@ -541,13 +541,14 @@ async function finishSideEffects(finalUpdate, payout, req) {
             owner: winnerId,
             itemid: item.itemid,
             locked: false,
-          }))
+          })),
+          { ordered: false }
         );
       }
       await updateuser(winnerId, req.app.get("io"));
       await updateuser(loserId, req.app.get("io"));
     } catch (error) {
-      console.error("Blackjack setTimeout payout error:", error);
+      if (error.code !== 11000) console.error("Blackjack setTimeout payout error:", error);
     }
   }, 3000);
 
@@ -650,6 +651,9 @@ exports.hit = asyncHandler((req, res) => actOnGame(req, res, "hit"));
 exports.stand = asyncHandler((req, res) => actOnGame(req, res, "stand"));
 
 exports.cancelmatch = asyncHandler(async (req, res) => {
+  if (!acquireLock(req.user.id, "blackjack_cancel")) {
+    return res.status(429).json({ message: "Request already in progress, please wait." });
+  }
   const session = await mongoose.startSession();
   let user, game;
 
@@ -707,6 +711,7 @@ exports.cancelmatch = asyncHandler(async (req, res) => {
     }
     return res.status(500).json({ message: "Internal Server Error" });
   } finally {
+    releaseLock(req.user.id, "blackjack_cancel");
     session.endSession();
   }
 });
