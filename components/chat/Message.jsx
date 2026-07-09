@@ -25,17 +25,18 @@ export const Message = ({ msg }) => {
 
   const openTip = (e) => {
     e.stopPropagation();
-    setModalState(
-      <Tip
-        userId={msg?.userid}
-        onClose={() => setModalState(null)}
-      />
-    );
+    setModalState(<Tip userId={msg?.userid} onClose={() => setModalState(null)} />);
   };
 
   return (
-    <div className="flex gap-3 rounded-[1.375rem] border border-solid border-[#252839] bg-[#1C1F2E] p-3">
-      <div>
+    <div style={{
+      display: "flex", gap: 10,
+      padding: "10px 12px",
+      borderRadius: 10,
+      background: "#111",
+      border: "1px solid rgba(255,255,255,0.06)",
+    }}>
+      <div style={{ flexShrink: 0 }}>
         <Avatar
           imgUrl={msg?.thumbnail}
           level={msg.level}
@@ -44,41 +45,34 @@ export const Message = ({ msg }) => {
         />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-wrap items-center leading-6">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", lineHeight: "24px" }}>
           <button
-            className="w-max text-xs font-bold bg-transparent border-none cursor-pointer p-0 hover:underline"
-            style={{ color: msg.usernameColor || "#68749C" }}
+            style={{ color: msg.usernameColor || "#888", background: "transparent", border: "none", cursor: "pointer", padding: 0, fontSize: 12, fontWeight: 700 }}
             onClick={openTip}
             title="Send tip"
+            className="hover:underline w-max"
           >
-            <span className="font-medium">@</span>
-            {msg.username || "Unknown User"}
+            <span style={{ fontWeight: 500 }}>@</span>{msg.username || "Unknown User"}
           </button>
 
-          {msg.rankImage ? (
+          {msg.rankImage && (
             <TooltipProvider delayDuration={0}>
               <Tooltip>
-                <TooltipTrigger className="inline h-4 w-4 border-0 border-transparent bg-transparent">
-                  <img
-                    src={msg.rankImage}
-                    className="ml-1 h-full w-full bg-transparent"
-                    alt="Rank Icon"
-                  />
+                <TooltipTrigger className="inline h-4 w-4 border-0 bg-transparent">
+                  <img src={msg.rankImage} className="ml-1 h-full w-full bg-transparent" alt="Rank Icon" />
                 </TooltipTrigger>
-                <TooltipContent className="bg-[#171925] border border-solid border-[#252839] rounded-[5px] px-3 py-1">
-                  <p className="text-white">{msg.roleName || "User"}</p>
+                <TooltipContent className="bg-[#111] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-1">
+                  <p className="text-white text-xs">{msg.roleName || "User"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          ) : null}
+          )}
 
-          <span className="ml-auto text-[0.625rem] font-medium text-[#454D71]">
-            {msg.timestamp}
-          </span>
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "#444" }}>{msg.timestamp}</span>
         </div>
 
-        <p className="text-xs font-medium text-[#A6B2D3] [overflow-wrap:anywhere]">
+        <p style={{ fontSize: 12, color: "#aaa", overflowWrap: "anywhere", marginTop: 2, lineHeight: 1.5 }}>
           {msg.content}
         </p>
       </div>
