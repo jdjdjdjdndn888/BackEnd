@@ -484,10 +484,24 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
   await cancelActive(minesGames);
 
   // ── Cancel active jackpot(s) ──────────────────────────────────────────────
+  // Only cancel jackpots in pre-rolling states. Once a jackpot reaches
+  // "Rolling" or "Locked" the payout system (payflip / close_jackpot) owns
+  // the item distribution — we must not race against it or we double-restore
+  // items to entrants whose items are already being given to the winner.
   let jackpotCancelled = 0;
-  const activeJackpots = await jackpots.find({ state: { $ne: "Ended" } }).lean();
+  const activeJackpots = await jackpots.find({
+    state: { $nin: ["Rolling", "Locked", "Ended"] },
+  }).lean();
   for (const jp of activeJackpots) {
-    // Restore each entrant's items
+    // Atomically claim the cancellation; skip if the jackpot advanced to a
+    // rolling/payout state between our find() and this write.
+    const jpUpdate = await jackpots.updateOne(
+      { _id: jp._id, state: { $nin: ["Rolling", "Locked", "Ended"] } },
+      { $set: { state: "Ended", inactive: true } }
+    );
+    if (jpUpdate.modifiedCount === 0) continue;
+
+    // Safe to restore — payout system will not touch this jackpot anymore.
     const entries = await jackpotjoins.find({ jackpotGame: String(jp._id) }).lean();
     for (const entry of entries) {
       const entryItems = entry.items || [];
@@ -499,7 +513,6 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
         itemsRestored += entryItems.length;
       }
     }
-    await jackpots.updateOne({ _id: jp._id }, { $set: { state: "Ended", inactive: true } });
     await jackpotjoins.deleteMany({ jackpotGame: String(jp._id) });
     jackpotCancelled++;
     if (io) io.emit("JACKPOT_CANCELLED", { jackpotId: String(jp._id) });
