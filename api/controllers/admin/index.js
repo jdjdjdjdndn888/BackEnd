@@ -32,6 +32,13 @@ const isAdmin = (req, res, next) => {
 
 exports.isAdmin = isAdmin;
 
+/** Escape user-supplied strings before embedding in RegExp to prevent ReDoS */
+function escapeRegex(s) {
+  return s.split("").map(function(c) {
+    return /[.*+?^${}()|[\]\\]/.test(c) ? "\\" + c : c;
+  }).join("");
+}
+
 function parseValue(val) {
   const s = String(val).trim().toLowerCase().replace(/,/g, "");
   if (!s) return 0;
@@ -51,14 +58,6 @@ exports.stats = asyncHandler(async (req, res) => {
   ]);
   res.json({ success: true, data: { totalUsers, totalItems, totalInventory } });
 });
-
-/** Escape user-supplied strings before embedding in RegExp to prevent ReDoS */
-const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\exports.getUsers = asyncHandler(async (req, res) => {
-  const search = req.query.search || "";
-  const query = search ? { username: { $regex: search, $options: "i" } } : {};
-  const list = await users.find(query).select("userid username thumbnail rank level banned wager won lost balance").limit(50).lean();
-  res.json({ success: true, data: list });
-});");
 
 exports.getUsers = asyncHandler(async (req, res) => {
   const search = req.query.search || "";
@@ -91,99 +90,7 @@ exports.listItems = asyncHandler(async (req, res) => {
   const game = req.query.game || "";
   const query = {};
   if (search) query.itemname = { $regex: escapeRegex(search), $options: "i" };
-  if (game && game !== "all") query.game = { $regex: `^${escapeRegex(game)}const asyncHandler = require("express-async-handler");
-const axios = require("axios");
-const users = require("../../modules/users.js");
-const items = require("../../modules/items.js");
-const inventorys = require("../../modules/inventorys.js");
-const bots = require("../../modules/bots.js");
-const coinflips = require("../../modules/coinflips.js");
-const diceGames = require("../../modules/dice.js");
-const blackjackGames = require("../../modules/blackjack.js");
-const minesGames = require("../../modules/mines.js");
-const jackpots = require("../../modules/jackpots.js");
-const jackpotjoins = require("../../modules/jackpotjoins.js");
-const giveaways = require("../../modules/giveaways.js");
-const giveawayjoins = require("../../modules/giveawayjoins.js");
-const trades = require("../../modules/trades.js");
-const traderequests = require("../../modules/traderequests.js");
-const withdraws = require("../../modules/withdraws.js");
-const cryptodeposits = require("../../modules/cryptodeposit.js");
-const { generateItems: generatePS99Items } = require("../../data/ps99pets.js");
-const { scrapePetSimulatorValues } = require("../../services/psvScraper.js");
-
-const isAdmin = (req, res, next) => {
-  if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-  users.findOne({ userid: req.user.id }).then((u) => {
-    if (!u || (u.rank !== "OWNER" && u.rank !== "ADMIN")) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-    req.adminUser = u;
-    next();
-  }).catch(() => res.status(500).json({ message: "Server error" }));
-};
-
-exports.isAdmin = isAdmin;
-
-function parseValue(val) {
-  const s = String(val).trim().toLowerCase().replace(/,/g, "");
-  if (!s) return 0;
-  const num = parseFloat(s);
-  if (isNaN(num)) return 0;
-  if (s.endsWith("b")) return Math.round(num * 1_000_000_000);
-  if (s.endsWith("m")) return Math.round(num * 1_000_000);
-  if (s.endsWith("k")) return Math.round(num * 1_000);
-  return Math.round(num);
-}
-
-exports.stats = asyncHandler(async (req, res) => {
-  const [totalUsers, totalItems, totalInventory] = await Promise.all([
-    users.countDocuments(),
-    items.countDocuments(),
-    inventorys.countDocuments(),
-  ]);
-  res.json({ success: true, data: { totalUsers, totalItems, totalInventory } });
-});
-
-/** Escape user-supplied strings before embedding in RegExp to prevent ReDoS */
-const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\exports.getUsers = asyncHandler(async (req, res) => {
-  const search = req.query.search || "";
-  const query = search ? { username: { $regex: search, $options: "i" } } : {};
-  const list = await users.find(query).select("userid username thumbnail rank level banned wager won lost balance").limit(50).lean();
-  res.json({ success: true, data: list });
-});");
-
-exports.getUsers = asyncHandler(async (req, res) => {
-  const search = req.query.search || "";
-  const query = search ? { username: { $regex: escapeRegex(search), $options: "i" } } : {};
-  const list = await users.find(query).select("userid username thumbnail rank level banned wager won lost balance").limit(50).lean();
-  res.json({ success: true, data: list });
-});
-
-exports.banUser = asyncHandler(async (req, res) => {
-  const { userid, banned } = req.body;
-  if (!userid) return res.status(400).json({ message: "userid required" });
-  await users.updateOne({ userid }, { $set: { banned: !!banned } });
-  res.json({ success: true, message: `User ${banned ? "banned" : "unbanned"}.` });
-});
-
-exports.setRank = asyncHandler(async (req, res) => {
-  const { userid, rank } = req.body;
-  const allowed = ["user", "mod", "admin", "ADMIN", "OWNER"];
-  if (!userid || !rank || !allowed.includes(rank)) {
-    return res.status(400).json({ message: "Invalid userid or rank" });
-  }
-  await users.updateOne({ userid }, { $set: { rank } });
-  res.json({ success: true, message: `Rank set to ${rank}.` });
-});
-
-// ── Items CRUD ──────────────────────────────────────────────────────────────
-
-exports.listItems = asyncHandler(async (req, res) => {
-  const search = req.query.search || "";
-  const game = req.query.game || "";
-  const query = {};
-, $options: "i" };
+  if (game && game !== "all") query.game = { $regex: "^" + escapeRegex(game) + "$", $options: "i" };
   const list = await items.find(query).sort({ itemvalue: -1 }).limit(100).lean();
   const deduped = list.filter((item, idx, arr) => arr.findIndex(t => t.itemid === item.itemid) === idx);
   res.json({ success: true, data: deduped });

@@ -28,11 +28,16 @@ import DicePage from "../components/dice/layout.jsx";
 import BlackjackPage from "../components/blackjack/layout.jsx";
 import MinesPage from "../components/mines/layout.jsx";
 
-const BACKEND_URL = import.meta.env.VITE_SOCKET_URL || "";
+// Vercel's edge proxy cannot upgrade HTTP connections to WebSockets, so
+// routing socket.io through the Vercel rewrite (`/socket.io/*`) always gets
+// a 200 handshake response instead of a 101 upgrade, and the WebSocket
+// connection fails. Connect straight to the backend host instead.
+const BACKEND_URL =
+  import.meta.env.VITE_SOCKET_URL || "https://ps99bet-backend.onrender.com";
 
 const socket = io(BACKEND_URL, {
   path: "/socket.io",
-  transports: ["websocket"],
+  transports: ["websocket", "polling"],
   autoConnect: true,
   auth: { token: getauth() },
 });
