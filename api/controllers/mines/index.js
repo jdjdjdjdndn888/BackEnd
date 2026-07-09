@@ -76,7 +76,11 @@ exports.creatematch = asyncHandler(async (req, res) => {
       savedUser = user;
 
       const inventoryItems = await inventorys
-        .find({ _id: { $in: inventoryIds }, owner: user.userid, locked: false })
+        .find({
+          _id: { $in: inventoryIds },
+          $or: [{ owner: user.userid }, { owner: String(user.userid) }],
+          locked: { $ne: true }, // accept false, null, or missing — only block explicitly locked items
+        })
         .session(session);
       if (inventoryItems.length !== clientItems.length)
         throw httpError(400, "Invalid items detected");
@@ -200,7 +204,11 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         throw httpError(400, "You cannot join your own game!");
 
       const inventoryItems = await inventorys
-        .find({ _id: { $in: inventoryIds }, owner: user.userid, locked: false })
+        .find({
+          _id: { $in: inventoryIds },
+          $or: [{ owner: user.userid }, { owner: String(user.userid) }],
+          locked: { $ne: true }, // accept false, null, or missing — only block explicitly locked items
+        })
         .session(session);
       if (inventoryItems.length !== userItems.length)
         throw httpError(400, "One or more items can't be used!");
