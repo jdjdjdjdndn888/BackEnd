@@ -5,29 +5,41 @@ import MobileHome from "../popup/mobilehome.jsx";
 import MobileGames from "../popup/mobilegames.jsx";
 import { useModal } from "../../utils/ModalContext.jsx";
 
-export default function Footer() {
-  const [activeTab, setActiveTab] = useState("game");
-  const [indicatorPosition, setIndicatorPosition] = useState(null);
-  const tabRefs = {
-    home: useRef(null),
-    game: useRef(null),
-    chat: useRef(null),
-  };
+const TABS = [
+  {
+    key: "home",
+    label: "Home",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h4a1 1 0 001-1v-3h2v3a1 1 0 001 1h4a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+      </svg>
+    ),
+  },
+  {
+    key: "game",
+    label: "Games",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+        <path d="M11 17a1 1 0 001.447.894l4-2A1 1 0 0017 15V9.236a1 1 0 00-1.447-.894l-4 2a1 1 0 00-.553.894V17zM15.211 6.276a1 1 0 000-1.788l-4.764-2.382a1 1 0 00-.894 0L4.789 4.488a1 1 0 000 1.788l4.764 2.382a1 1 0 00.894 0l4.764-2.382zM4.447 8.342A1 1 0 003 9.236V15a1 1 0 00.553.894l4 2A1 1 0 009 17v-5.764a1 1 0 00-.553-.894l-4-2z" />
+      </svg>
+    ),
+  },
+  {
+    key: "chat",
+    label: "Chat",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+        <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+];
 
+export default function Footer() {
+  const [activeTab, setActiveTab] = useState(null);
   const { setModalState, modalState } = useModal();
   const location = useLocation();
   const navigate = useNavigate();
-
-  const updateIndicatorPosition = (tabName) => {
-    if (!tabName || !tabRefs[tabName]?.current) return;
-    const tabElement = tabRefs[tabName].current;
-    const tabRect = tabElement.getBoundingClientRect();
-    const parentRect = tabElement.parentElement.getBoundingClientRect();
-    setIndicatorPosition({
-      left: (tabRect.left - parentRect.left) + (tabRect.width * 0.25),
-      width: tabRect.width * 0.5,
-    });
-  };
 
   const handleTabClick = (tab) => {
     if (activeTab === tab) {
@@ -36,99 +48,93 @@ export default function Footer() {
       return;
     }
     setActiveTab(tab);
-    updateIndicatorPosition(tab);
-    switch (tab) {
-      case "home": setModalState(<MobileHome navigate={navigate} location={location} />); break;
-      case "game": setModalState(<MobileGames />); break;
-      case "chat": setModalState(<MobileChat />); break;
-    }
+    if (tab === "home")  setModalState(<MobileHome navigate={navigate} location={location} />);
+    if (tab === "game")  setModalState(<MobileGames />);
+    if (tab === "chat")  setModalState(<MobileChat />);
   };
 
+  // Sync when modal is closed externally
   useEffect(() => {
-    if (!modalState) {
-      setActiveTab(null);
-      setIndicatorPosition(null);
-    } else {
-      const tabTypeMap = { MobileHome, MobileChat, MobileGames };
-      const tabKeyMap = { MobileHome: "home", MobileChat: "chat", MobileGames: "game" };
-      const key = Object.keys(tabTypeMap).find((k) => modalState.type === tabTypeMap[k]);
-      if (key) {
-        const newTab = tabKeyMap[key];
-        setActiveTab(newTab);
-        updateIndicatorPosition(newTab);
-      }
-    }
+    if (!modalState) setActiveTab(null);
   }, [modalState]);
 
+  // Close game modal on route changes
   useEffect(() => {
     if (location.pathname !== "/") {
       setActiveTab(null);
-      setIndicatorPosition(null);
-    } else if (activeTab === "game") {
-      updateIndicatorPosition("game");
+      setModalState(null);
     }
   }, [location.pathname]);
-
-  useEffect(() => {
-    if (activeTab) updateIndicatorPosition(activeTab);
-    const handleResize = () => { if (activeTab) updateIndicatorPosition(activeTab); };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [activeTab]);
-
-  const iconColor = (tab) => activeTab === tab ? "#fff" : "#555";
 
   return (
     <div
       className="lg:hidden"
       style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
         height: "var(--footer-height)",
-        background: "#0c0c0c",
-        borderTop: "1px solid rgba(255,255,255,0.07)",
-        boxSizing: "border-box",
+        background: "#080808",
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
         position: "relative",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-evenly", alignItems: "stretch", width: "80%", height: "100%", padding: "0 32px", position: "relative" }}>
-        {/* Home */}
-        <button ref={tabRefs.home} onClick={() => handleTabClick("home")}
-          style={{ background: "transparent", border: "none", cursor: "pointer", flexGrow: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 576 512" height="24" width="24" style={{ color: iconColor("home"), transition: "color 0.2s" }}>
-            <path d="M575.8 255.5c0 18-15 32.1-32 32.1h-32l.7 160.2c0 2.7-.2 5.4-.5 8.1V472c0 22.1-17.9 40-40 40H456c-1.1 0-2.2 0-3.3-.1c-1.4 .1-2.8 .1-4.2 .1H416 392c-22.1 0-40-17.9-40-40V448 384c0-17.7-14.3-32-32-32H256c-17.7 0-32 14.3-32 32v64 24c0 22.1-17.9 40-40 40H160 128.1c-1.5 0-3-.1-4.5-.2c-1.2 .1-2.4 .2-3.6 .2H104c-22.1 0-40-17.9-40-40V360c0-.9 0-1.9 .1-2.8V287.6H32c-18 0-32-14-32-32.1c0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z" />
-          </svg>
-        </button>
-
-        {/* Game */}
-        <button ref={tabRefs.game} onClick={() => handleTabClick("game")}
-          style={{ background: "transparent", border: "none", cursor: "pointer", flexGrow: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 640 512" height="24" width="24"
-            style={{ color: activeTab === "game" && location.pathname === "/" ? "#fff" : "#555", transition: "color 0.2s" }}>
-            <path d="M192 64C86 64 0 150 0 256S86 448 192 448H448c106 0 192-86 192-192s-86-192-192-192H192zM496 168a40 40 0 1 1 0 80 40 40 0 1 1 0-80zM392 304a40 40 0 1 1 80 0 40 40 0 1 1 -80 0zM168 200c0-13.3 10.7-24 24-24s24 10.7 24 24v32h32c13.3 0 24 10.7 24 24s-10.7 24-24 24H216v32c0 13.3-10.7 24-24 24s-24-10.7-24-24V280H136c-13.3 0-24-10.7-24-24s10.7-24 24-24h32V200z" />
-          </svg>
-        </button>
-
-        {/* Chat */}
-        <button ref={tabRefs.chat} onClick={() => handleTabClick("chat")}
-          style={{ background: "transparent", border: "none", cursor: "pointer", flexGrow: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" height="24" width="24" style={{ color: iconColor("chat"), transition: "color 0.2s" }}>
-            <path d="M64 0C28.7 0 0 28.7 0 64V352c0 35.3 28.7 64 64 64h96v80c0 6.1 3.4 11.6 8.8 14.3s11.9 2.1 16.8-1.5L309.3 416H448c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64H64z" />
-          </svg>
-        </button>
-
-        {/* Active indicator */}
-        {indicatorPosition && (
-          <div
-            style={{
-              position: "absolute", bottom: 0, height: 2,
-              background: "#fff",
-              borderRadius: "2px 2px 0 0",
-              transition: "left 0.25s ease, width 0.25s ease",
-              left: indicatorPosition.left + "px",
-              width: indicatorPosition.width + "px",
-            }}
-          />
-        )}
+      {/* Inner pill container */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        borderRadius: 16,
+        padding: "4px",
+        gap: 2,
+        position: "relative",
+      }}>
+        {TABS.map(({ key, label, icon }) => {
+          const isActive = activeTab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => handleTabClick(key)}
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                gap: isActive ? 7 : 0,
+                padding: isActive ? "9px 18px" : "9px 16px",
+                borderRadius: 12,
+                border: "none",
+                cursor: "pointer",
+                background: isActive ? "#fff" : "transparent",
+                color: isActive ? "#000" : "rgba(255,255,255,0.3)",
+                fontWeight: isActive ? 600 : 400,
+                fontSize: 13,
+                transition: "all 0.22s cubic-bezier(0.34,1.56,0.64,1)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                width: isActive ? "auto" : 46,
+                justifyContent: "center",
+              }}
+              className="hover:!text-white"
+            >
+              <span style={{
+                display: "flex",
+                alignItems: "center",
+                transition: "transform 0.18s ease",
+                transform: isActive ? "scale(0.9)" : "scale(1)",
+                flexShrink: 0,
+              }}>
+                {icon}
+              </span>
+              {isActive && (
+                <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.01em" }}>
+                  {label}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,25 +1,21 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useModal } from "@/utils/ModalContext";
 import { HomeIcon } from "@/assets/icons/HomeIcon";
 import { MarketPlaceIcon } from "@/assets/icons/MarketPlaceIcon";
 import { LeaderboardIcon } from "@/assets/icons/LeaderboardIcon";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Leaderboard from "@/components/popup/leaderboard";
-import { useLocation } from "react-router-dom";
 
-const navItems = [
-  { label: "Home",         icon: HomeIcon,        href: "/" },
-  { label: "Coinflip",     icon: () => <img src="/coinflip-icon.png"  alt="Coinflip"      className="w-8 h-8 object-contain" />, href: "/coinflip"  },
-  { label: "Dice",         icon: () => <img src="/dice-icon.png"      alt="Dice"          className="w-8 h-8 object-contain" />, href: "/dice"      },
-  { label: "Jackpot",      icon: () => <img src="/jackpot-icon.png"   alt="Jackpot"       className="w-8 h-8 object-contain" />, href: "/jackpot"   },
-  { label: "BlackJack 1v1",icon: () => <img src="/blackjack-icon.png" alt="BlackJack 1v1" className="w-8 h-8 object-contain" />, href: "/blackjack" },
-  { label: "Upgrader",     icon: () => <img src="/upgrader-icon.png"  alt="Upgrader"      className="w-8 h-8 object-contain" />, href: "/upgrader"  },
-  { label: "Trades",       icon: MarketPlaceIcon, href: "/trades"    },
+const NAV_ITEMS = [
+  { label: "Home",          icon: HomeIcon,        href: "/" },
+  { label: "Coinflip",      icon: () => <img src="/coinflip-icon.png"  alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/coinflip"  },
+  { label: "Dice",          icon: () => <img src="/dice-icon.png"      alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/dice"      },
+  { label: "Jackpot",       icon: () => <img src="/jackpot-icon.png"   alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/jackpot"   },
+  { label: "BlackJack 1v1", icon: () => <img src="/blackjack-icon.png" alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/blackjack" },
+  { label: "Upgrader",      icon: () => <img src="/upgrader-icon.png"  alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/upgrader"  },
+  { label: "Trades",        icon: MarketPlaceIcon, href: "/trades"    },
 ];
 
 export default function Sidenav() {
@@ -27,95 +23,169 @@ export default function Sidenav() {
   const location = useLocation();
 
   return (
-    <aside style={{
-      display: "none",
+    <aside className="hidden lg:flex" style={{
       width: 72,
       flexShrink: 0,
       flexDirection: "column",
-      background: "#0c0c0c",
-      borderRight: "1px solid rgba(255,255,255,0.07)",
+      background: "#080808",
+      borderRight: "1px solid rgba(255,255,255,0.05)",
       height: "100%",
       zIndex: 20,
-    }}
-      className="lg:flex"
-    >
-      {/* Logo */}
+      position: "relative",
+    }}>
+
+      {/* ── Logo ── */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
         height: "var(--header-height)",
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
-        padding: "0 6px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        flexShrink: 0,
       }}>
-        <NavLink to="/" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}>
-          <img src="/logo-ps99bet.png" alt="PS99Bet" style={{ height: 32, width: "auto", objectFit: "contain" }} draggable={false} />
+        <NavLink to="/" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <img
+            src="/logo-ps99bet.png"
+            alt="PS99Bet"
+            draggable={false}
+            style={{ height: 30, width: "auto", objectFit: "contain", filter: "brightness(1.05)" }}
+          />
         </NavLink>
       </div>
 
-      {/* Nav items */}
-      <nav style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "16px 0", gap: 4, flex: 1 }}>
-        <TooltipProvider delayDuration={0}>
-          {navItems.map(({ label, icon: Icon, href }) => {
+      {/* ── Nav Items ── */}
+      <nav style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 0", gap: 2, overflowY: "auto" }}>
+        <TooltipProvider delayDuration={100}>
+          {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
             const isActive = href === "/" ? location.pathname === "/" : location.pathname.startsWith(href);
             return (
               <Tooltip key={label}>
                 <TooltipTrigger asChild>
-                  <NavLink
-                    to={href}
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      width: 44, height: 44, borderRadius: 10,
-                      transition: "background 0.15s",
-                      background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                      outline: isActive ? "1px solid rgba(255,255,255,0.15)" : "none",
-                      color: isActive ? "#fff" : "#555",
-                    }}
-                    className="[&>svg]:w-5 [&>svg]:h-5 hover:bg-[rgba(255,255,255,0.05)]"
-                  >
-                    <Icon />
-                  </NavLink>
+                  {/* Full-width row so the left indicator can span the sidebar edge */}
+                  <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", padding: "2px 0" }}>
+                    {/* Left-edge active indicator */}
+                    {isActive && (
+                      <span style={{
+                        position: "absolute",
+                        left: 0,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        width: 3,
+                        height: 22,
+                        borderRadius: "0 3px 3px 0",
+                        background: "#ffffff",
+                        boxShadow: "0 0 8px rgba(255,255,255,0.5)",
+                        pointerEvents: "none",
+                      }} />
+                    )}
+                    <NavLink
+                      to={href}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        transition: "background 0.18s ease, opacity 0.18s ease",
+                        background: isActive
+                          ? "rgba(255,255,255,0.08)"
+                          : "transparent",
+                        opacity: isActive ? 1 : 0.35,
+                        color: "#fff",
+                        textDecoration: "none",
+                      }}
+                      className="[&>svg]:w-[18px] [&>svg]:h-[18px] hover:!bg-[rgba(255,255,255,0.06)] hover:!opacity-70"
+                    >
+                      <Icon />
+                    </NavLink>
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="bg-[#111] border border-[rgba(255,255,255,0.1)] text-white text-xs px-3 py-1.5 rounded-lg">
+                <TooltipContent
+                  side="right"
+                  sideOffset={10}
+                  style={{
+                    background: "#141414",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    padding: "5px 10px",
+                    borderRadius: 8,
+                    letterSpacing: "0.01em",
+                  }}
+                >
                   {label}
                 </TooltipContent>
               </Tooltip>
             );
           })}
 
-          <div style={{ width: 32, height: 1, background: "rgba(255,255,255,0.07)", margin: "4px 0" }} />
+          {/* ── Separator ── */}
+          <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.06)", margin: "6px 0" }} />
 
+          {/* ── Leaderboard ── */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => setModalState(<Leaderboard />)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 44, height: 44, borderRadius: 10,
-                  background: "transparent", border: "none", cursor: "pointer",
-                  color: "#555", transition: "background 0.15s, color 0.15s",
-                }}
-                className="[&>svg]:w-5 [&>svg]:h-5 hover:bg-[rgba(255,255,255,0.05)] hover:!text-white"
-              >
-                <LeaderboardIcon />
-              </button>
+              <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", padding: "2px 0" }}>
+                <button
+                  type="button"
+                  onClick={() => setModalState(<Leaderboard />)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 44, height: 44, borderRadius: 12,
+                    background: "transparent", border: "none", cursor: "pointer",
+                    color: "#fff", opacity: 0.3,
+                    transition: "background 0.18s, opacity 0.18s",
+                  }}
+                  className="[&>svg]:w-[18px] [&>svg]:h-[18px] hover:!bg-[rgba(255,255,255,0.06)] hover:!opacity-65"
+                >
+                  <LeaderboardIcon />
+                </button>
+              </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-[#111] border border-[rgba(255,255,255,0.1)] text-white text-xs px-3 py-1.5 rounded-lg">
+            <TooltipContent
+              side="right"
+              sideOffset={10}
+              style={{
+                background: "#141414",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 500,
+                padding: "5px 10px",
+                borderRadius: 8,
+              }}
+            >
               Leaderboard
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </nav>
 
-      {/* Discord */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "12px 0", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+      {/* ── Discord ── */}
+      <div style={{
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "10px 0",
+        flexShrink: 0,
+      }}>
         <a
           href="https://discord.gg/MH7rp8jh7E"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, borderRadius: 10, transition: "background 0.15s" }}
-          className="hover:bg-[rgba(88,101,242,0.12)]"
+          title="Join our Discord"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 44, height: 44, borderRadius: 12,
+            transition: "background 0.18s, opacity 0.18s",
+            opacity: 0.4,
+          }}
+          className="hover:!bg-[rgba(88,101,242,0.18)] hover:!opacity-90"
         >
-          <img src="/discord.png" alt="Discord" style={{ width: 48, height: 48, objectFit: "contain" }} draggable={false} />
+          <img src="/discord.png" alt="Discord" style={{ width: 26, height: 26, objectFit: "contain" }} draggable={false} />
         </a>
       </div>
     </aside>
