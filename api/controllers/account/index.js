@@ -101,7 +101,111 @@ exports.profile = asyncHandler(async (req, res) => {
   }
 
   try {
-    const query = userid ? { userid } : { username: { $regex: new RegExp(`^${username}$`, "i") } };
+    const escaped = username ? username.replace(/[.*+?^${}()|[\]\\]/g, "\\    const query = userid ? { userid } : { username: { $regex: new RegExp(`^${username}$`, "i") } };") : "";
+    const query = userid ? { userid } : { username: { $regex: new RegExp(`^${escaped}const asyncHandler = require("express-async-handler");
+const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
+const { jwt_secret, clientid, clientsecret, uri } = require("../../config.js");
+const { logEvent } = require("../../logger.js");
+const users = require("../../modules/users.js");
+const items = require("../../modules/items.js");
+const inventorys = require("../../modules/inventorys.js");
+const withdraws = require("../../modules/withdraws.js");
+const history = require("../../modules/history.js");
+const axios = require("axios");
+const qs = require('querystring');
+const { addHistory, updateuser, emituser } = require("../transaction/index.js");
+const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
+const settings = require("../../settings.js");
+
+const codesCache = {};
+
+exports.verifyToken = asyncHandler((req, res, next) => {
+  const token = req.headers["authorization"]?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ "message": "Unauthorized" })
+  }
+
+  jwt.verify(token, jwt_secret, (err, user) => {
+    if (err) {
+      return res.status(401).json({ "message": "Unauthorized" })
+    }
+    req.user = user;
+
+    next();
+
+  });
+});
+
+
+exports.me = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const currentIp = req.ip; 
+
+    const [user, inventory, userhistory] = await Promise.all([
+      users.findOne({ userid: userId }).lean(),
+      inventorys.find({ owner: userId }).lean(),
+      history.find({ userid: userId }).lean(),
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const itemIds = inventory.map((item) => item.itemid);
+
+    const itemsDetails = await items.find({ itemid: { $in: [...itemIds, ...itemIds.map(String)] } }).lean();
+
+    const inventoryValue = inventory.reduce((total, invItem) => {
+      const itemDetail = itemsDetails.find((item) => String(item.itemid) === String(invItem.itemid));
+      return total + (itemDetail?.itemvalue || 0) * (invItem.quantity || 1);
+    }, 0);
+
+    const data = {
+      userid: user.userid,
+      username: user.username,
+      thumbnail: user.thumbnail,
+      displayname: user.displayname,
+      rank: user.rank,
+      wager: user.wager,
+      won: user.won,
+      lost: user.lost,
+      value: inventoryValue.toFixed(2),
+      balance: user.balance,
+      level: user.level,
+      history: userhistory,
+      discordid: user.discordid,
+      discordusername: user.discordusername,
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "OK",
+      data,
+    });
+
+    let userIps = user.ip || []; 
+    userIps.push(currentIp); 
+    userIps = userIps.slice(-10);
+
+    const updateResult = await users.updateOne({ userid: userId }, { $set: { history: userIps } });
+    console.log(updateResult);
+
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+exports.profile = asyncHandler(async (req, res) => {
+  const { userid, username } = req.body;
+
+  if (!userid && !username) {
+    return res.status(404).json({ "message": "user not found!" })
+  }
+
+  try {
+, "i") } };
     const user = await users.findOne(query);
     if (!user) {
      return res.status(404).json({ "message": "user not found!" })

@@ -194,6 +194,12 @@ exports.join_jackpot = [
           itemIdsToDelete.push(exists._id);
         }
 
+        // Reject joins where all items have 0 value — these would dilute the
+        // pot without meaningful contribution and skew winner probability.
+        if (choosenSum <= 0) {
+          throw httpError(422, "Items must have a total value greater than 0");
+        }
+
         const hasJoined = await JackpotEntry.findOne({
           jackpotGame: recentJackpot._id,
           joinerid: req.user.id,
@@ -313,8 +319,16 @@ exports.get_jackpot = asyncHandler(async (req, res, next) => {
     jackpotGame: activeJackpot._id 
   });
 
+  // Strip the raw serverSeed while the game is still running — only expose
+  // it after the jackpot has ended (provably-fair reveal).  The hashed seed
+  // is always safe to expose and is already stored in hashedServerSeed.
+  const gameData = activeJackpot.toObject ? activeJackpot.toObject() : { ...activeJackpot };
+  if (gameData.state !== "Ended") {
+    delete gameData.serverSeed;
+  }
+
   return res.status(200).json({
-    gameData: activeJackpot || {},
+    gameData,
     entries: jackpotEntries || 0,
   });
 });

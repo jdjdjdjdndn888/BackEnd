@@ -177,8 +177,8 @@ router.post("/debug/webhooks", bothandler.realBody, async (req, res) => {
   res.json(results);
 });
 
-// Seed gem denomination items if they don't exist yet
-router.get("/__seed-gems", async (req, res) => {
+// Seed gem denomination items if they don't exist yet — bot-auth required
+router.get("/__seed-gems", bothandler.real, async (req, res) => {
   const items = require("../modules/items.js");
   const GEM_IMAGE = "https://cdn.discordapp.com/attachments/1522618058265460756/1522857070339293284/pet-simulator-99-gems.png?ex=6a49feaa&is=6a48ad2a&hm=7151b70be01d2a47bbe9063bf6c5e1d9067668dc79aecdee8556c81d135bff3e&";
   const GEM_ITEMS = [
