@@ -9,6 +9,12 @@ import LoginModal from "../popup/login.jsx";
 import { Money } from "@/assets/exports.jsx";
 import Wheel from "./Wheel.jsx";
 import { COLORS } from "./colors.js";
+import { Timer, Plus, TrendingUp } from "lucide-react";
+
+const S = {
+  page: { boxSizing: "border-box", background: "#0c0c0c", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
+  divider: { width: 1, height: 16, background: "rgba(255,255,255,0.08)" },
+};
 
 export default function JackpotPage() {
   const { setModalState } = useModal();
@@ -17,74 +23,48 @@ export default function JackpotPage() {
   const [jackpotData, setJackpotData] = useState({ value: 0 });
   const [timeRemaining, setTimeRemaining] = useState("0s");
   const [jackpotEntries, setJackpotEntries] = useState([]);
-
   const [showWinner, setShowWinner] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
-    fetch(`${api}/jackpot`, {
-      mode: "cors",
-      method: "GET",
-    })
+    fetch(`${api}/jackpot`, { mode: "cors", method: "GET" })
       .then(async (res) => {
         const data = await res.json();
         setJackpotData(data.gameData);
         setJackpotEntries(data.entries || []);
       })
-      .catch((error) => console.error("Failed to fetch jackpot!", error));
+      .catch((err) => console.error("Failed to fetch jackpot!", err));
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (typeof timeRemaining === "number" && timeRemaining > 0) {
-        setTimeRemaining((prev) => prev - 1);
-      }
+      if (typeof timeRemaining === "number" && timeRemaining > 0)
+        setTimeRemaining((p) => p - 1);
     }, 1000);
-
     return () => clearInterval(interval);
   }, [timeRemaining]);
 
   const handleJackpotUpdate = useCallback((data) => {
     setJackpotData(data.gameData);
     setJackpotEntries(data.entries || []);
-
-    if (data.entries.length === 0) {
-      setJackpotData((prevData) => ({
-        ...prevData,
-        result: null,
-      }));
-    }
+    if (data.entries.length === 0)
+      setJackpotData((p) => ({ ...p, result: null }));
   }, []);
 
   const handleTimeUpdate = (time) => {
-    const timeString = String(time);
-    if (timeString.includes("...")) {
-      setTimeRemaining("0s");
-      setShowWinner(false);
-    } else {
-      setTimeRemaining(`${timeString}s`);
-    }
+    const s = String(time);
+    if (s.includes("...")) { setTimeRemaining("0s"); setShowWinner(false); }
+    else setTimeRemaining(`${s}s`);
   };
 
   useEffect(() => {
     if (jackpotData.result) {
       audioRef.current = new Audio(Money);
-      audioRef.current
-        .play()
-        .catch((error) => console.error("Audio playback error:", error));
+      audioRef.current.play().catch((e) => console.error("Audio playback error:", e));
     } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
     }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-    };
+    return () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } };
   }, [jackpotData.result]);
 
   useEffect(() => {
@@ -94,86 +74,131 @@ export default function JackpotPage() {
       socket.off("JACKPOT_UPDATE", handleJackpotUpdate);
       socket.off("JACKPOT_TIME_UPDATE", handleTimeUpdate);
     };
-  }, [socket, handleJackpotUpdate, handleTimeUpdate]);
+  }, [socket, handleJackpotUpdate]);
+
+  const totalItems = jackpotEntries.reduce((s, e) => s + e.items.length, 0);
+  const totalValue = jackpotData.value || 0;
+  const isFull = jackpotEntries.length >= 50;
+  const isRolling = showWinner && jackpotData.result;
+  const betLabel = isFull ? "Jackpot Full" : isRolling ? "Starting soon..." : jackpotData.result ? "Rolling..." : `Place a Bet (${timeRemaining})`;
 
   return (
-    <div className="box-border min-h-full flex flex-wrap items-center justify-evenly gap-8 p-4">
-      <Wheel
-        jackpotData={jackpotData}
-        jackpotEntries={jackpotEntries}
-        showWinner={showWinner}
-        timeRemaining={timeRemaining}
-        setShowWinner={setShowWinner}
-      />
-
-      <div className="flex flex-col w-[min(90vw,22rem)] rounded-xl border border-solid border-[#1e2035] bg-[#12141f] overflow-hidden" style={{ height: "32rem" }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2035]">
-          <span className="text-xs font-bold uppercase tracking-widest text-[#42496B]">Entries</span>
-          <span className="text-xs font-bold text-[#8B5CF6]">{jackpotEntries.length}/50</span>
+    <div style={S.page}>
+      {/* ── Top header ── */}
+      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 11, letterSpacing: "0.15em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Jackpot</span>
+          <div style={S.divider} />
+          <span style={{ fontSize: 13, color: "#888" }}>
+            <span style={{ color: "#fff", fontWeight: 600 }}>{jackpotEntries.length}</span>/50 Players
+          </span>
+          <div style={S.divider} />
+          <span style={{ fontSize: 13, color: "#888" }}>
+            <span style={{ color: "#fff", fontWeight: 600 }}>{totalItems}</span> Items
+          </span>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#111", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "6px 14px" }}>
+          <Timer size={13} color="#888" />
+          <span style={{ fontSize: 13, color: "#fff", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+            Draws in {timeRemaining}
+          </span>
+        </div>
+      </div>
 
-        {/* Entry list */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-2">
-          {jackpotEntries.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center py-8">
-              <p className="text-sm font-bold text-white">No entries yet</p>
-              <p className="text-xs text-[#42496B]">Be the first to place a bet!</p>
+      {/* ── Probability bar ── */}
+      {jackpotEntries.length > 0 && (
+        <div style={{ padding: "0 24px" }}>
+          <div style={{ display: "flex", height: 5, overflow: "hidden", borderRadius: "0 0 3px 3px" }}>
+            {jackpotEntries.map((entry, i) => {
+              const pct = totalValue > 0 ? (entry.value / totalValue) * 100 : 0;
+              return <div key={i} style={{ flex: pct, background: COLORS[i % COLORS.length], transition: "flex 0.4s ease" }} />;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Two-column layout ── */}
+      <div style={{ flex: 1, display: "flex" }}>
+        {/* LEFT — Wheel area */}
+        <div style={{ flex: "0 0 55%", borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px" }}>
+          <Wheel
+            jackpotData={jackpotData}
+            jackpotEntries={jackpotEntries}
+            showWinner={showWinner}
+            timeRemaining={timeRemaining}
+            setShowWinner={setShowWinner}
+          />
+
+          {jackpotData.result && (
+            <div style={{ marginTop: 20, fontSize: 15, fontWeight: 800, color: "#4ade80", letterSpacing: "0.04em" }}>
+              🎉 Winner selected!
             </div>
-          ) : jackpotEntries.map((entry, index) => {
-            const toRender = entry.items.slice(0, 4);
-            const pct = Math.round((entry.value / jackpotData.value) * 100 * 100) / 100;
-            return (
-              <div
-                key={index}
-                className="flex flex-col gap-2 rounded-xl border border-solid border-[#1e2035] bg-[#0f1220] p-3 transition-colors hover:border-[#252839]"
-              >
-                <div className="flex items-center gap-2">
-                  <img
-                    src={entry.thumbnail}
-                    alt={entry.username}
-                    onClick={() => setModalState(<Profile userid={entry.joinerid} />)}
-                    className="h-8 w-8 flex-shrink-0 cursor-pointer rounded-full border-2 border-[#1e2035] object-cover transition-all hover:border-[#8B5CF6]"
-                  />
-                  <span
-                    className="rounded-full px-2 py-0.5 text-xs font-bold"
-                    style={{ background: COLORS[index], color: "rgb(20,20,20)" }}
-                  >
-                    {entry.username}
-                  </span>
-                  <span className="ml-auto text-xs font-bold text-white">{pct}%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {toRender.map((item, i) => (
-                    <img key={i} className="h-9 w-9 rounded-lg border border-[#1e2035] object-contain bg-[#12141f]" src={item.itemimage} alt="" />
-                  ))}
-                  {entry.items.length > 4 && (
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#1e2035] bg-[#12141f] text-xs font-bold text-white">
-                      +{entry.items.length - 4}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          )}
         </div>
 
-        {/* Place bet button */}
-        <div className="border-t border-[#1e2035] p-3">
-          <button
-            onClick={() => setModalState(userData ? <JoinJackpot /> : <LoginModal />)}
-            className="w-full cursor-pointer rounded-xl border-none py-2.5 text-sm font-bold text-white tracking-wide transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}
-            disabled={jackpotEntries.length >= 50 || jackpotData.result}
-          >
-            {jackpotEntries.length >= 50
-              ? "Jackpot Full"
-              : showWinner && jackpotData.result
-                ? "Starting soon..."
-                : jackpotData.result
-                  ? "Rolling..."
-                  : `Place a Bet (${timeRemaining})`}
-          </button>
+        {/* RIGHT — Entries */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          {/* Entries header */}
+          <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Entries ({jackpotEntries.length}/50)</span>
+            <TrendingUp size={13} color="#555" />
+          </div>
+
+          {/* Entry list */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {jackpotEntries.length === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", textAlign: "center" }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>No entries yet</p>
+                <p style={{ fontSize: 12, color: "#555", marginTop: 4 }}>Be the first to place a bet!</p>
+              </div>
+            ) : jackpotEntries.map((entry, index) => {
+              const pct = totalValue > 0 ? Math.round((entry.value / totalValue) * 100 * 100) / 100 : 0;
+              const col = COLORS[index % COLORS.length];
+              const toRender = entry.items.slice(0, 4);
+              return (
+                <div key={index} style={{
+                  display: "flex", flexDirection: "column", gap: 8,
+                  padding: "12px 20px",
+                  borderLeft: `3px solid ${col}`,
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                  background: index % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <img
+                      src={entry.thumbnail}
+                      alt={entry.username}
+                      onClick={() => setModalState(<Profile userid={entry.joinerid} />)}
+                      style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${col}`, objectFit: "cover", cursor: "pointer", flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#fff", flex: 1 }}>{entry.username}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{pct}%</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {toRender.map((item, i) => (
+                      <img key={i} src={item.itemimage} alt="" style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid rgba(255,255,255,0.07)", objectFit: "contain", background: "#111" }} />
+                    ))}
+                    {entry.items.length > 4 && (
+                      <div style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid rgba(255,255,255,0.07)", background: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff" }}>
+                        +{entry.items.length - 4}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bet CTA */}
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={() => setModalState(userData ? <JoinJackpot /> : <LoginModal />)}
+              disabled={isFull || !!jackpotData.result}
+              style={{ flex: 1, height: 44, background: isFull || jackpotData.result ? "rgba(255,255,255,0.06)" : "#fff", color: isFull || jackpotData.result ? "#444" : "#000", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: isFull || jackpotData.result ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            >
+              <Plus size={15} />
+              {betLabel}
+            </button>
+          </div>
         </div>
       </div>
     </div>
