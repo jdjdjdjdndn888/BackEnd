@@ -9,14 +9,24 @@ import {
 import Leaderboard from "@/components/popup/leaderboard";
 
 const NAV_ITEMS = [
-  { label: "Home",          icon: HomeIcon,        href: "/" },
-  { label: "Coinflip",      icon: () => <img src="/coinflip-icon.png"  alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/coinflip"  },
-  { label: "Dice",          icon: () => <img src="/dice-icon.png"      alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/dice"      },
-  { label: "Jackpot",       icon: () => <img src="/jackpot-icon.png"   alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/jackpot"   },
-  { label: "BlackJack 1v1", icon: () => <img src="/blackjack-icon.png" alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/blackjack" },
-  { label: "Upgrader",      icon: () => <img src="/upgrader-icon.png"  alt="" className="w-7 h-7 object-contain drop-shadow-sm" />, href: "/upgrader"  },
-  { label: "Trades",        icon: MarketPlaceIcon, href: "/trades"    },
+  { label: "Home",          href: "/",          icon: HomeIcon,        img: null             },
+  { label: "Coinflip",      href: "/coinflip",  icon: null,            img: "/coinflip-icon.png"  },
+  { label: "Dice",          href: "/dice",      icon: null,            img: "/dice-icon.png"      },
+  { label: "Jackpot",       href: "/jackpot",   icon: null,            img: "/jackpot-icon.png"   },
+  { label: "Blackjack",     href: "/blackjack", icon: null,            img: "/blackjack-icon.png" },
+  { label: "Upgrader",      href: "/upgrader",  icon: null,            img: "/upgrader-icon.png"  },
+  { label: "Trades",        href: "/trades",    icon: MarketPlaceIcon, img: null             },
 ];
+
+function NavIcon({ icon: Icon, img, active }) {
+  if (img) return <img src={img} alt="" style={{ width: 22, height: 22, objectFit: "contain", opacity: active ? 1 : 0.55, transition: "opacity 0.18s" }} />;
+  return (
+    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", opacity: active ? 1 : 0.45, transition: "opacity 0.18s", color: "#fff" }}
+      className="[&>svg]:w-[18px] [&>svg]:h-[18px]">
+      <Icon />
+    </span>
+  );
+}
 
 export default function Sidenav() {
   const { setModalState } = useModal();
@@ -24,14 +34,13 @@ export default function Sidenav() {
 
   return (
     <aside className="hidden lg:flex" style={{
-      width: 72,
+      width: 210,
       flexShrink: 0,
       flexDirection: "column",
       background: "#080808",
       borderRight: "1px solid rgba(255,255,255,0.05)",
       height: "100%",
       zIndex: 20,
-      position: "relative",
     }}>
 
       {/* ── Logo ── */}
@@ -39,153 +48,133 @@ export default function Sidenav() {
         height: "var(--header-height)",
         display: "flex",
         alignItems: "center",
-        justifyContent: "center",
+        padding: "0 18px",
         borderBottom: "1px solid rgba(255,255,255,0.05)",
         flexShrink: 0,
+        gap: 10,
       }}>
-        <NavLink to="/" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <img
-            src="/logo-ps99bet.png"
-            alt="PS99Bet"
-            draggable={false}
-            style={{ height: 30, width: "auto", objectFit: "contain", filter: "brightness(1.05)" }}
-          />
+        <NavLink to="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+          <img src="/logo-ps99bet.png" alt="PS99Bet" draggable={false}
+            style={{ height: 28, width: "auto", objectFit: "contain" }} />
         </NavLink>
       </div>
 
-      {/* ── Nav Items ── */}
-      <nav style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 0", gap: 2, overflowY: "auto" }}>
-        <TooltipProvider delayDuration={100}>
-          {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-            const isActive = href === "/" ? location.pathname === "/" : location.pathname.startsWith(href);
-            return (
-              <Tooltip key={label}>
-                <TooltipTrigger asChild>
-                  {/* Full-width row so the left indicator can span the sidebar edge */}
-                  <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", padding: "2px 0" }}>
-                    {/* Left-edge active indicator */}
-                    {isActive && (
-                      <span style={{
-                        position: "absolute",
-                        left: 0,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        width: 3,
-                        height: 22,
-                        borderRadius: "0 3px 3px 0",
-                        background: "#ffffff",
-                        boxShadow: "0 0 8px rgba(255,255,255,0.5)",
-                        pointerEvents: "none",
-                      }} />
-                    )}
-                    <NavLink
-                      to={href}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        transition: "background 0.18s ease, opacity 0.18s ease",
-                        background: isActive
-                          ? "rgba(255,255,255,0.08)"
-                          : "transparent",
-                        opacity: isActive ? 1 : 0.35,
-                        color: "#fff",
-                        textDecoration: "none",
-                      }}
-                      className="[&>svg]:w-[18px] [&>svg]:h-[18px] hover:!bg-[rgba(255,255,255,0.06)] hover:!opacity-70"
-                    >
-                      <Icon />
-                    </NavLink>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="right"
-                  sideOffset={10}
-                  style={{
-                    background: "#141414",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    color: "#fff",
-                    fontSize: 12,
-                    fontWeight: 500,
-                    padding: "5px 10px",
-                    borderRadius: 8,
-                    letterSpacing: "0.01em",
-                  }}
+      {/* ── Game links ── */}
+      <nav style={{ flex: 1, display: "flex", flexDirection: "column", padding: "8px 10px", gap: 2, overflowY: "auto" }}>
+
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#333", padding: "8px 8px 4px" }}>
+          Games
+        </p>
+
+        {NAV_ITEMS.map(({ label, href, icon, img }) => {
+          const isActive = href === "/" ? location.pathname === "/" : location.pathname.startsWith(href);
+          return (
+            <div key={href} style={{ position: "relative" }}>
+              {/* Left indicator */}
+              {isActive && (
+                <span style={{
+                  position: "absolute",
+                  left: 0,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: 3,
+                  height: 18,
+                  borderRadius: "0 3px 3px 0",
+                  background: "#fff",
+                  boxShadow: "0 0 8px rgba(255,255,255,0.45)",
+                }} />
+              )}
+              <NavLink
+                to={href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 11,
+                  padding: "9px 10px 9px 14px",
+                  borderRadius: 9,
+                  textDecoration: "none",
+                  background: isActive ? "rgba(255,255,255,0.07)" : "transparent",
+                  transition: "background 0.15s",
+                }}
+                className="group hover:!bg-[rgba(255,255,255,0.04)]"
+              >
+                <NavIcon icon={icon} img={img} active={isActive} />
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isActive ? 600 : 500,
+                  color: isActive ? "#fff" : "#555",
+                  transition: "color 0.15s",
+                  letterSpacing: "0.01em",
+                }}
+                  className="group-hover:!text-[rgba(255,255,255,0.65)]"
                 >
                   {label}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+                </span>
+              </NavLink>
+            </div>
+          );
+        })}
 
-          {/* ── Separator ── */}
-          <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.06)", margin: "6px 0" }} />
+        {/* ── Divider ── */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "6px 8px" }} />
 
-          {/* ── Leaderboard ── */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", padding: "2px 0" }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#333", padding: "4px 8px" }}>
+          More
+        </p>
+
+        {/* Leaderboard */}
+        <div style={{ position: "relative" }}>
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <button
                   type="button"
                   onClick={() => setModalState(<Leaderboard />)}
                   style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: 44, height: 44, borderRadius: 12,
+                    display: "flex", alignItems: "center", gap: 11,
+                    padding: "9px 10px 9px 14px",
+                    borderRadius: 9, width: "100%",
                     background: "transparent", border: "none", cursor: "pointer",
-                    color: "#fff", opacity: 0.3,
-                    transition: "background 0.18s, opacity 0.18s",
+                    transition: "background 0.15s",
                   }}
-                  className="[&>svg]:w-[18px] [&>svg]:h-[18px] hover:!bg-[rgba(255,255,255,0.06)] hover:!opacity-65"
+                  className="group hover:!bg-[rgba(255,255,255,0.04)]"
                 >
-                  <LeaderboardIcon />
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.4, color: "#fff", transition: "opacity 0.15s" }}
+                    className="[&>svg]:w-[18px] [&>svg]:h-[18px] group-hover:!opacity-70">
+                    <LeaderboardIcon />
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "#555", letterSpacing: "0.01em" }}
+                    className="group-hover:!text-[rgba(255,255,255,0.65)]">
+                    Leaderboard
+                  </span>
                 </button>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              sideOffset={10}
-              style={{
-                background: "#141414",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "#fff",
-                fontSize: 12,
-                fontWeight: 500,
-                padding: "5px 10px",
-                borderRadius: 8,
-              }}
-            >
-              Leaderboard
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}
+                style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, borderRadius: 8, padding: "5px 10px" }}>
+                Leaderboard
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </nav>
 
       {/* ── Discord ── */}
-      <div style={{
-        borderTop: "1px solid rgba(255,255,255,0.05)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "10px 0",
-        flexShrink: 0,
-      }}>
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "10px", flexShrink: 0 }}>
         <a
           href="https://discord.gg/MH7rp8jh7E"
           target="_blank"
           rel="noopener noreferrer"
-          title="Join our Discord"
           style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 44, height: 44, borderRadius: 12,
-            transition: "background 0.18s, opacity 0.18s",
-            opacity: 0.4,
+            display: "flex", alignItems: "center", gap: 11,
+            padding: "9px 10px 9px 14px",
+            borderRadius: 9, textDecoration: "none",
+            transition: "background 0.15s",
+            opacity: 0.45,
           }}
-          className="hover:!bg-[rgba(88,101,242,0.18)] hover:!opacity-90"
+          className="group hover:!bg-[rgba(88,101,242,0.12)] hover:!opacity-90"
         >
-          <img src="/discord.png" alt="Discord" style={{ width: 26, height: 26, objectFit: "contain" }} draggable={false} />
+          <img src="/discord.png" alt="Discord" style={{ width: 22, height: 22, objectFit: "contain" }} draggable={false} />
+          <span style={{ fontSize: 13, fontWeight: 500, color: "#fff", letterSpacing: "0.01em" }}>Discord</span>
         </a>
       </div>
     </aside>
