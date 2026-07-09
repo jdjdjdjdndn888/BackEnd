@@ -37,6 +37,8 @@ export default function DiceLayout() {
   const [gameFilter, setGameFilter] = useState("all");
   const [countdowns, setCountdowns] = useState({});
   const [currentTime, setCurrentTime] = useState(new Date());
+  const selectedGameRef = React.useRef(selectedGame);
+  useEffect(() => { selectedGameRef.current = selectedGame; }, [selectedGame]);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -71,26 +73,31 @@ export default function DiceLayout() {
   useEffect(() => { fetchGames(); }, [fetchGames]);
 
   useEffect(() => {
-    socket.on("NEW_DICE", (g) => { setGames((prev) => sortGames([g, ...prev])); });
-    socket.on("DICE_UPDATE", (updated) => {
+    const onNew = (g) => { setGames((prev) => sortGames([g, ...prev])); };
+    const onUpdate = (updated) => {
       setGames((prev) => {
-        if (!prev.find((g) => g._id === updated._id)?.winnercoin && updated.PlayerTwo)
+        if (!prev.find((g) => g._id === updated._id)?.winner && updated.PlayerTwo)
           setCountdowns((c) => ({ ...c, [updated._id]: 5 }));
         return sortGames(prev.map((g) => g._id === updated._id ? updated : g));
       });
-      setSelectedGame((prev) => {
-        if (prev?._id === updated._id) {
-          setModalState(<DiceView game={updated} onClose={() => setSelectedGame(null)} />);
-          return updated;
-        }
-        return prev;
-      });
-    });
-    socket.on("DICE_CANCEL", (data) => {
+      if (selectedGameRef.current?._id === updated._id) {
+        setSelectedGame(updated);
+        setModalState(<DiceView game={updated} onClose={() => setSelectedGame(null)} />);
+      }
+    };
+    const onCancel = (data) => {
       setGames((prev) => sortGames(prev.filter((g) => g._id !== data._id)));
       setCountdowns((prev) => { const n = { ...prev }; delete n[data._id]; return n; });
-    });
-    return () => { socket.off("NEW_DICE"); socket.off("DICE_UPDATE"); socket.off("DICE_CANCEL"); };
+      if (selectedGameRef.current?._id === data._id) { setSelectedGame(null); setModalState(null); }
+    };
+    socket.on("NEW_DICE", onNew);
+    socket.on("DICE_UPDATE", onUpdate);
+    socket.on("DICE_CANCEL", onCancel);
+    return () => {
+      socket.off("NEW_DICE", onNew);
+      socket.off("DICE_UPDATE", onUpdate);
+      socket.off("DICE_CANCEL", onCancel);
+    };
   }, [socket, sortGames]);
 
   const totalGames = games.length;

@@ -36,6 +36,8 @@ export default function BlackjackLayout() {
   const [sortCriteria, setSortCriteria] = useState("high");
   const [gameFilter, setGameFilter] = useState("all");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const selectedGameRef = React.useRef(selectedGame);
+  useEffect(() => { selectedGameRef.current = selectedGame; }, [selectedGame]);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -59,19 +61,26 @@ export default function BlackjackLayout() {
   useEffect(() => { fetchGames(); }, [fetchGames]);
 
   useEffect(() => {
-    socket.on("NEW_BLACKJACK", (g) => { setGames((p) => sortGames([g, ...p])); });
-    socket.on("BLACKJACK_UPDATE", (updated) => {
+    const onNew = (g) => { setGames((p) => sortGames([g, ...p])); };
+    const onUpdate = (updated) => {
       setGames((p) => sortGames(p.map((g) => g._id === updated._id ? updated : g)));
-      setSelectedGame((prev) => {
-        if (prev?._id === updated._id) {
-          setModalState(<BlackjackView game={updated} onClose={() => setSelectedGame(null)} />);
-          return updated;
-        }
-        return prev;
-      });
-    });
-    socket.on("BLACKJACK_CANCEL", (data) => { setGames((p) => sortGames(p.filter((g) => g._id !== data._id))); });
-    return () => { socket.off("NEW_BLACKJACK"); socket.off("BLACKJACK_UPDATE"); socket.off("BLACKJACK_CANCEL"); };
+      if (selectedGameRef.current?._id === updated._id) {
+        setSelectedGame(updated);
+        setModalState(<BlackjackView game={updated} onClose={() => setSelectedGame(null)} />);
+      }
+    };
+    const onCancel = (data) => {
+      setGames((p) => sortGames(p.filter((g) => g._id !== data._id)));
+      if (selectedGameRef.current?._id === data._id) { setSelectedGame(null); setModalState(null); }
+    };
+    socket.on("NEW_BLACKJACK", onNew);
+    socket.on("BLACKJACK_UPDATE", onUpdate);
+    socket.on("BLACKJACK_CANCEL", onCancel);
+    return () => {
+      socket.off("NEW_BLACKJACK", onNew);
+      socket.off("BLACKJACK_UPDATE", onUpdate);
+      socket.off("BLACKJACK_CANCEL", onCancel);
+    };
   }, [socket, sortGames]);
 
   const totalGames = games.length;

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useModal } from "../../../utils/ModalContext";
 import UserContext from "../../../utils/user.js";
@@ -13,6 +13,10 @@ export default function MinesView({ game, onClose }) {
   const { userData } = useContext(UserContext);
   const [acting, setActing] = useState(false);
   const [localGame, setLocalGame] = useState(game);
+
+  // Sync localGame whenever the parent passes down an updated game object
+  // (happens when MINES_UPDATE socket event fires and the layout calls setModalState)
+  useEffect(() => { setLocalGame(game); }, [game]);
 
   const isJoiner = userData?.userid === localGame.PlayerTwo?.id;
   const isCreator = userData?.userid === localGame.PlayerOne?.id;
