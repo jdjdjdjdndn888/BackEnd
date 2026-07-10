@@ -25,7 +25,7 @@ import History from "./history/history";
 import { CoinflipRow } from "./CoinflipRow";
 import { formatLargeNumber } from "@/utils/value";
 import { Link } from "react-router-dom";
-import { Coins, Plus, RotateCcw, ChevronDown } from "lucide-react";
+import { Plus, RotateCcw, ChevronDown } from "lucide-react";
 import { Trails, Heads } from "../../assets/exports.jsx";
 
 const S = {
@@ -188,7 +188,6 @@ export default function Coinflip() {
       <div style={{ padding: "8px 12px" }}>
         {coinflips.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "80px 24px", textAlign: "center", margin: "12px 0", borderRadius: 8, backdropFilter: "blur(2px)" }}>
-            <Coins size={28} color="#aaa" />
             <div>
               <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>No Active Rooms</p>
               <p style={{ fontSize: 12, color: "#ccc", marginTop: 4, textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>Be the first to create one</p>
