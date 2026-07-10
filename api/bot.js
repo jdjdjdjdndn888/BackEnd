@@ -4,7 +4,7 @@
 const HARD_CODED_BOT_TOKEN = ""; // ← paste Discord bot token here
 const HARD_CODED_MONGO_URI = ""; // ← paste MongoDB URI here
 const HARD_CODED_OWNER_ID  = "1367076055416045668"; // ← owner Discord user ID
-const SITE_URL             = "https://ps99bet.vercel.app"; // ← your Vercel frontend URL e.g. https://ps99bet.vercel.app
+const SITE_URL             = "https://gemtide.win"; // ← your frontend URL e.g. https://gemtide.win
 // Banner 1 is at /banner/1.png on your frontend. Set SITE_URL above or paste full image URL:
 const BANNER_URL = process.env.BANNER_URL || (SITE_URL ? `${SITE_URL}/banner/1.png` : "");
 // ═══════════════════════════════════════════════════════════════════════
@@ -98,7 +98,7 @@ const logger = {
         .setTitle(type)
         .setDescription(description || "")
         .setTimestamp()
-        .setFooter({ text: "PS99Bet Logs" });
+        .setFooter({ text: "GemTide Logs" });
       if (thumbnail) e.setThumbnail(thumbnail);
       if (fields.length) e.addFields(fields);
       await ch.send({ embeds: [e] });
@@ -189,15 +189,15 @@ async function sendSupportPanel() {
     const embed = applyBanner(
       new EmbedBuilder()
         .setColor(0x8b5cf6)
-        .setTitle("🎫 PS99Bet Support Center")
+        .setTitle("🎫 GemTide Support Center")
         .setDescription(
-          "Welcome to PS99Bet support! Click the button that matches your issue below.\n\n" +
+          "Welcome to GemTide support! Click the button that matches your issue below.\n\n" +
           "🌐 **Site Support** — Website, balance, or account issues\n" +
           "🚨 **Scams / Unfair Trades** — Report a scam or bad trade\n" +
           "💬 **Discord Support** — Roles, verification, or server issues\n" +
           "🎉 **Claim DC GWs** — Claim your Discord giveaway winnings"
         )
-        .setFooter({ text: "PS99Bet • Support" })
+        .setFooter({ text: "GemTide • Support" })
         .setTimestamp()
     );
 
@@ -228,7 +228,7 @@ function buildGiveawayEmbed(prize, endTime, winnersCount, entrantsCount, ended =
             : "No one entered the giveaway.")
         : `Click **Enter** to participate!\n\n**Prize:** ${prize}\n**Winners:** ${winnersCount}\n**Ends:** <t:${Math.floor(endTime / 1000)}:R>\n**Entries:** ${entrantsCount}`
     )
-    .setFooter({ text: `PS99Bet Giveaways${ended ? " • Ended" : ""}` })
+    .setFooter({ text: `GemTide Giveaways${ended ? " • Ended" : ""}` })
     .setTimestamp();
   applyBanner(embed);
   return embed;
@@ -265,10 +265,10 @@ async function endGiveaway(giveawayId) {
 // ─── Ready ────────────────────────────────────────────────────────────────────
 
 client.once("clientReady", async () => {
-  console.log(`PS99Bet bot online as ${client.user.tag}`);
+  console.log(`GemTide bot online as ${client.user.tag}`);
 
   try {
-    client.user.setPresence({ activities: [{ name: "PS99Bet", type: ActivityType.Playing }], status: "online" });
+    client.user.setPresence({ activities: [{ name: "GemTide", type: ActivityType.Playing }], status: "online" });
   } catch (e) {
     console.error("Failed to set presence:", e.message);
   }
@@ -282,11 +282,11 @@ client.once("clientReady", async () => {
         .setName("profile").setDescription("Check the site profile of a Discord user")
         .addUserOption((o) => o.setName("user").setDescription("Select a user").setRequired(true)),
 
-      new SlashCommandBuilder().setName("balance").setDescription("Check your PS99Bet balance and stats"),
-      new SlashCommandBuilder().setName("leaderboard").setDescription("View the top 10 wagerers on PS99Bet"),
-      new SlashCommandBuilder().setName("profit").setDescription("Check your profit on PS99Bet"),
-      new SlashCommandBuilder().setName("withdraws").setDescription("See your pending withdrawals on PS99Bet"),
-      new SlashCommandBuilder().setName("cancelallwithdraws").setDescription("Cancel all your pending withdrawals on PS99Bet"),
+      new SlashCommandBuilder().setName("balance").setDescription("Check your GemTide balance and stats"),
+      new SlashCommandBuilder().setName("leaderboard").setDescription("View the top 10 wagerers on GemTide"),
+      new SlashCommandBuilder().setName("profit").setDescription("Check your profit on GemTide"),
+      new SlashCommandBuilder().setName("withdraws").setDescription("See your pending withdrawals on GemTide"),
+      new SlashCommandBuilder().setName("cancelallwithdraws").setDescription("Cancel all your pending withdrawals on GemTide"),
       new SlashCommandBuilder().setName("deposit").setDescription("View active deposit bots and join their games"),
 
       new SlashCommandBuilder()
@@ -367,7 +367,7 @@ client.on("interactionCreate", async (interaction) => {
     try {
       const selected = interaction.options.getUser("user");
       const user = await users.findOne({ discordid: selected.id });
-      if (!user) return interaction.editReply(`No linked PS99Bet account found for **${selected.username}**.`);
+      if (!user) return interaction.editReply(`No linked GemTide account found for **${selected.username}**.`);
       await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
         .setColor(0x8b5cf6).setTitle(`${user.username}'s Profile`).setThumbnail(user.thumbnail || null)
         .addFields(
@@ -376,14 +376,14 @@ client.on("interactionCreate", async (interaction) => {
           { name: "Won",     value: `R$${(user.won ?? 0).toLocaleString()}`, inline: true },
           { name: "Lost",    value: `R$${(user.lost ?? 0).toLocaleString()}`, inline: true },
           { name: "Profit",  value: `R$${((user.won ?? 0) - (user.lost ?? 0)).toLocaleString()}`, inline: true }
-        ).setFooter({ text: "PS99Bet" }))] });
+        ).setFooter({ text: "GemTide" }))] });
     } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
 
   // /balance
   } else if (commandName === "balance") {
     try {
       const user = await users.findOne({ discordid: interaction.user.id });
-      if (!user) return interaction.editReply("Link your Discord on PS99Bet first.");
+      if (!user) return interaction.editReply("Link your Discord on GemTide first.");
       await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
         .setColor(0x8b5cf6).setTitle(`${user.username}'s Balance`).setThumbnail(user.thumbnail || null)
         .addFields(
@@ -392,7 +392,7 @@ client.on("interactionCreate", async (interaction) => {
           { name: "✅ Won",     value: `R$${(user.won ?? 0).toLocaleString()}`, inline: true },
           { name: "❌ Lost",    value: `R$${(user.lost ?? 0).toLocaleString()}`, inline: true },
           { name: "📊 Profit",  value: `R$${((user.won ?? 0) - (user.lost ?? 0)).toLocaleString()}`, inline: true }
-        ).setFooter({ text: "PS99Bet" }))] });
+        ).setFooter({ text: "GemTide" }))] });
     } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
 
   // /leaderboard
@@ -402,27 +402,27 @@ client.on("interactionCreate", async (interaction) => {
       if (!leaders.length) return interaction.editReply("No data yet.");
       const medals = ["🥇", "🥈", "🥉"];
       await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
-        .setColor(0x8b5cf6).setTitle("🏆 PS99Bet Leaderboard (by Wager)")
+        .setColor(0x8b5cf6).setTitle("🏆 GemTide Leaderboard (by Wager)")
         .setDescription(leaders.map((u, i) => `${medals[i] ?? `**#${i + 1}**`} **${u.username}** — R$${(u.wager ?? 0).toLocaleString()}`).join("\n"))
-        .setFooter({ text: "PS99Bet" }))] });
+        .setFooter({ text: "GemTide" }))] });
     } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
 
   // /profit
   } else if (commandName === "profit") {
     try {
       const user = await users.findOne({ discordid: interaction.user.id });
-      if (!user) return interaction.editReply("Link your Discord on PS99Bet first.");
+      if (!user) return interaction.editReply("Link your Discord on GemTide first.");
       const profit = (user.won ?? 0) - (user.lost ?? 0);
       await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
         .setColor(profit >= 0 ? 0x4ade80 : 0xff6b6b).setTitle(`${user.username}'s Profit`)
-        .setDescription(`**R$${profit.toLocaleString()}**`).setFooter({ text: "PS99Bet" }))] });
+        .setDescription(`**R$${profit.toLocaleString()}**`).setFooter({ text: "GemTide" }))] });
     } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
 
   // /withdraws
   } else if (commandName === "withdraws") {
     try {
       const user = await users.findOne({ discordid: interaction.user.id });
-      if (!user) return interaction.editReply("Link your Discord on PS99Bet first.");
+      if (!user) return interaction.editReply("Link your Discord on GemTide first.");
       const pending = await withdraws.find({ userid: user.userid });
       if (!pending.length) return interaction.editReply("✅ You have no pending withdrawals.");
       const counts = {};
@@ -431,7 +431,7 @@ client.on("interactionCreate", async (interaction) => {
         .setColor(0x8b5cf6).setTitle(`${user.username}'s Pending Withdrawals`)
         .setDescription(Object.entries(counts).map(([item, c]) => `• **${item}** x${c}`).join("\n"))
         .addFields({ name: "Total Items", value: String(pending.length), inline: true })
-        .setThumbnail(user.thumbnail || null).setFooter({ text: "PS99Bet" }))] });
+        .setThumbnail(user.thumbnail || null).setFooter({ text: "GemTide" }))] });
     } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
 
   // /cancelallwithdraws
@@ -439,7 +439,7 @@ client.on("interactionCreate", async (interaction) => {
     try {
       if (!settings.cancelWithdrawsEnabled) return interaction.editReply("❌ Cancel withdrawals is currently **disabled**.");
       const user = await users.findOne({ discordid: interaction.user.id });
-      if (!user) return interaction.editReply("Link your Discord on PS99Bet first.");
+      if (!user) return interaction.editReply("Link your Discord on GemTide first.");
       const pending = await withdraws.find({ userid: user.userid });
       if (!pending.length) return interaction.editReply("You have no pending withdrawals to cancel.");
       await inventorys.insertMany(pending.map((w) => ({ itemid: w.itemid, owner: user.userid, locked: false })));
@@ -459,12 +459,12 @@ client.on("interactionCreate", async (interaction) => {
         return interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
           .setColor(0xff6b6b).setTitle("🤖 Deposit Bots")
           .setDescription("❌ No active deposit bots online right now. Check back later.")
-          .setFooter({ text: "PS99Bet" }))] });
+          .setFooter({ text: "GemTide" }))] });
       }
       const embed = applyBanner(new EmbedBuilder()
         .setColor(0x4ade80).setTitle("🤖 Active Deposit Bots")
         .setDescription(`**${activeBots.length}** bot${activeBots.length !== 1 ? "s" : ""} online.\nClick **Join** to open their Roblox profile, then trade in-game to deposit.`)
-        .setFooter({ text: "PS99Bet • Trade the bot in-game after joining" }).setTimestamp());
+        .setFooter({ text: "GemTide • Trade the bot in-game after joining" }).setTimestamp());
       activeBots.forEach((b, i) => embed.addFields({ name: `${i + 1}. ${b.name}`, value: `🎮 **${b.game}** | 🟢 Online`, inline: true }));
       const rows = [];
       for (let i = 0; i < activeBots.length; i += 5) {
@@ -508,7 +508,7 @@ client.on("interactionCreate", async (interaction) => {
             { name: "Winners",  value: String(winnersCount),       inline: true },
             { name: "Channel",  value: targetChannel.toString(),   inline: true },
             { name: "ID",       value: `\`${giveawayId}\``,        inline: false }
-          ).setFooter({ text: "PS99Bet Giveaways" }))] });
+          ).setFooter({ text: "GemTide Giveaways" }))] });
       } catch (e) { console.error(e); await interaction.editReply("Something went wrong starting the giveaway."); }
 
     } else if (sub === "end") {
@@ -545,7 +545,7 @@ client.on("interactionCreate", async (interaction) => {
         .setColor(0x4ade80).setTitle("✅ Bot Created").setThumbnail(pfp)
         .addFields({ name: "Name", value: name, inline: true }, { name: "Game", value: game, inline: true },
                    { name: "Roblox ID", value: String(userid), inline: true }, { name: "DB ID", value: String(newBot._id), inline: false })
-        .setFooter({ text: "PS99Bet" }))] });
+        .setFooter({ text: "GemTide" }))] });
     } catch (e) { console.error(e); await interaction.editReply("Something went wrong creating the bot."); }
 
   // /toggle
@@ -560,7 +560,7 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
           .setColor(0x8b5cf6).setTitle("Registered Bots")
           .setDescription(all.map((b) => `**${b.name}** (\`${b._id}\`) — ${b.online ? "🟢 Online" : "🔴 Offline"} | ${b.game}`).join("\n"))
-          .setFooter({ text: "PS99Bet" }))] });
+          .setFooter({ text: "GemTide" }))] });
       } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
 
     } else if (sub === "on" || sub === "off") {
@@ -604,7 +604,7 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
         .setColor(0x8b5cf6).setTitle(`🔗 Linked Discord Accounts (${total} total)`)
         .setDescription(linked.map((u, i) => `**${(page - 1) * perPage + i + 1}.** ${u.username} ↔ @${u.discordusername || "?"} (\`${u.discordid}\`)`).join("\n"))
-        .setFooter({ text: `Page ${page} / ${totalPages} • PS99Bet` }))], ephemeral: true });
+        .setFooter({ text: `Page ${page} / ${totalPages} • GemTide` }))], ephemeral: true });
     } catch (e) { console.error(e); await interaction.editReply({ content: "Something went wrong.", ephemeral: true }); }
 
   // /locktipping
@@ -654,7 +654,7 @@ async function handleTicketCreate(interaction, customId) {
       embeds: [applyBanner(new EmbedBuilder()
         .setColor(0x8b5cf6).setTitle(`${labelMap[customId]} Ticket`)
         .setDescription(`Hello ${interaction.user.toString()}! A staff member will be with you shortly.\n\n**Category:** ${categoryName}\n\nPlease describe your issue below.`)
-        .setFooter({ text: "PS99Bet Support" }).setTimestamp())],
+        .setFooter({ text: "GemTide Support" }).setTimestamp())],
       components: [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("ticket_close").setLabel("Close Ticket").setEmoji("🔒").setStyle(ButtonStyle.Danger)
       )],

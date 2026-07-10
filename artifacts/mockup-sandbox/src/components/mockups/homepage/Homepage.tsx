@@ -189,7 +189,7 @@ export default function Homepage() {
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12" style={{ height: '56px', borderBottom: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'rgba(12,12,12,0.95)', backdropFilter: 'blur(12px)' }}>
         <div>
-          <img src="/__mockup/images/logo-ps99bet.png" alt="PS99Bet" style={{ height: '44px', width: 'auto' }} />
+          <img src="/__mockup/images/logo-gemtide.png" alt="GemTide" style={{ height: '44px', width: 'auto' }} />
         </div>
         <div className="hidden md:flex items-center gap-8 text-[13px] text-[#888]">
           <a href="#" className="hover:text-white transition-colors">Games</a>
@@ -217,7 +217,7 @@ export default function Homepage() {
           
           <h1 className="font-[800] leading-[0.95] mb-6" style={{ fontSize: 'clamp(52px, 6vw, 88px)', letterSpacing: '-0.04em' }}>
             <div className="text-[#ccc]">WIN BIG ON</div>
-            <div className="text-white">PS99BET</div>
+            <div className="text-white">GEMTIDE</div>
           </h1>
           
           <p className="text-[#888] text-[16px] mb-10">
@@ -364,7 +364,7 @@ export default function Homepage() {
           <span className="hidden md:inline text-[rgba(255,255,255,0.1)]">·</span>
           <a href="#" className="hover:text-white transition-colors">Privacy</a>
           <span className="hidden md:inline text-[rgba(255,255,255,0.1)]">·</span>
-          <span>© 2025 PS99Bet</span>
+          <span>© 2025 GemTide</span>
         </div>
       </footer>
 

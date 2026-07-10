@@ -79,7 +79,7 @@ export default function Header() {
 
       {/* Logo visible only on mobile (sidenav is hidden on mobile) */}
       <div className="flex lg:hidden items-center mr-1 flex-shrink-0">
-        <img src="/logo-ps99bet.png" alt="PS99Bet" className="h-7 w-auto object-contain" draggable={false} />
+        <img src="/logo-gemtide.png" alt="GemTide" className="h-7 w-auto object-contain" draggable={false} />
       </div>
 
       {userData ? (

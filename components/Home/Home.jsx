@@ -217,7 +217,7 @@ export const Home = () => {
 
       {/* ── HERO ── */}
       <section className="relative overflow-hidden w-full flex flex-col justify-center" style={{ minHeight: "72vh", backgroundColor: "#0c0c0c" }}>
-        <img src="/login-banner.png" alt="PS99Bet" className="hero-banner-img" />
+        <img src="/login-banner.png" alt="GemTide" className="hero-banner-img" />
         <div className="hero-gradient" />
         <div className="hero-content">
           <div className="inline-flex items-center px-3 py-1 mb-5 rounded-full"
@@ -226,7 +226,7 @@ export const Home = () => {
           </div>
           <h1 style={{ fontWeight: 800, fontSize: "clamp(36px,4.5vw,68px)", letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: 20 }}>
             <div style={{ color: "#ccc" }}>WIN BIG ON</div>
-            <div style={{ color: "#fff" }}>PS99BET</div>
+            <div style={{ color: "#fff" }}>GEMTIDE</div>
           </h1>
           <p style={{ color: "#888", fontSize: 14, marginBottom: 28 }}>
             Provably fair games for PS99 pets &amp; gems.
@@ -361,7 +361,7 @@ export const Home = () => {
           <a href="#" className="home-footer-link"
             onMouseOver={(e) => e.currentTarget.style.color = "#fff"} onMouseOut={(e) => e.currentTarget.style.color = "#444"}>Privacy</a>
           <span style={{ color: "rgba(255,255,255,0.08)" }} className="home-footer-dot">·</span>
-          <span>© 2025 PS99Bet</span>
+          <span>© 2025 GemTide</span>
         </div>
       </footer>
 

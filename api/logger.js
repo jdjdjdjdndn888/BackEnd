@@ -21,7 +21,7 @@ exports.logEvent = async function ({ type, color, description, fields = [], thum
       .setTitle(type)
       .setDescription(description || "")
       .setTimestamp()
-      .setFooter({ text: "PS99Bet Logs" });
+      .setFooter({ text: "GemTide Logs" });
 
     if (thumbnail) embed.setThumbnail(thumbnail);
     if (fields.length) embed.addFields(fields);

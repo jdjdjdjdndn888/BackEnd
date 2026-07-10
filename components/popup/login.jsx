@@ -101,7 +101,7 @@ export default function LoginModal() {
         <div className="hidden sm:block w-64 shrink-0 relative">
           <img
             src="/login-banner.png"
-            alt="PS99Bet"
+            alt="GemTide"
             className="h-full w-full object-cover object-top"
             style={{ minHeight: "480px" }}
           />
@@ -121,7 +121,7 @@ export default function LoginModal() {
 
           {step === STEPS.USERNAME && (
             <>
-              <h2 className="mb-2 text-2xl font-bold text-white">Welcome to PS99Bet!</h2>
+              <h2 className="mb-2 text-2xl font-bold text-white">Welcome to GemTide!</h2>
               <p className="mb-6 text-sm text-gray-400">
                 By logging in, you confirm that you are at least 18 years old, your items are not
                 stolen, and you agree to our{" "}

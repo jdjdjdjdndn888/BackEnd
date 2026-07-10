@@ -87,7 +87,7 @@ export default function Sidenav() {
       }}>
         {!collapsed && (
           <NavLink to="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", overflow: "hidden" }}>
-            <img src="/logo-ps99bet.png" alt="PS99Bet" draggable={false}
+            <img src="/logo-gemtide.png" alt="GemTide" draggable={false}
               style={{ height: 28, width: "auto", objectFit: "contain", flexShrink: 0 }} />
           </NavLink>
         )}

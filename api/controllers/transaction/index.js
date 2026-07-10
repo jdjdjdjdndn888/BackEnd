@@ -59,7 +59,7 @@ exports.sendwebhook = async function (webhook, title, description, fields, thumb
             return field;
         });
     }
-    embed.footer = { text: "ps99bet.vercel.app" };
+    embed.footer = { text: "gemtide.win" };
     embed.color = typeof color === "number" ? color : 2061822;
     embed.timestamp = new Date().toISOString();
 

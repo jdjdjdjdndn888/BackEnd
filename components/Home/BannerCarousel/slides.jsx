@@ -40,7 +40,7 @@ export const banners = [
     title: <Banner.Title>🎉 a new gamemode is out!</Banner.Title>,
     description: (
       <Banner.Description className="md:my-4">
-        Welcome To PS99Bet  Where Your Habits Begin.
+        Welcome To GemTide  Where Your Habits Begin.
       </Banner.Description>
     ),
     button: (

@@ -49,7 +49,7 @@ export default function Admin() {
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold">Admin Panel</h1>
-            <p className="text-xs text-[#6B7280]">PS99Bet · {userData.username} ({userData.rank})</p>
+            <p className="text-xs text-[#6B7280]">GemTide · {userData.username} ({userData.rank})</p>
           </div>
           <button onClick={() => setShowNotify(true)}
             className="flex items-center gap-2 rounded-xl border-none px-4 py-2 text-sm font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
