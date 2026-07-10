@@ -9,14 +9,14 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { formatLargeNumber } from "@/utils/value";
-import { Dices, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import CreateDice from "./Create/createdice.jsx";
 import DiceRow from "./DiceRow.jsx";
 import DiceHistory from "./history/history.jsx";
 import DiceView from "./View/view.jsx";
 
 const S = {
-  page:    { boxSizing: "border-box", background: "#0c0c0c", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
+  page:    { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(12,12,12,0.55) 0%, rgba(12,12,12,0.85) 55%, #0c0c0c 100%), url(/dice-banner.png) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
   header:  { borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   statsBar:{ borderBottom: "1px solid rgba(255,255,255,0.07)", display: "grid", gridTemplateColumns: "repeat(3,1fr)" },
   statCell:(i) => ({ padding: "16px 20px", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.07)" : "none" }),
@@ -165,13 +165,12 @@ export default function DiceLayout() {
       {/* Game list */}
       <div style={{ padding: "10px 12px" }}>
         {games.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "80px 24px", textAlign: "center", border: "1px dashed rgba(255,255,255,0.07)", margin: "12px 0", borderRadius: 8 }}>
-            <Dices size={28} color="#444" />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "80px 24px", textAlign: "center", margin: "12px 0", borderRadius: 8, backdropFilter: "blur(2px)" }}>
             <div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>No Active Dice Games</p>
-              <p style={{ fontSize: 12, color: "#555", marginTop: 4 }}>Come back later or create one</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>No Active Dice Games</p>
+              <p style={{ fontSize: 12, color: "#ccc", marginTop: 4, textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>Come back later or create one</p>
             </div>
-            <p style={{ fontSize: 11, fontFamily: "monospace", color: "#333" }}>{currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</p>
+            <p style={{ fontSize: 11, fontFamily: "monospace", color: "#999", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>{currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
