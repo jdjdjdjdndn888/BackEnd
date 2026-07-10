@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 const LOG_CHANNEL_ID = "1515602211319713853";
 let _channel = null;
@@ -26,7 +26,14 @@ exports.logEvent = async function ({ type, color, description, fields = [], thum
     if (thumbnail) embed.setThumbnail(thumbnail);
     if (fields.length) embed.addFields(fields);
 
-    await _channel.send({ embeds: [embed] });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel("Visit GemTide.win")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://gemtide.win")
+    );
+
+    await _channel.send({ embeds: [embed], components: [row] });
   } catch (e) {
     console.error("[Logger] Failed to send log:", e.message);
   }

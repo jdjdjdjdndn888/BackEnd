@@ -63,12 +63,22 @@ exports.sendwebhook = async function (webhook, title, description, fields, thumb
     embed.color = typeof color === "number" ? color : 2061822;
     embed.timestamp = new Date().toISOString();
 
+    const components = [{
+        type: 1,
+        components: [{
+            type: 2,
+            style: 5,
+            label: "Visit GemTide.win",
+            url: "https://gemtide.win",
+        }],
+    }];
+
     const MAX_RETRIES = 3;
     let delay = 1000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            const result = await axios.post(webhook, { embeds: [embed] });
+            const result = await axios.post(webhook, { embeds: [embed], components });
             return { success: true, message: "OK" };
         } catch (error) {
             const status = error?.response?.status;
