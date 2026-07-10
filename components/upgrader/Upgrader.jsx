@@ -28,7 +28,7 @@ function WinChanceArc({ chance }) {
 }
 
 const S = {
-  page:   { boxSizing: "border-box", background: "#0c0c0c", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
+  page:   { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(12,12,12,0.55) 0%, rgba(12,12,12,0.85) 55%, #0c0c0c 100%), url(/upgrader-banner.png) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
   header: { borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 },
   divider:{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" },
   panel:  { display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.07)", background: "#111" },
