@@ -148,7 +148,7 @@ export default function Sidenav({ mobileOpen = false, onMobileClose = () => {} }
                       }}
                       className="group hover:!bg-[rgba(255,255,255,0.04)]"
                     >
-                      <NavIcon icon={icon} img={img} active={isActive} size={isMobile ? 32 : 28} />
+                      <NavIcon icon={icon} img={img} active={isActive} size={isMobile ? 36 : 36} />
                       {showLabel && (
                         <span style={{
                           fontSize: 13,
