@@ -14,7 +14,7 @@ import MinesHistory from "./history/history.jsx";
 import MinesView from "./View/view.jsx";
 
 const S = {
-  page:       { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(12,12,12,0.55) 0%, rgba(12,12,12,0.85) 55%, #0c0c0c 100%), url(/mines-banner.png) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
+  page:       { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(12,4,4,0.45) 0%, rgba(12,4,4,0.82) 55%, #0c0404 100%), url(/bg-mines.jpg) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
   header:     { borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   statsBar:   { borderBottom: "1px solid rgba(255,255,255,0.07)", display: "grid", gridTemplateColumns: "repeat(3,1fr)" },
   statCell:   (i) => ({ padding: "16px 20px", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.07)" : "none" }),

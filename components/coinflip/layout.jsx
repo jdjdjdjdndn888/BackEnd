@@ -29,7 +29,7 @@ import { Plus, RotateCcw, ChevronDown } from "lucide-react";
 import { Trails, Heads } from "../../assets/exports.jsx";
 
 const S = {
-  page:    { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(12,12,12,0.55) 0%, rgba(12,12,12,0.85) 40%, #0c0c0c 100%), url(/coinflip-banner.png) center top / cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
+  page:    { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(8,8,12,0.45) 0%, rgba(8,8,12,0.78) 40%, #080810 100%), url(/bg-coinflip.jpg) center top / cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
   header:  { borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   statsBar:{ borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 24, padding: "0 20px", height: 44 },
   divider: { width: 1, height: 24, background: "rgba(255,255,255,0.07)", flexShrink: 0 },

@@ -13,11 +13,11 @@ const NAV_ITEMS = [
   { label: "Home",      href: "/",          icon: null,            img: "/nav-home.png"       },
   { label: "Coinflip",  href: "/coinflip",  icon: null,            img: "/nav-coinflip.png"   },
   { label: "Dice",      href: "/dice",      icon: null,            img: "/nav-dice.png"       },
-  { label: "Jackpot",   href: "/jackpot",   icon: null,            img: "/jackpot-icon.png"   },
+  { label: "Jackpot",   href: "/jackpot",   icon: null,            img: "/nav-jackpot.png"    },
   { label: "Blackjack", href: "/blackjack", icon: null,            img: "/nav-blackjack.png"  },
-  { label: "Mines",     href: "/mines",     icon: null,            img: "/mines-gem.png"      },
-  { label: "Upgrader",  href: "/upgrader",  icon: null,            img: "/upgrader-icon.png"  },
-  { label: "Trades",    href: "/trades",    icon: MarketPlaceIcon, img: null                  },
+  { label: "Mines",     href: "/mines",     icon: null,            img: "/nav-mines.png"      },
+  { label: "Upgrader",  href: "/upgrader",  icon: null,            img: "/nav-upgrader.png"   },
+  { label: "Trades",    href: "/trades",    icon: null,            img: "/nav-trades.png"     },
 ];
 
 function NavIcon({ icon: Icon, img, active, size = 28 }) {

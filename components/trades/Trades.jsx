@@ -15,7 +15,7 @@ import {
 import { Plus, ArrowLeftRight, ChevronDown } from "lucide-react";
 
 const S = {
-  page:       { boxSizing: "border-box", background: "#0c0c0c", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
+  page:       { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(4,12,14,0.45) 0%, rgba(4,12,14,0.82) 55%, #040c0e 100%), url(/bg-trades.jpg) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
   header:     { borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   statsBar:   { borderBottom: "1px solid rgba(255,255,255,0.07)", display: "grid", gridTemplateColumns: "repeat(3,1fr)" },
   statCell:   (i) => ({ padding: "16px 20px", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.07)" : "none" }),

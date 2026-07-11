@@ -28,7 +28,7 @@ function WinChanceArc({ chance }) {
 }
 
 const S = {
-  page:   { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(12,12,12,0.55) 0%, rgba(12,12,12,0.85) 55%, #0c0c0c 100%), url(/upgrader-banner.png) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
+  page:   { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(4,4,16,0.45) 0%, rgba(4,4,16,0.82) 55%, #040410 100%), url(/bg-upgrader.jpg) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
   header: { borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 },
   divider:{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" },
   panel:  { display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.07)", background: "#111" },
@@ -47,11 +47,29 @@ export default function Upgrader() {
   const [loadingTargets, setLoadingTargets] = useState(true);
   const [betSearch, setBetSearch] = useState("");
   const [targetSearch, setTargetSearch] = useState("");
+  const [sliderChance, setSliderChance] = useState(50);
   const resultTimeout = useRef(null);
 
   const betValue = selectedBetItems.reduce((s, i) => s + (i.itemvalue || 0), 0);
   const targetValue = selectedTarget?.itemvalue || 0;
   const winChance = targetValue > 0 ? Math.min(MAX_WIN_CHANCE, (betValue / targetValue) * 100) : 0;
+
+  // Auto-select items from inventory to reach the desired win chance against the selected target
+  const autoSelectForChance = (desiredChance) => {
+    if (!selectedTarget || targetValue <= 0 || myInventory.length === 0) return;
+    const neededBetValue = (Math.min(desiredChance, MAX_WIN_CHANCE) / 100) * targetValue;
+    // Sort by value descending for greedy selection
+    const sorted = [...myInventory].sort((a, b) => (b.itemvalue || 0) - (a.itemvalue || 0));
+    const picked = [];
+    let accumulated = 0;
+    for (const item of sorted) {
+      if (accumulated >= neededBetValue) break;
+      picked.push(item);
+      accumulated += item.itemvalue || 0;
+    }
+    setSelectedBetItems(picked);
+    setResult(null);
+  };
 
   useEffect(() => { fetchTargetItems(); if (userData) fetchInventory(); }, [userData]);
 
@@ -171,8 +189,8 @@ export default function Upgrader() {
           </div>
         </div>
 
-        {/* CENTER — Arc + button */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 14px", gap: 16, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+        {/* CENTER — Arc + slider + button */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 14px", gap: 14, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
           <div style={{ filter: result === "win" ? "drop-shadow(0 0 20px rgba(74,222,128,0.5))" : result === "lose" ? "drop-shadow(0 0 20px rgba(248,113,113,0.4))" : "none", transition: "filter 0.4s ease" }}>
             <WinChanceArc chance={winChance} />
           </div>
@@ -182,6 +200,36 @@ export default function Upgrader() {
               {result === "win" ? "🎉 YOU WON!" : "💀 YOU LOST"}
             </div>
           )}
+
+          {/* ── Win-Chance Slider ── */}
+          <div style={{ width: "100%", background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 12px 10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 10, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase" }}>Target Win %</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: (() => { const c = sliderChance; return c >= 70 ? "#4ade80" : c >= 40 ? "#facc15" : "#f87171"; })() }}>{sliderChance}%</span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={MAX_WIN_CHANCE}
+              value={sliderChance}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setSliderChance(v);
+                autoSelectForChance(v);
+              }}
+              style={{ width: "100%", accentColor: sliderChance >= 70 ? "#4ade80" : sliderChance >= 40 ? "#facc15" : "#f87171", cursor: "pointer", height: 4 }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#333", marginTop: 4 }}>
+              <span>1%</span><span>{MAX_WIN_CHANCE}%</span>
+            </div>
+            <button
+              onClick={() => autoSelectForChance(sliderChance)}
+              disabled={!selectedTarget || myInventory.length === 0}
+              style={{ marginTop: 8, width: "100%", padding: "5px 0", fontSize: 11, fontWeight: 600, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: selectedTarget ? "rgba(255,255,255,0.06)" : "transparent", color: selectedTarget ? "#ccc" : "#333", cursor: selectedTarget ? "pointer" : "not-allowed" }}
+            >
+              Auto-select items
+            </button>
+          </div>
 
           {selectedBetItems.length > 0 && selectedTarget && (
             <div style={{ width: "100%", background: "#0c0c0c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 12px" }}>

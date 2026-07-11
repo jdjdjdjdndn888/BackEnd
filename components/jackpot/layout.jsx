@@ -12,7 +12,7 @@ import { COLORS } from "./colors.js";
 import { Timer, Plus, TrendingUp } from "lucide-react";
 
 const S = {
-  page: { boxSizing: "border-box", background: "#0c0c0c", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
+  page: { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(8,10,4,0.45) 0%, rgba(8,10,4,0.82) 55%, #080a04 100%), url(/bg-jackpot.jpg) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
   divider: { width: 1, height: 16, background: "rgba(255,255,255,0.08)" },
 };
 
