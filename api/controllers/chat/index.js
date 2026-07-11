@@ -6,8 +6,17 @@ const { logEvent } = require("../../logger.js");
 
 // In-memory cache – seeded from MongoDB on first access so messages survive restarts
 let messages = null;
+let chatLocked = false;
 const lastMessageTime = {};
 const mutedUsers = new Map();
+
+const GEMTIDE_BOT = {
+  userid:    0,
+  username:  "GemTide",
+  thumbnail: "https://gemtide.win/logo-gemtide.png",
+  rank:      "OWNER",
+  level:     100,
+};
 
 async function getMessages() {
   if (messages === null) {
@@ -46,6 +55,18 @@ function addToCache(msgData) {
   if (messages.length > 40) messages.shift();
 }
 
+function broadcastSystem(io, content) {
+  const sysMsg = {
+    ...GEMTIDE_BOT,
+    content,
+    timestamp: new Date().toISOString().slice(11, 16),
+  };
+  addToCache(sysMsg);
+  persistMessage(sysMsg);
+  io.emit("MESSAGE", sysMsg);
+  return sysMsg;
+}
+
 exports.sendchat = asyncHandler(async (req, res, next, io) => {
   const { msgcontent } = req.body;
   const userId = req.user?.id;
@@ -74,6 +95,14 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
   if (!user) return res.status(400).json({ message: "User not found" });
   if (user.level < 0) return res.status(400).json({ message: "You must be logged in to chat!" });
 
+  const isOwner = user.rank === "OWNER";
+  const isStaff = isOwner || user.rank === "ADMIN" || user.rank === "MODERATOR";
+
+  // Chat lock – only staff can speak when locked (commands still go through)
+  if (chatLocked && !isStaff && !msgcontent.startsWith("?")) {
+    return res.status(403).json({ message: "🔒 Chat is locked. Only staff can speak right now." });
+  }
+
   // Ensure cache is seeded before we push
   await getMessages();
 
@@ -88,7 +117,7 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
   };
 
   addToCache(messageData);
-  persistMessage(messageData); // fire-and-forget – don't block the response
+  persistMessage(messageData); // fire-and-forget
   lastMessageTime[userId] = now;
   io.emit("MESSAGE", messageData);
 
@@ -97,7 +126,7 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
     color: 0x68749c,
     description: `**${user.username}**: ${msgcontent}`,
     fields: [
-      { name: "Rank",  value: user.rank || "USER",       inline: true },
+      { name: "Rank",  value: user.rank || "USER",     inline: true },
       { name: "Level", value: String(user.level ?? 0), inline: true },
     ],
     thumbnail: user.thumbnail || null,
@@ -129,10 +158,8 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
     }
   }
 
-  // ── Staff commands ────────────────────────────────────────────────────────
+  // ── Staff commands ─────────────────────────────────────────────────────────
   let systemResponse = null;
-  const isOwner = user.rank === "OWNER";
-  const isStaff = isOwner || user.rank === "ADMIN";
 
   if (msgcontent.startsWith("?") && isStaff) {
     const [command, ...args] = msgcontent.split(" ");
@@ -142,94 +169,87 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
       case "?mute": {
         const targetUser = args[0];
         const duration = parseInt(args[1], 10) || 30;
-        if (!targetUser) { systemResponse = "Please specify a user to mute."; break; }
+        if (!targetUser) { systemResponse = "Usage: ?mute <user> [minutes]"; break; }
         const userToMute = await users.findOne({ username: targetUser });
-        if (!userToMute) { systemResponse = "The user does not exist!"; break; }
-        if (userToMute.userid === userId || userToMute.rank === "ADMIN") {
-          systemResponse = "You cannot mute yourself or another admin."; break;
+        if (!userToMute) { systemResponse = "User not found."; break; }
+        if (userToMute.userid === userId || userToMute.rank === "ADMIN" || userToMute.rank === "OWNER") {
+          systemResponse = "You cannot mute that user."; break;
         }
-        if (mutedUsers.has(userToMute.userid)) { systemResponse = "The user is already muted!"; break; }
+        if (mutedUsers.has(userToMute.userid)) { systemResponse = `${targetUser} is already muted.`; break; }
         mutedUsers.set(userToMute.userid, { unmuteTime: now + duration * 60 * 1000, duration });
-        systemResponse = `${targetUser} has been muted for ${duration} minutes.`;
+        systemResponse = `🔇 ${targetUser} has been muted for ${duration} minute${duration !== 1 ? "s" : ""}.`;
         break;
       }
 
       case "?unmute": {
         const targetUser = args[0];
-        if (!targetUser) { systemResponse = "Please specify a user to unmute."; break; }
+        if (!targetUser) { systemResponse = "Usage: ?unmute <user>"; break; }
         const userToUnmute = await users.findOne({ username: targetUser });
-        if (!userToUnmute) { systemResponse = "The user does not exist!"; break; }
-        if (userToUnmute.userid === userId || userToUnmute.rank === "ADMIN") {
-          systemResponse = "You cannot unmute yourself or another ADMIN."; break;
-        }
-        if (!mutedUsers.has(userToUnmute.userid)) { systemResponse = "The user is not muted!"; break; }
+        if (!userToUnmute) { systemResponse = "User not found."; break; }
+        if (!mutedUsers.has(userToUnmute.userid)) { systemResponse = `${targetUser} is not muted.`; break; }
         mutedUsers.delete(userToUnmute.userid);
-        systemResponse = `${targetUser} has been unmuted.`;
+        systemResponse = `🔊 ${targetUser} has been unmuted.`;
         break;
       }
 
       case "?ban": {
         const targetUser = args[0];
-        if (!targetUser) { systemResponse = "Please specify a user to ban."; break; }
+        if (!targetUser) { systemResponse = "Usage: ?ban <user>"; break; }
         const userToBan = await users.findOne({ username: targetUser });
-        if (!userToBan) { systemResponse = "The user does not exist!"; break; }
-        if (userToBan.userid === userId || userToBan.rank === "ADMIN") {
-          systemResponse = "You cannot ban yourself or another ADMIN."; break;
+        if (!userToBan) { systemResponse = "User not found."; break; }
+        if (userToBan.userid === userId || userToBan.rank === "ADMIN" || userToBan.rank === "OWNER") {
+          systemResponse = "You cannot ban that user."; break;
         }
-        if (userToBan.banned) { systemResponse = "The user is already banned!"; break; }
+        if (userToBan.banned) { systemResponse = `${targetUser} is already banned.`; break; }
         userToBan.banned = true;
         await userToBan.save();
-        systemResponse = `${targetUser} has been banned.`;
+        systemResponse = `🚫 ${targetUser} has been banned.`;
         break;
       }
 
       case "?unban": {
         const targetUser = args[0];
-        if (!targetUser) { systemResponse = "Please specify a user to unban."; break; }
+        if (!targetUser) { systemResponse = "Usage: ?unban <user>"; break; }
         const userToUnban = await users.findOne({ username: targetUser });
-        if (!userToUnban) { systemResponse = "The user does not exist!"; break; }
-        if (userToUnban.userid === userId || userToUnban.rank === "ADMIN") {
-          systemResponse = "You cannot unban yourself or another ADMIN."; break;
-        }
-        if (!userToUnban.banned) { systemResponse = "The user is not banned!"; break; }
+        if (!userToUnban) { systemResponse = "User not found."; break; }
+        if (!userToUnban.banned) { systemResponse = `${targetUser} is not banned.`; break; }
         userToUnban.banned = false;
         await userToUnban.save();
-        systemResponse = `${targetUser} has been unbanned.`;
+        systemResponse = `✅ ${targetUser} has been unbanned.`;
+        break;
+      }
+
+      case "?lockchat": {
+        if (chatLocked) { systemResponse = "🔒 Chat is already locked."; break; }
+        chatLocked = true;
+        systemResponse = "🔒 Chat has been locked. Only staff can speak.";
+        break;
+      }
+
+      case "?unlockchat": {
+        if (!chatLocked) { systemResponse = "🔓 Chat is already unlocked."; break; }
+        chatLocked = false;
+        systemResponse = "🔓 Chat has been unlocked. Everyone can speak again.";
         break;
       }
 
       case "?rainbow": {
         io.emit("rainbow");
-        systemResponse = "xd";
+        systemResponse = "🌈";
         break;
       }
 
-      // ── OWNER-ONLY: reset all users ─────────────────────────────────────
+      // ── OWNER-ONLY: reset all users ───────────────────────────────────────
       case "?resetall": {
-        if (!isOwner) {
-          systemResponse = "Only the site OWNER can use this command.";
-          break;
-        }
-        const confirm = args[0];
-        if (confirm !== "confirm") {
+        if (!isOwner) { systemResponse = "⛔ Only the site OWNER can use this command."; break; }
+        if (args[0] !== "confirm") {
           systemResponse = "Type ?resetall confirm to wipe ALL user levels, wager, stats, and Discord links.";
           break;
         }
         try {
           await users.updateMany(
             { rank: { $ne: "OWNER" } },
-            {
-              $set: {
-                level: 0,
-                xp: 0,
-                wager: 0,
-                won: 0,
-                lost: 0,
-                rank: "USER",
-                discordid: null,
-                discordusername: null,
-              },
-            }
+            { $set: { level: 0, xp: 0, wager: 0, won: 0, lost: 0, rank: "USER", discordid: null, discordusername: null } }
           );
           systemResponse = "✅ All user levels, wager, stats, and Discord links have been reset.";
         } catch (err) {
@@ -240,23 +260,12 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
       }
 
       default:
-        systemResponse = "Unknown command. Available: ?mute ?unmute ?ban ?unban ?rainbow ?resetall";
+        systemResponse = "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow — Owner only: ?resetall";
     }
   }
 
   if (systemResponse) {
-    const sysMsg = {
-      content:   systemResponse,
-      userid:    1,
-      username:  "BLOXYSPIN",
-      thumbnail: "https://cdn.discordapp.com/icons/1253663005191962654/3d9be4c5c581964ce94050106273ed67.png?size=4096",
-      rank:      "OWNER",
-      level:     1,
-      timestamp: new Date().toISOString().slice(11, 16),
-    };
-    addToCache(sysMsg);
-    persistMessage(sysMsg);
-    io.emit("MESSAGE", sysMsg);
+    broadcastSystem(io, systemResponse);
   }
 
   return res.status(200).json({ message: systemResponse || messageData });
