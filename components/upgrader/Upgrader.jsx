@@ -40,7 +40,7 @@ export default function Upgrader() {
   const [myInventory, setMyInventory] = useState([]);
   const [targetItems, setTargetItems] = useState([]);
   const [selectedBetItems, setSelectedBetItems] = useState([]);
-  const [selectedTarget, setSelectedTarget] = useState(null);
+  const [selectedTargets, setSelectedTargets] = useState([]);
   const [rolling, setRolling] = useState(false);
   const [result, setResult] = useState(null);
   const [loadingInv, setLoadingInv] = useState(false);
@@ -51,12 +51,14 @@ export default function Upgrader() {
   const resultTimeout = useRef(null);
 
   const betValue = selectedBetItems.reduce((s, i) => s + (i.itemvalue || 0), 0);
-  const targetValue = selectedTarget?.itemvalue || 0;
+  // Target value is the sum of every selected target — picking more targets raises the
+  // total value at stake (lowering win chance for the same bet), but winning pays out all of them.
+  const targetValue = selectedTargets.reduce((s, i) => s + (i.itemvalue || 0), 0);
   const winChance = targetValue > 0 ? Math.min(MAX_WIN_CHANCE, (betValue / targetValue) * 100) : 0;
 
-  // Auto-select items from inventory to reach the desired win chance against the selected target
+  // Auto-select items from inventory to reach the desired win chance against the selected target(s)
   const autoSelectForChance = (desiredChance) => {
-    if (!selectedTarget || targetValue <= 0 || myInventory.length === 0) return;
+    if (selectedTargets.length === 0 || targetValue <= 0 || myInventory.length === 0) return;
     const neededBetValue = (Math.min(desiredChance, MAX_WIN_CHANCE) / 100) * targetValue;
     // Sort by value descending for greedy selection
     const sorted = [...myInventory].sort((a, b) => (b.itemvalue || 0) - (a.itemvalue || 0));
@@ -100,30 +102,34 @@ export default function Upgrader() {
     setSelectedBetItems((p) => exists ? p.filter((i) => i.inventoryid !== item.inventoryid) : [...p, item]);
   };
 
-  const selectTarget = (item) => {
+  // Selecting more targets raises the total target value (and thus lowers your win
+  // chance for the same bet), but winning pays out every selected target item.
+  const toggleTarget = (item) => {
     setResult(null);
-    setSelectedTarget(item.inventoryid === selectedTarget?.inventoryid ? null : item);
+    const exists = selectedTargets.some((t) => t.inventoryid === item.inventoryid);
+    setSelectedTargets((p) => exists ? p.filter((t) => t.inventoryid !== item.inventoryid) : [...p, item]);
   };
 
   const doUpgrade = async () => {
     if (!userData) return toast.error("You must be logged in.");
     if (selectedBetItems.length === 0) return toast.error("Select items to bet.");
-    if (!selectedTarget) return toast.error("Select an upgrade target.");
+    if (selectedTargets.length === 0) return toast.error("Select at least one upgrade target.");
     if (winChance <= 0) return toast.error("Win chance too low.");
     setRolling(true); setResult(null); clearTimeout(resultTimeout.current);
     try {
       const r = await fetch(`${api}/upgrader/upgrade`, {
         method: "POST",
         headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
-        body: JSON.stringify({ inventoryIds: selectedBetItems.map((i) => i.inventoryid), targetInventoryId: selectedTarget.inventoryid }),
+        body: JSON.stringify({ inventoryIds: selectedBetItems.map((i) => i.inventoryid), targetInventoryIds: selectedTargets.map((t) => t.inventoryid) }),
       });
       const d = await r.json();
       if (r.ok) {
         setResult(d.result);
         if (d.result === "win") {
-          toast.success(`You won! 🎉 +${targetValue.toLocaleString()} value`);
-          setTargetItems((p) => p.filter((i) => i.inventoryid !== selectedTarget.inventoryid));
-          setSelectedTarget(null);
+          toast.success(`You won! 🎉 +${targetValue.toLocaleString()} value (${selectedTargets.length} item${selectedTargets.length !== 1 ? "s" : ""})`);
+          const wonIds = new Set(selectedTargets.map((t) => t.inventoryid));
+          setTargetItems((p) => p.filter((i) => !wonIds.has(i.inventoryid)));
+          setSelectedTargets([]);
         } else {
           toast.error("Better luck next time! 💀");
         }
@@ -138,7 +144,7 @@ export default function Upgrader() {
   const filteredBet = myInventory.filter((i) => i.itemname?.toLowerCase().includes(betSearch.toLowerCase()));
   const filteredTargets = targetItems.filter((i) => i.itemname?.toLowerCase().includes(targetSearch.toLowerCase()));
 
-  const canUpgrade = !rolling && selectedBetItems.length > 0 && selectedTarget && winChance > 0;
+  const canUpgrade = !rolling && selectedBetItems.length > 0 && selectedTargets.length > 0 && winChance > 0;
 
   return (
     <div style={S.page}>
@@ -224,20 +230,20 @@ export default function Upgrader() {
             </div>
             <button
               onClick={() => autoSelectForChance(sliderChance)}
-              disabled={!selectedTarget || myInventory.length === 0}
-              style={{ marginTop: 8, width: "100%", padding: "5px 0", fontSize: 11, fontWeight: 600, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: selectedTarget ? "rgba(255,255,255,0.06)" : "transparent", color: selectedTarget ? "#ccc" : "#333", cursor: selectedTarget ? "pointer" : "not-allowed" }}
+              disabled={selectedTargets.length === 0 || myInventory.length === 0}
+              style={{ marginTop: 8, width: "100%", padding: "5px 0", fontSize: 11, fontWeight: 600, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: selectedTargets.length > 0 ? "rgba(255,255,255,0.06)" : "transparent", color: selectedTargets.length > 0 ? "#ccc" : "#333", cursor: selectedTargets.length > 0 ? "pointer" : "not-allowed" }}
             >
               Auto-select items
             </button>
           </div>
 
-          {selectedBetItems.length > 0 && selectedTarget && (
+          {selectedBetItems.length > 0 && selectedTargets.length > 0 && (
             <div style={{ width: "100%", background: "#0c0c0c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 6 }}>
                 <span>Bet</span><span style={{ color: "#fff", fontWeight: 600 }}>{formatLargeNumber(betValue)}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555" }}>
-                <span>Target</span><span style={{ color: "#fff", fontWeight: 600 }}>{formatLargeNumber(targetValue)}</span>
+                <span>Target ({selectedTargets.length} item{selectedTargets.length !== 1 ? "s" : ""})</span><span style={{ color: "#fff", fontWeight: 600 }}>{formatLargeNumber(targetValue)}</span>
               </div>
             </div>
           )}
@@ -262,11 +268,13 @@ export default function Upgrader() {
             {loadingTargets && <p style={{ gridColumn: "1/-1", textAlign: "center", color: "#555", padding: "32px 0" }}>Loading...</p>}
             {!loadingTargets && filteredTargets.length === 0 && <p style={{ gridColumn: "1/-1", textAlign: "center", color: "#555", padding: "32px 0", fontSize: 12 }}>No targets available</p>}
             {filteredTargets.map((item) => {
-              const sel = selectedTarget?.inventoryid === item.inventoryid;
-              const chance = betValue > 0 && item.itemvalue > 0 ? Math.min(MAX_WIN_CHANCE, (betValue / item.itemvalue) * 100) : 0;
+              const sel = selectedTargets.some((t) => t.inventoryid === item.inventoryid);
+              // Preview chance as if this item were added to (or is part of) the current selection.
+              const previewValue = targetValue + (sel ? 0 : item.itemvalue || 0);
+              const chance = betValue > 0 && previewValue > 0 ? Math.min(MAX_WIN_CHANCE, (betValue / previewValue) * 100) : 0;
               const cc = chance >= 70 ? "#4ade80" : chance >= 40 ? "#facc15" : "#f87171";
               return (
-                <div key={item.inventoryid} onClick={() => selectTarget(item)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 6px", borderRadius: 8, border: `1px solid ${sel ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(255,255,255,0.05)" : "#0c0c0c", cursor: "pointer", transition: "border-color 0.15s", textAlign: "center" }}>
+                <div key={item.inventoryid} onClick={() => toggleTarget(item)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 6px", borderRadius: 8, border: `1px solid ${sel ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(255,255,255,0.05)" : "#0c0c0c", cursor: "pointer", transition: "border-color 0.15s", textAlign: "center" }}>
                   <img src={item.itemimage} alt={item.itemname} style={{ width: 44, height: 44, objectFit: "contain" }} />
                   <p style={{ fontSize: 10, color: "#ccc", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.itemname}</p>
                   <p style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>{formatLargeNumber(item.itemvalue)}</p>

@@ -16,13 +16,15 @@ const upgraderSchema = new Schema(
       },
     ],
     betValue: { type: Number, required: true },
-    targetItem: {
-      inventoryid: { type: String },
-      itemid: { type: Number },
-      itemname: { type: String },
-      itemimage: { type: String },
-      itemvalue: { type: Number },
-    },
+    targetItems: [
+      {
+        inventoryid: { type: String },
+        itemid: { type: Number },
+        itemname: { type: String },
+        itemimage: { type: String },
+        itemvalue: { type: Number },
+      },
+    ],
     targetValue: { type: Number, required: true },
     winChance: { type: Number, required: true },
     result: { type: String, enum: ["win", "lose"], required: true },

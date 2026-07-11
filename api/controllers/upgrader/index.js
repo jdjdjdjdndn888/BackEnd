@@ -70,13 +70,20 @@ exports.upgrade = [
 
     try {
       await session.withTransaction(async () => {
-        const { inventoryIds, targetInventoryId } = req.body;
+        const { inventoryIds } = req.body;
+        // Accept the new multi-target field, but stay compatible with older clients
+        // that still send a single `targetInventoryId`.
+        const targetInventoryIds = Array.isArray(req.body.targetInventoryIds)
+          ? req.body.targetInventoryIds
+          : req.body.targetInventoryId
+            ? [req.body.targetInventoryId]
+            : [];
 
         if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) {
           throw httpError(422, "Select at least one item to bet.");
         }
-        if (!targetInventoryId) {
-          throw httpError(422, "Select a target item to upgrade to.");
+        if (targetInventoryIds.length === 0) {
+          throw httpError(422, "Select at least one target item to upgrade to.");
         }
 
         const uniqueIds = [...new Set(inventoryIds)];
@@ -84,31 +91,51 @@ exports.upgrade = [
           throw httpError(422, "Duplicate items are not allowed.");
         }
 
+        const uniqueTargetIds = [...new Set(targetInventoryIds)];
+        if (uniqueTargetIds.length !== targetInventoryIds.length) {
+          throw httpError(422, "Duplicate target items are not allowed.");
+        }
+
         user = await users.findOne({ userid: req.user.id }).session(session);
         if (!user) throw httpError(404, "Account not found.");
 
-        const targetInv = await InventoryItem.findOne({
-          _id: targetInventoryId,
-          owner: taxer,
-          locked: { $ne: true },
-        }).session(session);
+        const targetDocs = [];
+        targetValue = 0;
 
-        if (!targetInv) {
-          throw httpError(404, "Target item not found or no longer available.");
+        for (const targetId of uniqueTargetIds) {
+          const targetInv = await InventoryItem.findOne({
+            _id: targetId,
+            owner: taxer,
+            locked: { $ne: true },
+          }).session(session);
+
+          if (!targetInv) {
+            throw httpError(404, "One or more target items are no longer available.");
+          }
+
+          const targetMeta = await items.findOne({
+            $or: [
+              { itemid: targetInv.itemid },
+              { itemid: String(targetInv.itemid) },
+              { itemid: Number(targetInv.itemid) },
+            ],
+          }).session(session);
+
+          if (!targetMeta) throw httpError(404, "Target item data not found.");
+          if (!targetMeta.itemvalue) throw httpError(422, "Target item has no value.");
+
+          targetValue += targetMeta.itemvalue;
+          targetDocs.push({
+            inventoryid: targetInv._id.toString(),
+            itemid: targetInv.itemid,
+            itemname: targetMeta.itemname,
+            itemimage: targetMeta.itemimage || "",
+            itemvalue: targetMeta.itemvalue,
+            _invDoc: targetInv,
+          });
         }
 
-        const targetMeta = await items.findOne({
-          $or: [
-            { itemid: targetInv.itemid },
-            { itemid: String(targetInv.itemid) },
-            { itemid: Number(targetInv.itemid) },
-          ],
-        }).session(session);
-
-        if (!targetMeta) throw httpError(404, "Target item data not found.");
-
-        targetValue = targetMeta.itemvalue || 0;
-        if (targetValue === 0) throw httpError(422, "Target item has no value.");
+        if (targetValue === 0) throw httpError(422, "Target items have no value.");
 
         const betItemDocs = [];
         betValue = 0;
@@ -152,15 +179,17 @@ exports.upgrade = [
         const betItemIds = betItemDocs.map((b) => b._invDoc._id);
         await InventoryItem.deleteMany({ _id: { $in: betItemIds } }).session(session);
 
+        const targetIds = targetDocs.map((t) => t._invDoc._id);
         if (won) {
-          await InventoryItem.findByIdAndUpdate(
-            targetInv._id,
+          // Winning an upgrade with multiple selected targets awards every one of them.
+          await InventoryItem.updateMany(
+            { _id: { $in: targetIds } },
             { owner: req.user.id, locked: false },
             { session }
           );
         } else {
-          await InventoryItem.findByIdAndUpdate(
-            targetInv._id,
+          await InventoryItem.updateMany(
+            { _id: { $in: targetIds } },
             { locked: false },
             { session }
           );
@@ -187,13 +216,13 @@ exports.upgrade = [
             itemvalue: b.itemvalue,
           })),
           betValue,
-          targetItem: {
-            inventoryid: targetInventoryId,
-            itemid: targetInv.itemid,
-            itemname: targetMeta.itemname,
-            itemimage: targetMeta.itemimage || "",
-            itemvalue: targetValue,
-          },
+          targetItems: targetDocs.map((t) => ({
+            inventoryid: t.inventoryid,
+            itemid: t.itemid,
+            itemname: t.itemname,
+            itemimage: t.itemimage,
+            itemvalue: t.itemvalue,
+          })),
           targetValue,
           winChance,
           result: won ? "win" : "lose",
@@ -224,6 +253,7 @@ exports.upgrade = [
         winChance,
         betValue,
         targetValue,
+        targetItems: upgradeDoc.targetItems,
         serverSeedHash: upgradeDoc.serverSeedHash,
       });
 
@@ -239,11 +269,11 @@ exports.upgrade = [
         sendwebhook(
           upgraderwebh,
           won ? "🎉 Upgrader Win" : "💀 Upgrader Loss",
-          `**${user.username}** ${won ? "won" : "lost"} an upgrade! Bet R$${betValue.toLocaleString()} → Target R$${targetValue.toLocaleString()} (${winChance.toFixed(1)}% chance, rolled ${rollResult.toFixed(2)})`,
+          `**${user.username}** ${won ? "won" : "lost"} an upgrade! Bet R${betValue.toLocaleString()} → ${upgradeDoc.targetItems.length} target item(s) worth R${targetValue.toLocaleString()} (${winChance.toFixed(1)}% chance, rolled ${rollResult.toFixed(2)})`,
           [
             { name: "Result", value: won ? "✅ WIN" : "❌ LOSE", inline: true },
-            { name: "Bet Value", value: `R$${betValue.toLocaleString()}`, inline: true },
-            { name: "Target Value", value: `R$${targetValue.toLocaleString()}`, inline: true },
+            { name: "Bet Value", value: `R${betValue.toLocaleString()}`, inline: true },
+            { name: "Target Value", value: `R${targetValue.toLocaleString()} (${upgradeDoc.targetItems.length} item(s))`, inline: true },
           ],
           user.thumbnail,
           null,
