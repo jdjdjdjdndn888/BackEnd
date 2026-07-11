@@ -9,7 +9,7 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import { useSpring, animated } from "react-spring";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { getrole, getLevelProgress } from "../../utils/getrole";
+import { getrole, getLevelProgress, getDisplayLevel } from "../../utils/getrole";
 import { BarChart2, History, MonitorPlay, LogOut, Settings } from "lucide-react";
 
 function formatDate(dateStr) {
@@ -56,7 +56,7 @@ export default function Account() {
   const wagerAmount = userData?.wager || 0;
   const wonAmount   = userData?.won   || 0;
   const lostAmount  = userData?.lost  || 0;
-  const level = userData?.level || 0;
+  const level = getDisplayLevel(userData?.rank, userData?.level || 0);
   const role  = getrole(userData?.rank, level);
   const { pct } = getLevelProgress(level);
 

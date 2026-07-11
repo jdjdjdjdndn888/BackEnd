@@ -4,7 +4,7 @@ import SocketContext from "../../utils/socket";
 import { getauth } from "../../utils/getauth";
 import { api } from "../../config.js";
 import Giveaways from "./giveaway.jsx";
-import { getrole } from "../../utils/getrole";
+import { getrole, getDisplayLevel } from "../../utils/getrole";
 import "./picker.css";
 import { Message } from "./Message";
 import { ChatInput } from "./ChatInput";
@@ -34,8 +34,9 @@ export default function Chat() {
           const data = await response.json();
           setMessages(
             data.messages.map((msg) => {
-              const { name, color, image } = getrole(msg.rank, msg.level);
-              return { ...msg, rankImage: image, roleName: name, usernameColor: color };
+              const displayLevel = getDisplayLevel(msg.rank, msg.level);
+              const { name, color, image } = getrole(msg.rank, displayLevel);
+              return { ...msg, level: displayLevel, rankImage: image, roleName: name, usernameColor: color };
             }),
           );
         }
@@ -44,8 +45,9 @@ export default function Chat() {
     fetchMessages();
 
     const handleSocketMessage = (msg) => {
-      const { name, color, image } = getrole(msg.rank, msg.level);
-      setMessages((prev) => [...prev, { ...msg, rankImage: image, roleName: name, usernameColor: color }].slice(-30));
+      const displayLevel = getDisplayLevel(msg.rank, msg.level);
+      const { name, color, image } = getrole(msg.rank, displayLevel);
+      setMessages((prev) => [...prev, { ...msg, level: displayLevel, rankImage: image, roleName: name, usernameColor: color }].slice(-30));
     };
 
     const handlePurge = () => setMessages([]);

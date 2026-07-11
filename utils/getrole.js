@@ -136,6 +136,19 @@ export function getLevelProgress(level) {
 }
 
 /**
+ * Owner is always considered max rank/level, regardless of their raw wager-based
+ * level in the database. Use this anywhere a level number is shown to users so
+ * the Owner badge and level number never disagree (e.g. chat vs profile vs header).
+ * @param {string} rank
+ * @param {number} level
+ * @returns {number}
+ */
+export function getDisplayLevel(rank, level) {
+  if (rank === "OWNER") return 100;
+  return typeof level === "number" ? level : 0;
+}
+
+/**
  * @param {string} rank - backend rank string ("OWNER","ADMIN","MODERATOR", or anything else)
  * @param {number} level - numeric level from userData
  * @returns {{ name: string, color: string, bg: string, border: string, image: string|null, nextLevel: number|null, nextName: string|null, perks: string[] }}

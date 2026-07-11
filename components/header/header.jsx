@@ -14,6 +14,7 @@ import { NotificationIcon } from "@/assets/icons/NotificationIcon";
 import { LogOutIcon } from "@/assets/icons/LogOutIcon";
 import { cn } from "@/lib/utils";
 import { formatLargeNumber } from "@/utils/value";
+import { getDisplayLevel } from "../../utils/getrole.js";
 import LoginModal from "../popup/login";
 import { FaSignInAlt } from "react-icons/fa";
 import {
@@ -36,7 +37,7 @@ export default function Header({ onOpenMobileNav = () => {} }) {
   const { setModalState } = useModal();
   const [balance, setBalance] = useState("0");
   const [profileImage, setProfileImage] = useState(userData?.thumbnail || Undefinded);
-  const [level, setLevel] = useState(userData?.level || 0);
+  const [level, setLevel] = useState(getDisplayLevel(userData?.rank, userData?.level || 0));
   const socket = useContext(SocketContext);
   const Navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
@@ -46,7 +47,7 @@ export default function Header({ onOpenMobileNav = () => {} }) {
     if (userData) {
       setBalance(userData.value);
       setProfileImage(userData.thumbnail || Undefinded);
-      setLevel(userData.level || 0);
+      setLevel(getDisplayLevel(userData.rank, userData.level || 0));
     }
   }, [userData]);
 
@@ -56,7 +57,7 @@ export default function Header({ onOpenMobileNav = () => {} }) {
       setUserData(data);
       setBalance(data.value);
       setProfileImage(data.thumbnail || Undefinded);
-      setLevel(data.level || 0);
+      setLevel(getDisplayLevel(data.rank, data.level || 0));
     };
     socket.on("UPDATE_ME", handleUpdate);
     return () => { socket.off("UPDATE_ME", handleUpdate); };
