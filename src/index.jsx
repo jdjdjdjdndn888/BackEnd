@@ -12,6 +12,8 @@ import { NotificationsProvider } from "../utils/NotificationsContext.jsx";
 import { api } from "../config.js";
 import { getauth } from "../utils/getauth.js";
 
+import { FaCommentDots, FaTimes } from "react-icons/fa";
+
 import Header from "../components/header/header.jsx";
 import Sidenav from "../components/sidenav/Sidenav.jsx";
 import { Home } from "../components/Home/Home.jsx";
@@ -49,6 +51,7 @@ function ModalRenderer() {
 function App() {
   const [userData, setUserData] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const fetchMe = () => {
     const token = getauth();
@@ -125,6 +128,29 @@ function App() {
                   </main>
                 </div>
               </div>
+
+              {/* Mobile-only chat toggle + drawer — chat sidebar is desktop-only above (lg:flex),
+                  so mobile gets a small floating button instead, present on every page. */}
+              <button
+                onClick={() => setMobileChatOpen((v) => !v)}
+                aria-label={mobileChatOpen ? "Close chat" : "Open chat"}
+                className="lg:hidden fixed bottom-4 right-4 z-[60] w-11 h-11 rounded-full bg-[#171925] border border-[#252839] shadow-lg shadow-black/40 flex items-center justify-center text-[#ccc] active:scale-95 transition-transform"
+              >
+                {mobileChatOpen ? <FaTimes size={16} /> : <FaCommentDots size={18} />}
+              </button>
+
+              {mobileChatOpen && (
+                <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+                  <div
+                    className="absolute inset-0 bg-black/60"
+                    onClick={() => setMobileChatOpen(false)}
+                  />
+                  <div className="relative h-[70vh] max-h-[80vh] bg-[#171925] border-t border-[#252839] rounded-t-2xl overflow-hidden flex flex-col">
+                    <Chat />
+                  </div>
+                </div>
+              )}
+
               <ModalRenderer />
             </BrowserRouter>
             <Toaster position="top-right" />
