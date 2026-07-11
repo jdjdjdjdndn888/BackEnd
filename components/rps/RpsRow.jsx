@@ -25,8 +25,8 @@ const ValueCell = ({ max, min, value }) => (
   </div>
 );
 
-/** @type {import("react").FC<{choice: "rock"|"paper"|"scissors", status: "winner"|"loser"|"pending", imgUrl: string, userid?: string}>} */
-const Player = ({ choice, imgUrl, status, userid }) => {
+/** @type {import("react").FC<{choice: "rock"|"paper"|"scissors", revealed: boolean, hasPlayer: boolean, status: "winner"|"loser"|"pending", imgUrl: string, userid?: string}>} */
+const Player = ({ choice, revealed, hasPlayer, imgUrl, status, userid }) => {
   const { setModalState } = useModal();
   return (
     <div style={{
@@ -44,10 +44,14 @@ const Player = ({ choice, imgUrl, status, userid }) => {
       >
         <img loading="lazy" src={imgUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
       </button>
-      {/* Choice badge */}
-      {choice && (
-        <div style={{ position: "absolute", top: -3, right: -3, width: 18, height: 18, borderRadius: "50%", overflow: "hidden", border: "1.5px solid #0c0c0c", background: "#0c0c0c" }}>
-          <img loading="lazy" src={CHOICE_ICON[choice]} alt={choice} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+      {/* Choice badge — hidden as a "?" until the match finishes so players can't see picks in advance */}
+      {hasPlayer && (
+        <div style={{ position: "absolute", top: -3, right: -3, width: 18, height: 18, borderRadius: "50%", overflow: "hidden", border: "1.5px solid #0c0c0c", background: "#0c0c0c", display: "grid", placeItems: "center" }}>
+          {revealed && choice ? (
+            <img loading="lazy" src={CHOICE_ICON[choice]} alt={choice} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+          ) : (
+            <img loading="lazy" src={QuestionMarkIcon} alt="hidden" style={{ width: "70%", height: "70%", objectFit: "contain", display: "block" }} />
+          )}
         </div>
       )}
     </div>
@@ -126,9 +130,11 @@ export const RpsRow = ({ countdowns, match, setSelectedMatch, userData }) => {
       {/* Players */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <Player imgUrl={match.PlayerOne.thumbnail} userid={match.PlayerOne.id} choice={match.PlayerOne.choice}
+          hasPlayer={!!match.PlayerOne} revealed={!match.active}
           status={match.PlayerTwo && !countdowns[match._id] ? match.winner === match.PlayerOne.id ? "winner" : "loser" : "pending"} />
         <span style={{ fontSize: 10, fontWeight: 700, color: "#333", letterSpacing: "0.08em" }}>VS</span>
         <Player imgUrl={match.PlayerTwo?.thumbnail ?? QuestionMarkIcon} choice={match.PlayerTwo?.choice} userid={match.PlayerTwo?.id}
+          hasPlayer={!!match.PlayerTwo} revealed={!match.active}
           status={match.PlayerTwo && !countdowns[match._id] ? match.winner === match.PlayerTwo?.id ? "winner" : "loser" : "pending"} />
       </div>
 

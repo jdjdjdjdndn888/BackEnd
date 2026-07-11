@@ -13,6 +13,25 @@ const { httpError } = require("../../utils/httpError.js");
 
 const CHOICES = ["rock", "paper", "scissors"];
 
+// While a match is still waiting for an opponent, nobody but the creator
+// should be able to see their rock/paper/scissors pick — otherwise anyone
+// browsing the room list (or listening on the socket) could read it straight
+// out of the API response before choosing whether/how to join. Once the
+// match resolves (winnerchoice is set) it's safe to reveal both picks.
+function sanitizeActiveMatch(match) {
+  if (!match.active) return match;
+  const { serverSeed, creatorchoice, ...rest } = match;
+  if (rest.PlayerOne) {
+    const { choice, ...playerOneRest } = rest.PlayerOne;
+    rest.PlayerOne = playerOneRest;
+  }
+  if (rest.PlayerTwo) {
+    const { choice, ...playerTwoRest } = rest.PlayerTwo;
+    rest.PlayerTwo = playerTwoRest;
+  }
+  return rest;
+}
+
 exports.getmatches = asyncHandler(async (req, res) => {
   try {
     const matches = await rpsMatches.find({
@@ -25,13 +44,7 @@ exports.getmatches = asyncHandler(async (req, res) => {
       ]
     }).sort({ value: -1 }).lean();
 
-    const sanitizedMatches = matches.map(match => {
-      if (match.active) {
-        const { serverSeed, ...rest } = match;
-        return rest;
-      }
-      return match;
-    });
+    const sanitizedMatches = matches.map(match => sanitizeActiveMatch(match));
 
     res.status(200).json({ message: "OK", data: sanitizedMatches });
   } catch (e) {
@@ -172,7 +185,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
     });
 
     try {
-      req.app.get("io").emit("NEW_RPS", publicMatch);
+      req.app.get("io").emit("NEW_RPS", sanitizeActiveMatch(publicMatch));
       await Promise.all([
         addHistory(savedUser.userid, "Game Creation", `-${totalItemValue}`),
         updatestats(req.app.get("io")),

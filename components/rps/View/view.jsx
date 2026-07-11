@@ -11,6 +11,7 @@ import {
   RpsScissors,
   WhiteLogo,
 } from "../../../assets/exports.jsx";
+import QuestionMarkIcon from "@/assets/images/question-mark.svg";
 import { getauth } from "../../../utils/getauth.js";
 import SocketContext from "../../../utils/socket.js";
 import UserContext from "../../../utils/user.js";
@@ -140,11 +141,19 @@ export default function View({ match, onClose }) {
                     : ""
                 }`}
               />
-              {updatedMatch.PlayerOne?.choice && (
+              {updatedMatch.PlayerOne && (
                 <div className={ViewStyles.coin}>
                   <img
-                    src={CHOICE_ICON[updatedMatch.PlayerOne.choice]}
-                    alt={updatedMatch.PlayerOne.choice}
+                    src={
+                      !updatedMatch.active && updatedMatch.PlayerOne.choice
+                        ? CHOICE_ICON[updatedMatch.PlayerOne.choice]
+                        : QuestionMarkIcon
+                    }
+                    alt={
+                      !updatedMatch.active
+                        ? updatedMatch.PlayerOne.choice
+                        : "hidden"
+                    }
                   />
                 </div>
               )}
@@ -186,11 +195,19 @@ export default function View({ match, onClose }) {
                       )
                     }
                   />
-                  {updatedMatch.PlayerTwo?.choice && (
+                  {updatedMatch.PlayerTwo && (
                     <div className={ViewStyles.coin}>
                       <img
-                        src={CHOICE_ICON[updatedMatch.PlayerTwo.choice]}
-                        alt={updatedMatch.PlayerTwo.choice}
+                        src={
+                          !updatedMatch.active && updatedMatch.PlayerTwo.choice
+                            ? CHOICE_ICON[updatedMatch.PlayerTwo.choice]
+                            : QuestionMarkIcon
+                        }
+                        alt={
+                          !updatedMatch.active
+                            ? updatedMatch.PlayerTwo.choice
+                            : "hidden"
+                        }
                       />
                     </div>
                   )}
