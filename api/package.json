@@ -19,6 +19,8 @@
     "express": "^4.21.2",
     "express-async-handler": "^1.2.0",
     "express-rate-limit": "^6.7.0",
+    "express-slow-down": "^3.1.0",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.2",
     "leo-profanity": "^1.7.0",
     "moment": "^2.30.1",

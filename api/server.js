@@ -3,37 +3,64 @@ const http = require("http");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
 
 const routes = require("./routes/routes");
 const socketHandler = require("./socket/handler");
 const { startup } = require("./startup");
+const {
+  ipBlocklist,
+  corsOptions,
+  isAllowedOrigin,
+  globalLimiter,
+  speedLimiter,
+} = require("./middleware/security");
 
 const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
+  cors: {
+    origin(origin, callback) {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST"],
+  },
+  // Volumetric protection for the realtime layer: cap payload size, force
+  // clients to complete the handshake quickly, and drop long-idle sockets.
+  maxHttpBufferSize: 1e5, // 100kb — no reason a client should send more
+  pingTimeout: 20000,
+  pingInterval: 25000,
+  connectTimeout: 10000,
 });
 
 app.set("io", io);
+// Behind exactly one reverse proxy in production (Render/Vercel rewrite),
+// so req.ip reflects the real client IP for rate limiting — required for
+// express-rate-limit / express-slow-down to key on the right address.
 app.set("trust proxy", 1);
 
-app.use(cors());
-app.use(express.json());
+// Blocklist first — reject known-bad IPs before spending any more work on them.
+app.use(ipBlocklist);
+
+// Security headers (hides framework fingerprint, sets HSTS, disables sniffing, etc.)
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+
+app.use(cors(corsOptions));
+
+// Cap request body size so someone can't DoS the process with huge payloads.
+app.use(express.json({ limit: "256kb" }));
 
 app.use((req, _res, next) => {
   req.startTime = Date.now();
   next();
 });
 
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
+// Progressive slow-down first (adds latency to abusive IPs), then a hard
+// ceiling that actually rejects requests once they go too far.
+app.use(speedLimiter);
+app.use(globalLimiter);
 
 app.use("/", routes);
 

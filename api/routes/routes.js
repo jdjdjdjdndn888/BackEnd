@@ -15,6 +15,12 @@ const blackjackController = require("../controllers/blackjack/index.js");
 const upgraderController = require("../controllers/upgrader/index.js");
 const minesController = require("../controllers/mines/index.js");
 const rpsController = require("../controllers/rps/index.js");
+const {
+  authLimiter,
+  mutationLimiter,
+  sensitiveLimiter,
+  adminLimiter,
+} = require("../middleware/security");
 
 router.use(express.json());
 
@@ -41,13 +47,13 @@ router.get("/", (req, res) => {
 
 router.post("/me", accountController.verifyToken, accountController.me);
 router.post("/users/profile", accountController.profile);
-router.post("/login", accountController.login);
+router.post("/login", authLimiter, accountController.login);
 router.post("/me/inventory", accountController.verifyToken, accountController.inventory);
-router.post("/me/withdraw", accountController.verifyToken, accountController.withdraw);
+router.post("/me/withdraw", sensitiveLimiter, accountController.verifyToken, accountController.withdraw);
 router.post("/me/discord", accountController.verifyToken, accountController.linkdiscord);
 router.post("/me/discord/unlink", accountController.verifyToken, accountController.unlinkdiscord);
 
-router.post("/users/tip", accountController.verifyToken, accountController.tip);
+router.post("/users/tip", sensitiveLimiter, accountController.verifyToken, accountController.tip);
 router.get("/users/leaderboard", accountController.getleaderboard);
 
 // ── User lookup endpoints (bot scripts + trading system) ──────────────────────
@@ -71,15 +77,15 @@ router.post("/chat/send", accountController.verifyToken, (req, res, next) => {
 router.post("/chat/latest", chatController.latestmessages);
 
 router.get("/coinflips/flips", coinflipController.getcoinflips);
-router.post("/coinflips/create", accountController.verifyToken, coinflipController.creatematch);
-router.post("/coinflips/join", accountController.verifyToken, coinflipController.joinmatch);
-router.post("/coinflips/cancel", accountController.verifyToken, accountController.verifyToken, coinflipController.cancelcoinflip);
+router.post("/coinflips/create", mutationLimiter, accountController.verifyToken, coinflipController.creatematch);
+router.post("/coinflips/join", mutationLimiter, accountController.verifyToken, coinflipController.joinmatch);
+router.post("/coinflips/cancel", mutationLimiter, accountController.verifyToken, coinflipController.cancelcoinflip);
 router.post("/coinflips/history/me", accountController.verifyToken, coinflipController.historyme);
 
 router.get("/rps/matches", rpsController.getmatches);
-router.post("/rps/create", accountController.verifyToken, rpsController.creatematch);
-router.post("/rps/join", accountController.verifyToken, rpsController.joinmatch);
-router.post("/rps/cancel", accountController.verifyToken, rpsController.cancelmatch);
+router.post("/rps/create", mutationLimiter, accountController.verifyToken, rpsController.creatematch);
+router.post("/rps/join", mutationLimiter, accountController.verifyToken, rpsController.joinmatch);
+router.post("/rps/cancel", mutationLimiter, accountController.verifyToken, rpsController.cancelmatch);
 router.post("/rps/history/me", accountController.verifyToken, rpsController.historyme);
 
 router.post("/withdraw/method", bothandler.real, bothandler.Getmethod);
@@ -89,46 +95,48 @@ router.post("/deposit/deposit", bothandler.real, bothandler.Deposit);
 
 router.post("/trading/items/check-pending", bothandler.realBody, bothandler.checkPending);
 router.post("/trading/items/confirm-ps99-deposit", bothandler.real, bothandler.Deposit);
-router.post("/trading/items/confirm-withdraw", bothandler.real, bothandler.confirmWithdrawAll);
+router.post("/trading/items/confirm-withdraw", sensitiveLimiter, bothandler.real, bothandler.confirmWithdrawAll);
 
 router.post("/bots/:game", accountController.verifyToken, bothandler.bots);
 
 router.get("/giveaways/latest", giveawayController.getgiveaways);
-router.post("/giveaways/create", accountController.verifyToken, giveawayController.giveaway);
-router.post("/giveaways/join", accountController.verifyToken, giveawayController.joingiveaway);
+router.post("/giveaways/create", mutationLimiter, accountController.verifyToken, giveawayController.giveaway);
+router.post("/giveaways/join", mutationLimiter, accountController.verifyToken, giveawayController.joingiveaway);
 
 router.get("/stats/all", gamesController.getvalue);
 
 router.get("/jackpot", jackpotController.get_jackpot);
-router.post("/jackpot/join", accountController.verifyToken, jackpotController.join_jackpot);
+router.post("/jackpot/join", mutationLimiter, accountController.verifyToken, jackpotController.join_jackpot);
 
 router.get("/dice/games", diceController.getdice);
-router.post("/dice/create", accountController.verifyToken, diceController.creatematch);
-router.post("/dice/join", accountController.verifyToken, diceController.joinmatch);
-router.post("/dice/cancel", accountController.verifyToken, diceController.cancelmatch);
+router.post("/dice/create", mutationLimiter, accountController.verifyToken, diceController.creatematch);
+router.post("/dice/join", mutationLimiter, accountController.verifyToken, diceController.joinmatch);
+router.post("/dice/cancel", mutationLimiter, accountController.verifyToken, diceController.cancelmatch);
 router.post("/dice/history/me", accountController.verifyToken, diceController.historyme);
 
 router.get("/upgrader/items", upgraderController.getItems);
-router.post("/upgrader/upgrade", accountController.verifyToken, upgraderController.upgrade);
+router.post("/upgrader/upgrade", mutationLimiter, accountController.verifyToken, upgraderController.upgrade);
 router.get("/upgrader/history/me", accountController.verifyToken, upgraderController.history);
 
 router.get("/blackjack/games", blackjackController.getgames);
-router.post("/blackjack/create", accountController.verifyToken, blackjackController.creatematch);
-router.post("/blackjack/join", accountController.verifyToken, blackjackController.joinmatch);
-router.post("/blackjack/hit", accountController.verifyToken, blackjackController.hit);
-router.post("/blackjack/stand", accountController.verifyToken, blackjackController.stand);
-router.post("/blackjack/cancel", accountController.verifyToken, blackjackController.cancelmatch);
+router.post("/blackjack/create", mutationLimiter, accountController.verifyToken, blackjackController.creatematch);
+router.post("/blackjack/join", mutationLimiter, accountController.verifyToken, blackjackController.joinmatch);
+router.post("/blackjack/hit", mutationLimiter, accountController.verifyToken, blackjackController.hit);
+router.post("/blackjack/stand", mutationLimiter, accountController.verifyToken, blackjackController.stand);
+router.post("/blackjack/cancel", mutationLimiter, accountController.verifyToken, blackjackController.cancelmatch);
 router.post("/blackjack/history/me", accountController.verifyToken, blackjackController.historyme);
 
 router.get("/stats/all", gamesController.getvalue);
 
 router.get("/mines/games", minesController.getgames);
-router.post("/mines/create", accountController.verifyToken, minesController.creatematch);
-router.post("/mines/join", accountController.verifyToken, minesController.joinmatch);
-router.post("/mines/reveal", accountController.verifyToken, minesController.revealtile);
-router.post("/mines/cashout", accountController.verifyToken, minesController.cashout);
-router.post("/mines/cancel", accountController.verifyToken, minesController.cancelmatch);
+router.post("/mines/create", mutationLimiter, accountController.verifyToken, minesController.creatematch);
+router.post("/mines/join", mutationLimiter, accountController.verifyToken, minesController.joinmatch);
+router.post("/mines/reveal", mutationLimiter, accountController.verifyToken, minesController.revealtile);
+router.post("/mines/cashout", mutationLimiter, accountController.verifyToken, minesController.cashout);
+router.post("/mines/cancel", mutationLimiter, accountController.verifyToken, minesController.cancelmatch);
 router.post("/mines/history/me", accountController.verifyToken, minesController.historyme);
+
+router.use("/admin", adminLimiter);
 
 router.get("/admin/stats", accountController.verifyToken, adminController.isAdmin, adminController.stats);
 router.get("/admin/users", accountController.verifyToken, adminController.isAdmin, adminController.getUsers);
@@ -142,11 +150,11 @@ router.post("/admin/items/give", accountController.verifyToken, adminController.
 router.post("/admin/items/:itemid/fetchimage", accountController.verifyToken, adminController.isAdmin, adminController.fetchItemImage);
 router.get("/trades", tradesController.getListings);
 router.get("/trades/mine", accountController.verifyToken, tradesController.getMyListings);
-router.post("/trades/create", accountController.verifyToken, tradesController.createListing);
-router.post("/trades/cancel", accountController.verifyToken, tradesController.cancelListing);
-router.post("/trades/request", accountController.verifyToken, tradesController.sendRequest);
-router.post("/trades/respond", accountController.verifyToken, tradesController.respondRequest);
-router.post("/trades/request/cancel", accountController.verifyToken, tradesController.cancelRequest);
+router.post("/trades/create", mutationLimiter, accountController.verifyToken, tradesController.createListing);
+router.post("/trades/cancel", mutationLimiter, accountController.verifyToken, tradesController.cancelListing);
+router.post("/trades/request", mutationLimiter, accountController.verifyToken, tradesController.sendRequest);
+router.post("/trades/respond", mutationLimiter, accountController.verifyToken, tradesController.respondRequest);
+router.post("/trades/request/cancel", mutationLimiter, accountController.verifyToken, tradesController.cancelRequest);
 
 router.get("/admin/bots", accountController.verifyToken, adminController.isAdmin, adminController.getBots);
 router.post("/admin/bots/toggle", accountController.verifyToken, adminController.isAdmin, adminController.toggleBot);
