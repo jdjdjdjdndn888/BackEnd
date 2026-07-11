@@ -45,6 +45,9 @@ import WhiteLogo from "./images/whitelogo.png";
 import Kirby from "./images/kirby.png";
 import Moderator from "./images/moderator.webp";
 import Money from "./sounds/money.mp3";
+import RpsRock from "./images/rps-rock.png";
+import RpsPaper from "./images/rps-paper.png";
+import RpsScissors from "./images/rps-scissors.png";
 
 export {
   LongLogo,
@@ -94,4 +97,7 @@ export {
   Kirby,
   Moderator,
   Money,
+  RpsRock,
+  RpsPaper,
+  RpsScissors,
 };

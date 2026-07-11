@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { label: "Jackpot",   href: "/jackpot",   icon: null,            img: "/nav-jackpot.png"    },
   { label: "Blackjack", href: "/blackjack", icon: null,            img: "/nav-blackjack.png"  },
   { label: "Mines",     href: "/mines",     icon: null,            img: "/nav-mines.png"      },
+  { label: "RPS",       href: "/rps",       icon: null,            img: "/nav-rps.png"        },
   { label: "Upgrader",  href: "/upgrader",  icon: null,            img: "/nav-upgrader.png"   },
   { label: "Trades",    href: "/trades",    icon: null,            img: "/nav-trades.png"     },
 ];

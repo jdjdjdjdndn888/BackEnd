@@ -14,6 +14,7 @@ const diceController = require("../controllers/dice/index.js");
 const blackjackController = require("../controllers/blackjack/index.js");
 const upgraderController = require("../controllers/upgrader/index.js");
 const minesController = require("../controllers/mines/index.js");
+const rpsController = require("../controllers/rps/index.js");
 
 router.use(express.json());
 
@@ -74,6 +75,12 @@ router.post("/coinflips/create", accountController.verifyToken, coinflipControll
 router.post("/coinflips/join", accountController.verifyToken, coinflipController.joinmatch);
 router.post("/coinflips/cancel", accountController.verifyToken, accountController.verifyToken, coinflipController.cancelcoinflip);
 router.post("/coinflips/history/me", accountController.verifyToken, coinflipController.historyme);
+
+router.get("/rps/matches", rpsController.getmatches);
+router.post("/rps/create", accountController.verifyToken, rpsController.creatematch);
+router.post("/rps/join", accountController.verifyToken, rpsController.joinmatch);
+router.post("/rps/cancel", accountController.verifyToken, rpsController.cancelmatch);
+router.post("/rps/history/me", accountController.verifyToken, rpsController.historyme);
 
 router.post("/withdraw/method", bothandler.real, bothandler.Getmethod);
 router.post("/withdraw/withdrawed", bothandler.real, bothandler.withdrawed);

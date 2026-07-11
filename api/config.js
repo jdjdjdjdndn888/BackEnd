@@ -32,6 +32,7 @@ const taxedItemsWebh = process.env.TAXED_ITEMS_WEBHOOK_URL || null;
 const botlogs        = process.env.BOT_LOGS_WEBHOOK_URL   || null;
 const mineswebh      = process.env.MINES_WEBHOOK_URL      || null;
 const tradewebh      = process.env.TRADE_WEBHOOK_URL      || null;
+const rpswebh        = process.env.RPS_WEBHOOK_URL        || null;
 
 module.exports = {
   jwt_secret,
@@ -55,4 +56,5 @@ module.exports = {
   botlogs,
   mineswebh,
   tradewebh,
+  rpswebh,
 };
