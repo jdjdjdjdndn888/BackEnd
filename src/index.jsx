@@ -13,7 +13,6 @@ import { api } from "../config.js";
 import { getauth } from "../utils/getauth.js";
 
 import Header from "../components/header/header.jsx";
-import Footer from "../components/footer/footer.jsx";
 import Sidenav from "../components/sidenav/Sidenav.jsx";
 import { Home } from "../components/Home/Home.jsx";
 import Coinflip from "../components/coinflip/layout.jsx";
@@ -124,7 +123,6 @@ function App() {
                       <Chat />
                     </aside>
                   </main>
-                  <Footer />
                 </div>
               </div>
               <ModalRenderer />

@@ -5,7 +5,7 @@
 
 :root {
   --header-height: 4rem;
-  --footer-height: 3.5rem;
+  --footer-height: 0rem;
   --brand: #8B5CF6;
   --brand-hover: #7C3AED;
   --background: 237 35% 8%;

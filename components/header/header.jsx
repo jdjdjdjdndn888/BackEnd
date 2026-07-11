@@ -31,7 +31,7 @@ import LevelWidget from "./LevelWidget.jsx";
 const BRAND = "#8B5CF6";
 const BRAND_HOVER = "#7C3AED";
 
-export default function Header({ onOpenMobileNav }) {
+export default function Header({ onOpenMobileNav = () => {} }) {
   const { userData, setUserData } = useContext(UserContext);
   const { setModalState } = useModal();
   const [balance, setBalance] = useState("0");
