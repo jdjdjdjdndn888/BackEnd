@@ -6,3 +6,4 @@
 - [Routes file require pattern](routes-require-pattern.md) — all controller requires must be at top of routes.js; never inline require() next to a router.get/post — causes duplicate-const SyntaxError if the same name was already required at top
 - [Mines tileIndex validation](mines-game-integrity.md) — revealtile must strictly coerce tileIndex to integer and check 0 <= idx < GRID_SIZE before any DB ops; un-validated index is exploitable for forced safe-count wins
 - [Item Duplication Audit](item-duplication-audit.md) — all real duplication vectors closed; key patterns: modifiedCount guard on every cancel, Paying state in jackpot, ordered:false+11000 on payout insertMany, depositId idempotency on bot deposit
+- [Rank/permission system](rank-permission-system.md) — canonical rank strings live in api/utils/rankTiers.js; frontend/backend rank casing must match exactly or badges+permissions silently break
