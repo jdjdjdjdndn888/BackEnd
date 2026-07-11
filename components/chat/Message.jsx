@@ -59,7 +59,7 @@ export const Message = ({ msg }) => {
           {msg.rankImage && (
             <TooltipProvider delayDuration={0}>
               <Tooltip>
-                <TooltipTrigger className="inline h-4 w-4 border-0 bg-transparent">
+                <TooltipTrigger className="inline h-6 w-6 border-0 bg-transparent">
                   <img src={msg.rankImage} className="ml-1 h-full w-full bg-transparent" alt="Rank Icon" />
                 </TooltipTrigger>
                 <TooltipContent className="bg-[#111] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-1">
