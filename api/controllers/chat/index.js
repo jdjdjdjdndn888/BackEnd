@@ -3,6 +3,8 @@ const users = require("../../modules/users.js");
 const ChatMessage = require("../../modules/chatmessages.js");
 const userSockets = require("../../socket/usersockets.js");
 const { logEvent } = require("../../logger.js");
+const { logAction } = require("../../utils/logaction.js");
+const { OWNER_TIER, FULL_STAFF_TIER, ANY_STAFF_TIER } = require("../../utils/rankTiers.js");
 
 // In-memory cache – seeded from MongoDB on first access so messages survive restarts
 let messages = null;
@@ -95,8 +97,9 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
   if (!user) return res.status(400).json({ message: "User not found" });
   if (user.level < 0) return res.status(400).json({ message: "You must be logged in to chat!" });
 
-  const isOwner = user.rank === "OWNER";
-  const isStaff = isOwner || user.rank === "ADMIN" || user.rank === "MODERATOR";
+  const isOwner = OWNER_TIER.includes(user.rank);
+  const isFullStaff = FULL_STAFF_TIER.includes(user.rank);
+  const isStaff = ANY_STAFF_TIER.includes(user.rank);
 
   // Chat lock – only staff can speak when locked (commands still go through)
   if (chatLocked && !isStaff && !msgcontent.startsWith("?")) {
@@ -166,18 +169,20 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
 
     switch (command.toLowerCase()) {
 
+      // ── Trial Staff and above ──────────────────────────────────────────────
       case "?mute": {
         const targetUser = args[0];
         const duration = parseInt(args[1], 10) || 30;
         if (!targetUser) { systemResponse = "Usage: ?mute <user> [minutes]"; break; }
         const userToMute = await users.findOne({ username: targetUser });
         if (!userToMute) { systemResponse = "User not found."; break; }
-        if (userToMute.userid === userId || userToMute.rank === "ADMIN" || userToMute.rank === "OWNER") {
+        if (userToMute.userid === userId || OWNER_TIER.includes(userToMute.rank) || userToMute.rank === "ADMIN") {
           systemResponse = "You cannot mute that user."; break;
         }
         if (mutedUsers.has(userToMute.userid)) { systemResponse = `${targetUser} is already muted.`; break; }
         mutedUsers.set(userToMute.userid, { unmuteTime: now + duration * 60 * 1000, duration });
         systemResponse = `🔇 ${targetUser} has been muted for ${duration} minute${duration !== 1 ? "s" : ""}.`;
+        logAction(user, "Mute User", targetUser, `${duration} minute(s)`, "chat");
         break;
       }
 
@@ -189,25 +194,30 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
         if (!mutedUsers.has(userToUnmute.userid)) { systemResponse = `${targetUser} is not muted.`; break; }
         mutedUsers.delete(userToUnmute.userid);
         systemResponse = `🔊 ${targetUser} has been unmuted.`;
+        logAction(user, "Unmute User", targetUser, null, "chat");
         break;
       }
 
+      // ── Full staff only (Moderator and above) ──────────────────────────────
       case "?ban": {
+        if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
         const targetUser = args[0];
         if (!targetUser) { systemResponse = "Usage: ?ban <user>"; break; }
         const userToBan = await users.findOne({ username: targetUser });
         if (!userToBan) { systemResponse = "User not found."; break; }
-        if (userToBan.userid === userId || userToBan.rank === "ADMIN" || userToBan.rank === "OWNER") {
+        if (userToBan.userid === userId || OWNER_TIER.includes(userToBan.rank) || userToBan.rank === "ADMIN") {
           systemResponse = "You cannot ban that user."; break;
         }
         if (userToBan.banned) { systemResponse = `${targetUser} is already banned.`; break; }
         userToBan.banned = true;
         await userToBan.save();
         systemResponse = `🚫 ${targetUser} has been banned.`;
+        logAction(user, "Ban User", targetUser, null, "chat");
         break;
       }
 
       case "?unban": {
+        if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
         const targetUser = args[0];
         if (!targetUser) { systemResponse = "Usage: ?unban <user>"; break; }
         const userToUnban = await users.findOne({ username: targetUser });
@@ -216,42 +226,66 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
         userToUnban.banned = false;
         await userToUnban.save();
         systemResponse = `✅ ${targetUser} has been unbanned.`;
+        logAction(user, "Unban User", targetUser, null, "chat");
         break;
       }
 
       case "?lockchat": {
+        if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
         if (chatLocked) { systemResponse = "🔒 Chat is already locked."; break; }
         chatLocked = true;
         systemResponse = "🔒 Chat has been locked. Only staff can speak.";
+        logAction(user, "Lock Chat", null, null, "chat");
         break;
       }
 
       case "?unlockchat": {
+        if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
         if (!chatLocked) { systemResponse = "🔓 Chat is already unlocked."; break; }
         chatLocked = false;
         systemResponse = "🔓 Chat has been unlocked. Everyone can speak again.";
+        logAction(user, "Unlock Chat", null, null, "chat");
         break;
       }
 
       case "?rainbow": {
+        if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
         io.emit("rainbow");
         systemResponse = "🌈";
         break;
       }
 
-      // ── OWNER-ONLY: reset all users ───────────────────────────────────────
+      // ── Purge: wipes recent chat history for everyone ──────────────────────
+      case "?purge": {
+        if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
+        try {
+          await getMessages();
+          messages.length = 0;
+          await ChatMessage.deleteMany({});
+          io.emit("CHAT_PURGED");
+          systemResponse = `🧹 Chat has been purged by ${user.username}.`;
+          logAction(user, "Purge Chat", null, "Cleared all recent chat messages", "chat");
+        } catch (err) {
+          console.error("[CHAT ?purge]", err);
+          systemResponse = "❌ Purge failed – check server logs.";
+        }
+        break;
+      }
+
+      // ── OWNER-TIER ONLY: reset all users ─────────────────────────────────
       case "?resetall": {
-        if (!isOwner) { systemResponse = "⛔ Only the site OWNER can use this command."; break; }
+        if (!isOwner) { systemResponse = "⛔ Only the site Owner/Co-Owner can use this command."; break; }
         if (args[0] !== "confirm") {
           systemResponse = "Type ?resetall confirm to wipe ALL user levels, wager, stats, and Discord links.";
           break;
         }
         try {
           await users.updateMany(
-            { rank: { $ne: "OWNER" } },
+            { rank: { $nin: OWNER_TIER } },
             { $set: { level: 0, xp: 0, wager: 0, won: 0, lost: 0, rank: "USER", discordid: null, discordusername: null } }
           );
           systemResponse = "✅ All user levels, wager, stats, and Discord links have been reset.";
+          logAction(user, "Reset All Users", null, "Wiped levels, wager, stats, and Discord links", "chat");
         } catch (err) {
           console.error("[CHAT ?resetall]", err);
           systemResponse = "❌ Reset failed – check server logs.";
@@ -260,7 +294,9 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
       }
 
       default:
-        systemResponse = "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow — Owner only: ?resetall";
+        systemResponse = isFullStaff
+          ? "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow ?purge — Owner/Co-Owner only: ?resetall"
+          : "Available commands: ?mute ?unmute";
     }
   }
 

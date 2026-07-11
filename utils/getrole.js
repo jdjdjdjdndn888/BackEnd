@@ -96,11 +96,15 @@ export const LEVEL_TIERS = [
   },
 ];
 
-/** Special admin/mod/owner ranks */
+/** Special admin/mod/owner ranks (staff badges/colors, independent of level) */
 const SPECIAL_RANKS = {
-  OWNER:     { name: "Owner",     color: "#FF4757", bg: "rgba(255,71,87,0.12)",   border: "rgba(255,71,87,0.25)",   badge: "/badges/badge-owner.png", nextLevel: null, nextName: null, perks: [] },
-  ADMIN:     { name: "Admin",     color: "#FF6B35", bg: "rgba(255,107,53,0.12)",  border: "rgba(255,107,53,0.25)",  badge: "/badges/badge-admin.png", nextLevel: null, nextName: null, perks: [] },
-  MODERATOR: { name: "Moderator", color: "#3AFF4E", bg: "rgba(58,255,78,0.12)",   border: "rgba(58,255,78,0.25)",   badge: "/badges/badge-mod.png",   nextLevel: null, nextName: null, perks: [] },
+  OWNER:         { name: "Owner",         color: "#FF4757", bg: "rgba(255,71,87,0.12)",   border: "rgba(255,71,87,0.25)",   badge: "/badges/badge-owner.png",        nextLevel: null, nextName: null, perks: [] },
+  CO_OWNER:      { name: "Co Owner",      color: "#E5E7EB", bg: "rgba(229,231,235,0.12)", border: "rgba(229,231,235,0.25)", badge: "/badges/badge-coowner.png",      nextLevel: null, nextName: null, perks: [] },
+  ADMIN:         { name: "Admin",         color: "#FF6B35", bg: "rgba(255,107,53,0.12)",  border: "rgba(255,107,53,0.25)",  badge: "/badges/badge-admin.png",        nextLevel: null, nextName: null, perks: [] },
+  TRUSTED_STAFF: { name: "Trusted Staff", color: "#A855F7", bg: "rgba(168,85,247,0.12)",  border: "rgba(168,85,247,0.25)",  badge: "/badges/badge-trustedstaff.png", nextLevel: null, nextName: null, perks: [] },
+  MODERATOR:     { name: "Moderator",     color: "#22D3EE", bg: "rgba(34,211,238,0.12)",  border: "rgba(34,211,238,0.25)",  badge: "/badges/badge-mod.png",          nextLevel: null, nextName: null, perks: [] },
+  MIDDLEMAN:     { name: "Middleman",     color: "#22C55E", bg: "rgba(34,197,94,0.12)",   border: "rgba(34,197,94,0.25)",   badge: "/badges/badge-middleman.png",    nextLevel: null, nextName: null, perks: [] },
+  TRIAL_STAFF:   { name: "Trial Staff",   color: "#4ADE80", bg: "rgba(74,222,128,0.12)",  border: "rgba(74,222,128,0.25)",  badge: "/badges/badge-trialstaff.png",   nextLevel: null, nextName: null, perks: [] },
 };
 
 /**

@@ -156,6 +156,7 @@ router.delete("/admin/withdrawals/:id", accountController.verifyToken, adminCont
 router.post("/admin/withdrawals/delete-all", accountController.verifyToken, adminController.isAdmin, adminController.deleteAllWithdrawals);
 router.post("/admin/cancel-all-bets", accountController.verifyToken, adminController.isAdmin, adminController.cancelAllBets);
 router.post("/admin/reset-inventories", accountController.verifyToken, adminController.isAdmin, adminController.resetAllInventories);
+router.get("/admin/logs", accountController.verifyToken, adminController.isAdmin, adminController.getAuditLogs);
 
 // Webhook test endpoint — POST /debug/webhooks with body { authKey: "<jwt_secret>" }
 router.post("/debug/webhooks", bothandler.realBody, async (req, res) => {

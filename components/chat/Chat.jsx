@@ -34,9 +34,8 @@ export default function Chat() {
           const data = await response.json();
           setMessages(
             data.messages.map((msg) => {
-              const displayLevel = msg.rank === "OWNER" ? 100 : msg.level;
-              const { name, color, image } = getrole(msg.rank, displayLevel);
-              return { ...msg, level: displayLevel, rankImage: image, roleName: name, usernameColor: color };
+              const { name, color, image } = getrole(msg.rank, msg.level);
+              return { ...msg, rankImage: image, roleName: name, usernameColor: color };
             }),
           );
         }
@@ -45,16 +44,19 @@ export default function Chat() {
     fetchMessages();
 
     const handleSocketMessage = (msg) => {
-      const displayLevel = msg.rank === "OWNER" ? 100 : msg.level;
-      const { name, color, image } = getrole(msg.rank, displayLevel);
-      setMessages((prev) => [...prev, { ...msg, level: displayLevel, rankImage: image, roleName: name, usernameColor: color }].slice(-30));
+      const { name, color, image } = getrole(msg.rank, msg.level);
+      setMessages((prev) => [...prev, { ...msg, rankImage: image, roleName: name, usernameColor: color }].slice(-30));
     };
+
+    const handlePurge = () => setMessages([]);
 
     socket.on("MESSAGE", handleSocketMessage);
     socket.on("ONLINE_UPDATE", setOnlineCount);
+    socket.on("CHAT_PURGED", handlePurge);
     return () => {
       socket.off("MESSAGE", handleSocketMessage);
       socket.off("ONLINE_UPDATE");
+      socket.off("CHAT_PURGED", handlePurge);
     };
   }, [socket]);
 

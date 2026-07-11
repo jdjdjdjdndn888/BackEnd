@@ -6,8 +6,13 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
-const TABS = ["Overview", "Users", "Items", "Bots", "Inventory", "Withdrawals", "Danger"];
+const TABS = ["Overview", "Users", "Items", "Bots", "Inventory", "Withdrawals", "Logs", "Danger"];
 const GAMES = ["PS99", "MM2"];
+
+// Assignable ranks, lowest to highest. Must match api/utils/rankTiers.js ALL_RANKS.
+const RANKS = ["USER", "TRIAL_STAFF", "MIDDLEMAN", "MODERATOR", "TRUSTED_STAFF", "ADMIN", "CO_OWNER", "OWNER"];
+const OWNER_TIER = ["OWNER", "CO_OWNER"];
+const ADMIN_TIER = ["OWNER", "CO_OWNER", "ADMIN"];
 
 // ── Value helpers ────────────────────────────────────────────────────────────
 function fmtVal(v) {
@@ -28,10 +33,10 @@ export default function Admin() {
 
   useEffect(() => {
     if (userData === null) return;
-    if (userData && userData.rank !== "OWNER" && userData.rank !== "ADMIN") navigate("/");
+    if (userData && !ADMIN_TIER.includes(userData.rank)) navigate("/");
   }, [userData]);
 
-  if (!userData || (userData.rank !== "OWNER" && userData.rank !== "ADMIN")) {
+  if (!userData || !ADMIN_TIER.includes(userData.rank)) {
     return (
       <div className="flex items-center justify-center h-full text-[#6B7280]">
         {userData ? "Access denied" : "Loading..."}
@@ -73,6 +78,7 @@ export default function Admin() {
         {tab === "Bots"         && <BotsTab />}
         {tab === "Inventory"    && <InventoryTab />}
         {tab === "Withdrawals"  && <WithdrawalsTab />}
+        {tab === "Logs"         && <LogsTab />}
         {tab === "Danger"       && <DangerTab />}
       </div>
     </div>
@@ -207,9 +213,9 @@ function UsersTab() {
                   </td>
                   <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{u.userid}</td>
                   <td className="px-4 py-3">
-                    <select value={u.rank || "user"} onChange={e => setRank(u.userid, e.target.value)}
+                    <select value={u.rank || "USER"} onChange={e => setRank(u.userid, e.target.value)}
                       className="bg-[#1C1F2E] border border-[#252839] rounded px-2 py-1 text-white text-xs cursor-pointer">
-                      {["user","mod","ADMIN","OWNER"].map(r => <option key={r} value={r}>{r}</option>)}
+                      {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </td>
                   <td className="px-4 py-3 text-[#6B7280]">{u.level ?? 0}</td>
@@ -880,12 +886,96 @@ function WithdrawalsTab() {
   );
 }
 
+// ── Staff Action Logs Tab ──────────────────────────────────────────────────────
+function LogsTab() {
+  const [logs, setLogs] = useState([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+
+  const fetchLogs = async (p = 1, q = "") => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${api}/admin/logs?page=${p}&limit=50&search=${encodeURIComponent(q)}`, {
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setLogs(d.data || []);
+        setPage(d.page || 1);
+        setPages(d.pages || 1);
+      } else toast.error("Failed to load logs");
+    } catch { toast.error("Failed to load logs"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchLogs(1, ""); }, []);
+
+  return (
+    <div>
+      <div className="flex gap-3 mb-4">
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && fetchLogs(1, search)}
+          placeholder="Search staff, action, or target…"
+          className="flex-1 rounded-lg bg-[#13151f] border border-[#1e2035] px-4 py-2.5 text-white placeholder:text-[#6B7280] outline-none focus:border-[#8B5CF6]" />
+        <button onClick={() => fetchLogs(1, search)}
+          className="px-5 py-2.5 rounded-lg border-none text-white font-semibold cursor-pointer hover:opacity-90"
+          style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}>Search</button>
+      </div>
+
+      {loading ? (
+        <p className="text-center text-[#6B7280] py-10">Loading…</p>
+      ) : logs.length === 0 ? (
+        <p className="text-center text-[#6B7280] py-10">No staff actions recorded yet.</p>
+      ) : (
+        <div className="rounded-xl border border-[#1e2035] overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#13151f] text-[#6B7280] text-left">
+                {["Staff","Rank","Action","Target","Details","Source","When"].map(h => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((l, i) => (
+                <tr key={l._id || i} className={`border-t border-[#1e2035] ${i % 2 === 0 ? "bg-[#0d0f1a]" : "bg-[#0a0b14]"}`}>
+                  <td className="px-4 py-3 font-medium text-white">{l.actorUsername}</td>
+                  <td className="px-4 py-3 text-[#6B7280] text-xs">{l.actorRank}</td>
+                  <td className="px-4 py-3 text-white">{l.action}</td>
+                  <td className="px-4 py-3 text-[#6B7280]">{l.target || "—"}</td>
+                  <td className="px-4 py-3 text-[#6B7280] text-xs max-w-xs truncate" title={l.details || ""}>{l.details || "—"}</td>
+                  <td className="px-4 py-3 text-[#6B7280] text-xs">{l.source}</td>
+                  <td className="px-4 py-3 text-[#6B7280] text-xs whitespace-nowrap">{new Date(l.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button onClick={() => fetchLogs(page - 1, search)} disabled={page <= 1}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[#1e2035] text-[#6B7280] hover:text-white bg-transparent cursor-pointer disabled:opacity-40">
+            Prev
+          </button>
+          <span className="text-xs text-[#6B7280]">Page {page} of {pages}</span>
+          <button onClick={() => fetchLogs(page + 1, search)} disabled={page >= pages}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[#1e2035] text-[#6B7280] hover:text-white bg-transparent cursor-pointer disabled:opacity-40">
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Danger Zone Tab ───────────────────────────────────────────────────────────
 function DangerTab() {
   const { userData } = useContext(UserContext);
   const [cancellingBets, setCancellingBets] = useState(false);
   const [resettingInv, setResettingInv] = useState(false);
-  const isOwner = userData?.rank === "OWNER";
+  const isOwner = OWNER_TIER.includes(userData?.rank);
 
   const cancelAllBets = async () => {
     if (!confirm("⚠️ CANCEL ALL ACTIVE BETS\n\nThis will cancel every active coinflip, dice, blackjack, and mines game and return items to players.\n\nProceed?")) return;

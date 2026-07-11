@@ -18,11 +18,14 @@ const withdraws = require("../../modules/withdraws.js");
 const cryptodeposits = require("../../modules/cryptodeposit.js");
 const { generateItems: generatePS99Items } = require("../../data/ps99pets.js");
 const { scrapePetSimulatorValues } = require("../../services/psvScraper.js");
+const { ADMIN_PANEL_TIER, OWNER_TIER, ALL_RANKS } = require("../../utils/rankTiers.js");
+const { logAction } = require("../../utils/logaction.js");
+const auditlogs = require("../../modules/auditlogs.js");
 
 const isAdmin = (req, res, next) => {
   if (!req.user) return res.status(401).json({ message: "Unauthorized" });
   users.findOne({ userid: req.user.id }).then((u) => {
-    if (!u || (u.rank !== "OWNER" && u.rank !== "ADMIN")) {
+    if (!u || !ADMIN_PANEL_TIER.includes(u.rank)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     req.adminUser = u;
@@ -30,7 +33,16 @@ const isAdmin = (req, res, next) => {
   }).catch(() => res.status(500).json({ message: "Server error" }));
 };
 
+/** Gate for the most destructive owner-tier-only actions (resetall, wipe balances/inventories). */
+const isOwnerTier = (req, res, next) => {
+  if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {
+    return res.status(403).json({ message: "Owner tier only." });
+  }
+  next();
+};
+
 exports.isAdmin = isAdmin;
+exports.isOwnerTier = isOwnerTier;
 
 /** Escape user-supplied strings before embedding in RegExp to prevent ReDoS */
 function escapeRegex(s) {
@@ -69,17 +81,20 @@ exports.getUsers = asyncHandler(async (req, res) => {
 exports.banUser = asyncHandler(async (req, res) => {
   const { userid, banned } = req.body;
   if (!userid) return res.status(400).json({ message: "userid required" });
+  const target = await users.findOne({ userid }).select("username").lean();
   await users.updateOne({ userid }, { $set: { banned: !!banned } });
+  logAction(req.adminUser, banned ? "Ban User" : "Unban User", target?.username || String(userid));
   res.json({ success: true, message: `User ${banned ? "banned" : "unbanned"}.` });
 });
 
 exports.setRank = asyncHandler(async (req, res) => {
   const { userid, rank } = req.body;
-  const allowed = ["user", "mod", "admin", "ADMIN", "OWNER"];
-  if (!userid || !rank || !allowed.includes(rank)) {
+  if (!userid || !rank || !ALL_RANKS.includes(rank)) {
     return res.status(400).json({ message: "Invalid userid or rank" });
   }
+  const target = await users.findOne({ userid }).select("username rank").lean();
   await users.updateOne({ userid }, { $set: { rank } });
+  logAction(req.adminUser, "Set Rank", target?.username || String(userid), `${target?.rank || "?"} → ${rank}`);
   res.json({ success: true, message: `Rank set to ${rank}.` });
 });
 
@@ -212,6 +227,7 @@ exports.giveItem = asyncHandler(async (req, res) => {
     });
   }
 
+  logAction(req.adminUser, "Give Item", user.username, `${qty}× ${item.itemname}`);
   res.json({ success: true, message: `Gave ${qty}× ${item.itemname} to ${user.username}.` });
 });
 
@@ -226,6 +242,7 @@ exports.toggleBot = asyncHandler(async (req, res) => {
   const { name, online } = req.body;
   if (!name) return res.status(400).json({ message: "name required" });
   await bots.updateOne({ name }, { $set: { online: !!online } });
+  logAction(req.adminUser, online ? "Enable Bot" : "Disable Bot", name);
   res.json({ success: true, message: `Bot ${online ? "enabled" : "disabled"}.` });
 });
 
@@ -237,6 +254,7 @@ exports.createBot = asyncHandler(async (req, res) => {
   const existing = await bots.findOne({ name });
   if (existing) return res.status(400).json({ message: "A bot with that name already exists" });
   const bot = await bots.create({ name, pfp, userid: Number(userid), link, game, online: true, showJoin, showProfile, showId });
+  logAction(req.adminUser, "Create Bot", name, `game=${game}`);
   res.json({ success: true, message: "Bot created!", data: bot });
 });
 
@@ -244,6 +262,7 @@ exports.deleteBot = asyncHandler(async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ message: "name required" });
   await bots.deleteOne({ name });
+  logAction(req.adminUser, "Delete Bot", name);
   res.json({ success: true, message: "Bot deleted." });
 });
 
@@ -257,6 +276,7 @@ exports.notify = asyncHandler(async (req, res) => {
   if (!io) return res.status(500).json({ message: "Socket not available" });
 
   io.emit("NOTIFICATION", { title, message, type, target: "all" });
+  logAction(req.adminUser, "Broadcast Notification", null, `"${title}": ${message}`);
   res.json({ success: true, message: "Notification sent to all users." });
 });
 
@@ -303,14 +323,15 @@ exports.resetDB = asyncHandler(async (req, res) => {
   // Recreate owner
   await users.create(ownerData);
 
+  logAction(req.adminUser, "Reset Database", null, "Wiped all collections except owner account");
   if (io) io.emit("NOTIFICATION", { title: "Database Reset", message: "All data wiped except owner.", type: "warning", target: "all" });
   res.json({ success: true, message: "Database reset complete. Owner preserved." });
 });
 
-// ── User inventory lookup / delete (owner only) ──────────────────────────────
+// ── User inventory lookup / delete (owner tier only) ─────────────────────────
 exports.getUserInventory = asyncHandler(async (req, res) => {
-  if (!req.adminUser || req.adminUser.rank !== "OWNER") {
-    return res.status(403).json({ message: "Owner only." });
+  if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {
+    return res.status(403).json({ message: "Owner tier only." });
   }
   const { userid } = req.params;
   const user = await users.findOne({
@@ -343,24 +364,26 @@ exports.getUserInventory = asyncHandler(async (req, res) => {
 });
 
 exports.deleteUserInventoryItems = asyncHandler(async (req, res) => {
-  if (!req.adminUser || req.adminUser.rank !== "OWNER") {
-    return res.status(403).json({ message: "Owner only." });
+  if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {
+    return res.status(403).json({ message: "Owner tier only." });
   }
   const { inventoryIds } = req.body;
   if (!Array.isArray(inventoryIds) || !inventoryIds.length) {
     return res.status(400).json({ message: "No items selected." });
   }
   const result = await inventorys.deleteMany({ _id: { $in: inventoryIds } });
+  logAction(req.adminUser, "Delete User Inventory Items", String(req.body.userid || ""), `Deleted ${result.deletedCount} item(s)`);
   res.json({ success: true, message: `Deleted ${result.deletedCount} item(s).` });
 });
 
 // ── Reset all balances ────────────────────────────────────────────────────────
 exports.resetBalances = asyncHandler(async (req, res) => {
-  if (!req.adminUser || req.adminUser.rank?.toUpperCase() !== "OWNER") {
-    return res.status(403).json({ message: "Only the site owner can reset balances." });
+  if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {
+    return res.status(403).json({ message: "Only the site owner or co-owner can reset balances." });
   }
   try {
     const result = await users.updateMany({}, { $set: { balance: 0 } });
+    logAction(req.adminUser, "Reset All Balances", null, `Reset ${result.modifiedCount} user balances to 0`);
     const io = req.app.get("io");
     if (io) {
       // Broadcast notification to all clients
@@ -401,11 +424,13 @@ exports.deleteWithdrawal = asyncHandler(async (req, res) => {
   if (!id) return res.status(400).json({ message: "ID required" });
   const result = await withdraws.deleteOne({ _id: id });
   if (result.deletedCount === 0) return res.status(404).json({ message: "Not found" });
+  logAction(req.adminUser, "Delete Withdrawal", String(id));
   res.json({ success: true, message: "Withdrawal deleted." });
 });
 
 exports.deleteAllWithdrawals = asyncHandler(async (req, res) => {
   const result = await withdraws.deleteMany({});
+  logAction(req.adminUser, "Delete All Withdrawals", null, `Deleted ${result.deletedCount} withdrawal(s)`);
   res.json({ success: true, message: `Deleted ${result.deletedCount} pending withdrawal(s).` });
 });
 
@@ -537,18 +562,20 @@ exports.cancelAllBets = asyncHandler(async (req, res) => {
     });
   }
 
+  logAction(req.adminUser, "Cancel All Bets", null, `${cancelled} game(s), ${jackpotCancelled} jackpot(s), restored ${itemsRestored} items`);
   res.json({
     success: true,
     message: `Cancelled ${cancelled} game(s) and ${jackpotCancelled} jackpot(s). Restored ${itemsRestored} items to players.`,
   });
 });
 
-// ── Reset all inventories ────────────────────────────────────────────────────
+// ── Reset all inventories (owner tier only) ──────────────────────────────────
 exports.resetAllInventories = asyncHandler(async (req, res) => {
-  if (!req.adminUser || req.adminUser.rank?.toUpperCase() !== "OWNER") {
-    return res.status(403).json({ message: "Owner only." });
+  if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {
+    return res.status(403).json({ message: "Owner tier only." });
   }
   const result = await inventorys.deleteMany({});
+  logAction(req.adminUser, "Wipe All Inventories", null, `Deleted ${result.deletedCount} inventory entries`);
   const io = req.app.get("io");
   if (io) {
     io.emit("NOTIFICATION", { title: "Inventories Wiped", message: "All player inventories have been reset.", type: "warning", target: "all" });
@@ -653,4 +680,25 @@ exports.scrapeItems = asyncHandler(async (req, res) => {
     failed: failed.length,
     failDetails: failed.slice(0, 10),
   });
+});
+
+// ── Staff action audit log ────────────────────────────────────────────────────
+exports.getAuditLogs = asyncHandler(async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const search = req.query.search || "";
+  const query = search
+    ? { $or: [
+        { actorUsername: { $regex: escapeRegex(search), $options: "i" } },
+        { action:        { $regex: escapeRegex(search), $options: "i" } },
+        { target:        { $regex: escapeRegex(search), $options: "i" } },
+      ] }
+    : {};
+
+  const [logs, total] = await Promise.all([
+    auditlogs.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    auditlogs.countDocuments(query),
+  ]);
+
+  res.json({ success: true, data: logs, total, page, pages: Math.ceil(total / limit) });
 });
