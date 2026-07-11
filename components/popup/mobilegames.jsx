@@ -3,14 +3,13 @@ import { useModal } from "../../utils/ModalContext.jsx";
 import mobilechatstyle from "../chat/mobilechat.module.css";
 
 const GAMES = [
-  { label: "Home",      href: "/",          icon: () => <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h4a1 1 0 001-1v-3h2v3a1 1 0 001 1h4a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg> },
-  { label: "Coinflip",  href: "/coinflip",  img: "/coinflip-icon.png"  },
-  { label: "Dice",      href: "/dice",      img: "/dice-icon.png"      },
+  { label: "Home",      href: "/",          img: "/nav-home.png"       },
+  { label: "Coinflip",  href: "/coinflip",  img: "/nav-coinflip.png"   },
+  { label: "Dice",      href: "/dice",      img: "/nav-dice.png"       },
   { label: "Jackpot",   href: "/jackpot",   img: "/jackpot-icon.png"   },
-  { label: "Blackjack", href: "/blackjack", img: "/blackjack-icon.png" },
+  { label: "Blackjack", href: "/blackjack", img: "/nav-blackjack.png"  },
   { label: "Mines",     href: "/mines",     img: "/mines-gem.png"      },
   { label: "Upgrader",  href: "/upgrader",  img: "/upgrader-icon.png"  },
-  { label: "Trades",    href: "/trades",    icon: () => <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zm-4 9a1 1 0 11-2 0 1 1 0 012 0zm0-2a3 3 0 100 6 3 3 0 000-6zm10 3a1 1 0 11-2 0 1 1 0 012 0zm0-2a3 3 0 100 6 3 3 0 000-6z" /></svg> },
 ];
 
 export default function MobileGames() {

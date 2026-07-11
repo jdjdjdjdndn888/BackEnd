@@ -10,11 +10,11 @@ import {
 import Leaderboard from "@/components/popup/leaderboard";
 
 const NAV_ITEMS = [
-  { label: "Home",      href: "/",          icon: null,            img: "/home-icon.png"      },
-  { label: "Coinflip",  href: "/coinflip",  icon: null,            img: "/coinflip-icon.png"  },
-  { label: "Dice",      href: "/dice",      icon: null,            img: "/dice-icon.png"      },
+  { label: "Home",      href: "/",          icon: null,            img: "/nav-home.png"       },
+  { label: "Coinflip",  href: "/coinflip",  icon: null,            img: "/nav-coinflip.png"   },
+  { label: "Dice",      href: "/dice",      icon: null,            img: "/nav-dice.png"       },
   { label: "Jackpot",   href: "/jackpot",   icon: null,            img: "/jackpot-icon.png"   },
-  { label: "Blackjack", href: "/blackjack", icon: null,            img: "/blackjack-icon.png" },
+  { label: "Blackjack", href: "/blackjack", icon: null,            img: "/nav-blackjack.png"  },
   { label: "Mines",     href: "/mines",     icon: null,            img: "/mines-gem.png"      },
   { label: "Upgrader",  href: "/upgrader",  icon: null,            img: "/upgrader-icon.png"  },
   { label: "Trades",    href: "/trades",    icon: MarketPlaceIcon, img: null                  },
