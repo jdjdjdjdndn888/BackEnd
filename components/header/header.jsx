@@ -31,7 +31,7 @@ import LevelWidget from "./LevelWidget.jsx";
 const BRAND = "#8B5CF6";
 const BRAND_HOVER = "#7C3AED";
 
-export default function Header() {
+export default function Header({ onOpenMobileNav }) {
   const { userData, setUserData } = useContext(UserContext);
   const { setModalState } = useModal();
   const [balance, setBalance] = useState("0");
@@ -77,8 +77,19 @@ export default function Header() {
     <header className="box-border flex h-[var(--header-height)] items-center gap-3 px-4 border-b border-[#1e2035] bg-[#0d0f1a] relative">
       {showNotifs && <NotificationsPanel onClose={() => setShowNotifs(false)} />}
 
-      {/* Logo visible only on mobile (sidenav is hidden on mobile) */}
-      <div className="flex lg:hidden items-center mr-1 flex-shrink-0">
+      {/* Logo + hamburger visible only on mobile */}
+      <div className="flex lg:hidden items-center gap-2 mr-1 flex-shrink-0">
+        <button
+          onClick={onOpenMobileNav}
+          aria-label="Open menu"
+          className="flex items-center justify-center w-9 h-9 rounded-xl border border-[#1e2035] bg-transparent text-[#42496B] hover:bg-[#1C1F2E] hover:text-white transition-all"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect y="2" width="16" height="2" rx="1" fill="currentColor"/>
+            <rect y="7" width="16" height="2" rx="1" fill="currentColor"/>
+            <rect y="12" width="16" height="2" rx="1" fill="currentColor"/>
+          </svg>
+        </button>
         <img src="/logo-gemtide.png" alt="GemTide" className="h-7 w-auto object-contain" draggable={false} />
       </div>
 

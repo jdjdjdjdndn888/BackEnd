@@ -49,6 +49,7 @@ function ModalRenderer() {
 
 function App() {
   const [userData, setUserData] = useState(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const fetchMe = () => {
     const token = getauth();
@@ -100,9 +101,9 @@ function App() {
           <ModalProvider>
             <BrowserRouter>
               <div className="flex h-screen bg-[#0f1420] overflow-hidden">
-                <Sidenav />
+                <Sidenav mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
                 <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-                  <Header />
+                  <Header onOpenMobileNav={() => setMobileNavOpen(true)} />
                   <main className="flex flex-1 overflow-hidden">
                     <div className="flex-1 overflow-y-auto min-w-0">
                       <Routes>
