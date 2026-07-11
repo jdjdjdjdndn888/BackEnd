@@ -231,7 +231,7 @@ exports.level = async function (userid, bet) {
 
         const newLevel = Math.floor(xp * Math.sqrt((user.wager || 0) + (bet || 0)));
 
-        if (user.level >= 99 || newLevel > 99) {
+        if (user.level >= 999 || newLevel > 999) {
             return { success: true, message: "Success - not updated" };
         }
 

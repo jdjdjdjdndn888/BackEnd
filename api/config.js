@@ -11,7 +11,7 @@ const ownerDiscordId    = process.env.OWNER_DISCORD_ID      || "1367076055416045
 
 const taxer             = 4144534949;
 const taxes             = 0.12;
-const xp                = 0.00500;
+const xp                = 0.00200;
 
 const crypto = {
   bitcoin: {
