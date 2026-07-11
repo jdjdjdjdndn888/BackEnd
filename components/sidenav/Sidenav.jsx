@@ -20,13 +20,13 @@ const NAV_ITEMS = [
   { label: "Trades",    href: "/trades",    icon: MarketPlaceIcon, img: null                  },
 ];
 
-function NavIcon({ icon: Icon, img, active }) {
+function NavIcon({ icon: Icon, img, active, size = 28 }) {
   if (img) return (
-    <img src={img} alt="" style={{ width: 22, height: 22, objectFit: "contain", opacity: active ? 1 : 0.55, transition: "opacity 0.18s", flexShrink: 0 }} />
+    <img src={img} alt="" style={{ width: size, height: size, objectFit: "contain", opacity: active ? 1 : 0.6, transition: "opacity 0.18s", flexShrink: 0 }} />
   );
   return (
-    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", opacity: active ? 1 : 0.45, transition: "opacity 0.18s", color: "#fff", flexShrink: 0 }}
-      className="[&>svg]:w-[18px] [&>svg]:h-[18px]">
+    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", opacity: active ? 1 : 0.5, transition: "opacity 0.18s", color: "#fff", flexShrink: 0, width: size, height: size }}
+      className="[&>svg]:w-full [&>svg]:h-full">
       <Icon />
     </span>
   );
@@ -148,7 +148,7 @@ export default function Sidenav({ mobileOpen = false, onMobileClose = () => {} }
                       }}
                       className="group hover:!bg-[rgba(255,255,255,0.04)]"
                     >
-                      <NavIcon icon={icon} img={img} active={isActive} />
+                      <NavIcon icon={icon} img={img} active={isActive} size={isMobile ? 32 : 28} />
                       {showLabel && (
                         <span style={{
                           fontSize: 13,
