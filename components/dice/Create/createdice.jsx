@@ -189,8 +189,9 @@ export default function CreateDice({ onCreate, onClose }) {
               }`}
             >
               <div>
-                <p className={`text-sm font-bold ${crazyMode ? "text-red-400" : "text-white"}`}>
-                  🔥 Crazy Mode {crazyMode ? "ON" : "OFF"}
+                <p className={`text-sm font-bold flex items-center gap-1.5 ${crazyMode ? "text-red-400" : "text-white"}`}>
+                  <img src="/crazy-mode.png" alt="crazy" className="w-5 h-5 object-contain inline-block" />
+                  Crazy Mode {crazyMode ? "ON" : "OFF"}
                 </p>
                 <p className="text-[11px] text-[#68749C] mt-0.5">
                   Flips the rules — whoever normally loses wins instead.

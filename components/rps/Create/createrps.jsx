@@ -371,8 +371,9 @@ export default function CreateMatch({ onCreate, onClose }) {
             }}
           >
             <div style={{ textAlign: "left" }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: crazyMode ? "#f87171" : "#fff" }}>
-                🔥 Crazy Mode {crazyMode ? "ON" : "OFF"}
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: crazyMode ? "#f87171" : "#fff", display: "flex", alignItems: "center", gap: 6 }}>
+                <img src="/crazy-mode.png" alt="crazy" style={{ width: 20, height: 20, objectFit: "contain" }} />
+                Crazy Mode {crazyMode ? "ON" : "OFF"}
               </p>
               <p style={{ margin: 0, fontSize: 11, color: "#68749C", marginTop: 2 }}>
                 Flips the rules — whoever normally loses wins instead.
