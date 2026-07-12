@@ -145,8 +145,8 @@ exports.join_jackpot = [
           throw httpError(404, "Your account does not exist");
         }
 
-        if (req.body.chosenItems.length < 1) {
-          throw httpError(422, "You must select at least 1 item");
+        if (req.body.chosenItems.length < 5) {
+          throw httpError(422, "You must select at least 5 items to join jackpot");
         }
 
         const inventoryIds = req.body.chosenItems.map(item => item.inventoryid);
