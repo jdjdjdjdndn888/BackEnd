@@ -2,6 +2,7 @@ import { useContext, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import SocketContext from "@/utils/socket";
 import { api } from "@/config";
+import { useSeo } from "@/utils/useSeo";
 import "./Home.css";
 
 // ─── SVG ICONS ────────────────────────────────────────────────────────────────
@@ -84,6 +85,12 @@ const GAMES = [
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 
 export const Home = () => {
+  useSeo({
+    title: "GemTide | Pet Simulator 99 Betting - Big Games, PS99 Values & More",
+    description:
+      "GemTide is a Pet Simulator 99 (PS99) betting site. Wager Pet Sim 99 pets, gems, and items in big games like Coinflip, Jackpot, Dice, Blackjack, Mines, and Upgrader, backed by real PS99 values.",
+    path: "/",
+  });
   const socket = useContext(SocketContext);
   const navigate = useNavigate();
   const [onlineCount, setOnlineCount] = useState(1247);
@@ -322,6 +329,16 @@ export const Home = () => {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* ── ABOUT ── */}
+      <div style={{ maxWidth: 1152, margin: "0 auto", padding: "0 24px 56px" }}>
+        <p style={{ color: "#666", fontSize: 13, lineHeight: 1.8, maxWidth: 820 }}>
+          GemTide is a Pet Simulator 99 (PS99) betting site built for players who love big games and bigger wins.
+          Deposit your Pet Sim 99 pets and gems, then wager them across Coinflip, Jackpot, Dice Roll, Blackjack,
+          Mines, and our pet Upgrader — every match is provably fair and priced against real PS99 values, so
+          every trade feels honest.
+        </p>
       </div>
 
       {/* ── HOW IT WORKS ── */}

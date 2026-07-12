@@ -9,6 +9,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { formatLargeNumber } from "@/utils/value";
+import { useSeo } from "@/utils/useSeo";
 import { Plus } from "lucide-react";
 import CreateDice from "./Create/createdice.jsx";
 import DiceRow from "./DiceRow.jsx";
@@ -28,6 +29,12 @@ const S = {
 };
 
 export default function DiceLayout() {
+  useSeo({
+    title: "PS99 Dice Roll | Pet Simulator 99 Betting - GemTide",
+    description:
+      "Roll for a target multiplier on GemTide's PS99 Dice. Wager Pet Sim 99 pets and gems in a fast, provably fair dice game.",
+    path: "/dice",
+  });
   const { setModalState } = useModal();
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);

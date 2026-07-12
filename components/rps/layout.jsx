@@ -27,6 +27,7 @@ import { formatLargeNumber } from "@/utils/value";
 import { Link } from "react-router-dom";
 import { Plus, RotateCcw, ChevronDown } from "lucide-react";
 import { RpsRock, RpsPaper, RpsScissors } from "../../assets/exports.jsx";
+import { useSeo } from "../../utils/useSeo.js";
 
 const CHOICE_ICON = { rock: RpsRock, paper: RpsPaper, scissors: RpsScissors };
 
@@ -43,6 +44,12 @@ const S = {
 };
 
 export default function RpsPage() {
+  useSeo({
+    title: "PS99 Rock Paper Scissors | Pet Simulator 99 Betting - GemTide",
+    description:
+      "Challenge other players in GemTide's PS99 Rock Paper Scissors. Wager Pet Sim 99 pets and gems in a quick, provably fair 1v1 match.",
+    path: "/rps",
+  });
   const { setModalState } = useModal();
   const [matches, setMatches] = useState([]);
   const [selectedMatch, setSelectedMatch] = useState(null);

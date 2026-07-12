@@ -12,6 +12,7 @@ import CreateMines from "./Create/createmines.jsx";
 import MinesRow from "./MinesRow.jsx";
 import MinesHistory from "./history/history.jsx";
 import MinesView from "./View/view.jsx";
+import { useSeo } from "@/utils/useSeo";
 
 const S = {
   page:       { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(12,4,4,0.45) 0%, rgba(12,4,4,0.82) 55%, #0c0404 100%), url(/bg-mines.jpg) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
@@ -26,6 +27,12 @@ const S = {
 };
 
 export default function MinesLayout() {
+  useSeo({
+    title: "PS99 Mines | 1v1 Pet Simulator 99 Betting - GemTide",
+    description:
+      "Navigate the minefield in GemTide's PS99 Mines 1v1 showdown. Wager Pet Sim 99 pets and gems and avoid the bombs to win.",
+    path: "/mines",
+  });
   const { setModalState } = useModal();
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);

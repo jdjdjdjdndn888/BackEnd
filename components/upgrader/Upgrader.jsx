@@ -4,6 +4,7 @@ import UserContext from "../../utils/user.js";
 import { getauth } from "../../utils/getauth.js";
 import { api } from "../../config.js";
 import { formatLargeNumber } from "@/utils/value";
+import { useSeo } from "@/utils/useSeo";
 import { Search, RefreshCw } from "lucide-react";
 
 const MAX_WIN_CHANCE = 90;
@@ -36,6 +37,12 @@ const S = {
 };
 
 export default function Upgrader() {
+  useSeo({
+    title: "PS99 Upgrader | Risk Pets by PS99 Values - GemTide",
+    description:
+      "Use GemTide's Pet Simulator 99 Upgrader to risk your pets for a shot at a higher-tier item, priced against real PS99 values for a fair, transparent trade.",
+    path: "/upgrader",
+  });
   const { userData } = useContext(UserContext);
   const [myInventory, setMyInventory] = useState([]);
   const [targetItems, setTargetItems] = useState([]);

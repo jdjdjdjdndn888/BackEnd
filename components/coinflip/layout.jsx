@@ -14,6 +14,7 @@ import View from "./View/view.jsx";
 import toast from "react-hot-toast";
 import LoginModal from "../popup/login.jsx";
 import { api } from "../../config.js";
+import { useSeo } from "../../utils/useSeo.js";
 import {
   Select,
   SelectTrigger,
@@ -41,6 +42,12 @@ const S = {
 };
 
 export default function Coinflip() {
+  useSeo({
+    title: "PS99 Coinflip | Bet Pet Simulator 99 Items - GemTide",
+    description:
+      "Flip for double or nothing on GemTide's PS99 Coinflip. Wager Pet Simulator 99 pets and gems in a fast, provably fair 50/50 game.",
+    path: "/coinflip",
+  });
   const { setModalState } = useModal();
   const [coinflips, setCoinflips] = useState([]);
   const [selectedFlip, setSelectedFlip] = useState(null);

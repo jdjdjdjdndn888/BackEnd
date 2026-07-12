@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Plus, ArrowLeftRight, ChevronDown } from "lucide-react";
+import { useSeo } from "@/utils/useSeo";
 
 const S = {
   page:       { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(4,12,14,0.45) 0%, rgba(4,12,14,0.82) 55%, #040c0e 100%), url(/bg-trades.jpg) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif" },
@@ -27,6 +28,12 @@ const S = {
 };
 
 export default function Trades() {
+  useSeo({
+    title: "P2P Trades | Pet Simulator 99 Item Betting - GemTide",
+    description:
+      "Propose and negotiate peer-to-peer Pet Simulator 99 trades on GemTide, priced against real PS99 values.",
+    path: "/trades",
+  });
   const { userData } = useContext(UserContext);
   const socket = useContext(SocketContext);
   const { setModalState } = useModal();

@@ -9,6 +9,7 @@ import LoginModal from "../popup/login.jsx";
 import { Money } from "@/assets/exports.jsx";
 import Wheel from "./Wheel.jsx";
 import { COLORS } from "./colors.js";
+import { useSeo } from "../../utils/useSeo.js";
 import { Timer, Plus, TrendingUp } from "lucide-react";
 
 const S = {
@@ -17,6 +18,12 @@ const S = {
 };
 
 export default function JackpotPage() {
+  useSeo({
+    title: "PS99 Jackpot | Win Big Pet Sim 99 Pots - GemTide",
+    description:
+      "Deposit your Pet Simulator 99 pets and gems into GemTide's PS99 Jackpot. The bigger the pot, the bigger the win — provably fair and open to everyone.",
+    path: "/jackpot",
+  });
   const { setModalState } = useModal();
   const { userData } = useContext(UserContext);
   const socket = useContext(SocketContext);

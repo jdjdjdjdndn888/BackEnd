@@ -9,6 +9,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { formatLargeNumber } from "@/utils/value";
+import { useSeo } from "@/utils/useSeo";
 import { Plus } from "lucide-react";
 import CreateBlackjack from "./Create/createblackjack.jsx";
 import BlackjackRow from "./BlackjackRow.jsx";
@@ -28,6 +29,12 @@ const S = {
 };
 
 export default function BlackjackLayout() {
+  useSeo({
+    title: "PS99 Blackjack 1v1 | Pet Simulator 99 Betting - GemTide",
+    description:
+      "Face off in GemTide's PS99 Blackjack 1v1. Wager Pet Sim 99 pets and gems, get closer to 21 than your opponent, and win the pot.",
+    path: "/blackjack",
+  });
   const { setModalState } = useModal();
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);

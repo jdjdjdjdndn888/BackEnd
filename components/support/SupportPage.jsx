@@ -5,6 +5,7 @@ import SocketContext from "../../utils/socket.js";
 import { api } from "../../config.js";
 import { getauth } from "../../utils/getauth.js";
 import { useNavigate } from "react-router-dom";
+import { useSeo } from "../../utils/useSeo.js";
 
 const CATEGORY_LABELS = {
   general: "General",
@@ -403,6 +404,12 @@ function TicketView({ ticketId, currentUser, onClose, onClosed }) {
 
 // ── Main Support Page ─────────────────────────────────────────────────────────
 export default function SupportPage() {
+  useSeo({
+    title: "Support | GemTide Pet Sim 99 Help Center",
+    description:
+      "Get help with deposits, withdrawals, and games on GemTide, the Pet Simulator 99 betting site. Open a ticket and our team will assist you.",
+    path: "/support",
+  });
   const { userData } = useContext(UserContext);
   const socket = useContext(SocketContext);
   const navigate = useNavigate();
