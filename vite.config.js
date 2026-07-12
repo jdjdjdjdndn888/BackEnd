@@ -8,6 +8,21 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5000,
     allowedHosts: true,
+    watch: {
+      // Keep the file watcher count well under the container's inotify
+      // limit — watching attached_assets/.cache/artifacts alongside a
+      // large node_modules tree has repeatedly exhausted watchers
+      // (ENOSPC) and crashed the dev server.
+      ignored: [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/.cache/**",
+        "**/attached_assets/**",
+        "**/artifacts/**",
+        "**/.local/**",
+        "**/.agents/**",
+      ],
+    },
     proxy: {
       "/api": {
         target: "http://localhost:3001",
