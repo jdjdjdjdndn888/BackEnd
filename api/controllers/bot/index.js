@@ -386,10 +386,9 @@ exports.withdrawed = asyncHandler(async (req, res) => {
       }
     }
 
-    if (idsToDelete.length > 0) {
-      await withdraws.deleteMany({ _id: { $in: idsToDelete } });
-    }
-
+    // Always return 200 to the bot first — it already gave the items.
+    // A 500 here causes the bot to treat the withdrawal as failed and may
+    // retry, leading to double-sends. Delete records best-effort after responding.
     const itemsListParts = [];
     Object.entries(itemCounts).forEach(([item, count]) => {
       if (count > 0) itemsListParts.push(`${item} x${count}`);
@@ -397,10 +396,7 @@ exports.withdrawed = asyncHandler(async (req, res) => {
     Object.entries(processedGemCounts).forEach(([denom, count]) => {
       if (count > 0) itemsListParts.push(`${denom} x${count}`);
     });
-
     const itemsList = itemsListParts.join("\n") || "None";
-    let webhookMessage = `${user.username} has just withdrawn some items!`;
-    if (unmatchedPets.length > 0) webhookMessage += `\nUnmatched items: ${unmatchedPets.join(", ")}`;
 
     logEvent({
       type: "📤 Withdrawal Confirmed",
@@ -410,11 +406,18 @@ exports.withdrawed = asyncHandler(async (req, res) => {
       thumbnail: user.thumbnail,
     });
 
+    res.status(200).json({ message: "OK" });
 
-    return res.status(200).json({ message: "OK" });
+    // Clean up withdraw records after responding so a DB error never causes a 500
+    if (idsToDelete.length > 0) {
+      withdraws.deleteMany({ _id: { $in: idsToDelete } }).catch((err) => {
+        console.error("[withdrawed] deleteMany failed — records may need manual cleanup:", err.message, "userId:", numUserId, "ids:", idsToDelete);
+      });
+    }
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "CONFLICT" });
+    console.error("[withdrawed] unexpected error:", error);
+    // Still return 200 — the bot gave the items; returning 500 risks a retry/double-send
+    return res.status(200).json({ message: "OK" });
   }
 });
 

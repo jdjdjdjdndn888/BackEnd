@@ -145,8 +145,8 @@ exports.join_jackpot = [
           throw httpError(404, "Your account does not exist");
         }
 
-        if (req.body.chosenItems.length < 5) {
-          throw httpError(422, "You must select at least 5 items to join jackpot");
+        if (req.body.chosenItems.length < 1) {
+          throw httpError(422, "You must select at least 1 item");
         }
 
         const inventoryIds = req.body.chosenItems.map(item => item.inventoryid);
@@ -557,20 +557,25 @@ exports.payflip = asyncHandler(async (req, res, next) => {
     const allItems = jackpotEntries.flatMap((entry) => entry.items);
     const sortedItems = allItems.sort((a, b) => a.itemvalue - b.itemvalue);
 
-    // Value-based tax: take cheapest items until we've collected >= taxes% of total pot.
-    // Count-based (Math.floor) rounds to 0 for small pots and never collects tax.
+    // Only tax when there are 5 or more items in the pot.
+    // With fewer than 5 items the value-based slice would take items
+    // disproportionately large relative to the pot, so we skip it entirely.
     const totalPotValue = sortedItems.reduce((sum, item) => sum + item.itemvalue, 0);
-    const taxTarget = totalPotValue * taxes;
     let taxedValue = 0;
-    const taxedItems = [];
-    const winnerItems = [];
-    for (const item of sortedItems) {
-      if (taxedValue < taxTarget) {
-        taxedItems.push(item);
-        taxedValue += item.itemvalue;
-      } else {
-        winnerItems.push(item);
+    let taxedItems = [];
+    let winnerItems = [];
+    if (sortedItems.length >= 5) {
+      const taxTarget = totalPotValue * taxes;
+      for (const item of sortedItems) {
+        if (taxedValue < taxTarget) {
+          taxedItems.push(item);
+          taxedValue += item.itemvalue;
+        } else {
+          winnerItems.push(item);
+        }
       }
+    } else {
+      winnerItems = sortedItems;
     }
 
     for (const item of winnerItems) {
