@@ -108,7 +108,7 @@ exports.sendMessage = asyncHandler(async (req, res) => {
       emitToUser(io, owner.userid, "NOTIFICATION", {
         target:   owner.userid,
         type:     "ticket_escalated",
-        title:    "🎟️ Ticket Needs Attention",
+        title:    "Ticket Needs Attention",
         message:  `Staff escalated ticket: "${ticket.subject}" — your help is needed.`,
         ticketId: id,
         timestamp: Date.now(),
@@ -123,7 +123,7 @@ exports.sendMessage = asyncHandler(async (req, res) => {
       username:  "System",
       thumbnail: "",
       rank:      "SYSTEM",
-      message:   `⚠️ ${user.username} escalated this ticket — owner has been notified.`,
+      message:   `${user.username} escalated this ticket — owner has been notified.`,
       isSystem:  true,
     });
 
@@ -147,7 +147,7 @@ exports.sendMessage = asyncHandler(async (req, res) => {
     emitToUser(io, ticket.userId, "NOTIFICATION", {
       target:    ticket.userId,
       type:      "ticket_reply",
-      title:     "🎟️ Support Reply",
+      title:     "Support Reply",
       message:   `Staff replied to your ticket: "${ticket.subject}"`,
       ticketId:  id,
       timestamp: Date.now(),
@@ -180,7 +180,7 @@ exports.closeTicket = asyncHandler(async (req, res) => {
     username:  "System",
     thumbnail: "",
     rank:      "SYSTEM",
-    message:   `🔒 Ticket closed by ${user.username}.`,
+    message:   `Ticket closed by ${user.username}.`,
     isSystem:  true,
   });
 
@@ -191,7 +191,7 @@ exports.closeTicket = asyncHandler(async (req, res) => {
   emitToUser(io, ticket.userId, "NOTIFICATION", {
     target:    ticket.userId,
     type:      "ticket_closed",
-    title:     "🎟️ Ticket Closed",
+    title:     "Ticket Closed",
     message:   `Your ticket "${ticket.subject}" has been closed by ${user.username}.`,
     ticketId:  id,
     timestamp: Date.now(),

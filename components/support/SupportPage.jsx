@@ -72,7 +72,7 @@ function CreateTicketModal({ onClose, onCreated }) {
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-bold text-lg flex items-center gap-2">
-            <span className="text-xl">🎟️</span> Open Support Ticket
+            <img src="/ticket-icon.png" alt="" className="w-6 h-6 object-contain" /> Open Support Ticket
           </h2>
           <button onClick={onClose}
             className="text-[#68749C] hover:text-white bg-transparent border-none text-xl cursor-pointer">✕</button>
@@ -154,7 +154,9 @@ function TicketItem({ ticket, active, onClick }) {
         </span>
         <span className="text-[10px] text-[#42496B] truncate">{ticket.username}</span>
         <span className="text-[10px] text-[#42496B] ml-auto shrink-0">{timeAgo(ticket.createdAt)}</span>
-        {ticket.ownerPinged && <span className="text-[10px]" title="Owner pinged">⚠️</span>}
+        {ticket.ownerPinged && (
+          <img src="/ticket-icons/owner-alert.png" alt="Owner pinged" title="Owner pinged" className="w-3 h-3 object-contain shrink-0" />
+        )}
       </div>
     </button>
   );
@@ -312,13 +314,21 @@ function TicketView({ ticketId, currentUser, onClose, onClosed }) {
           const isMe = msg.userId === currentUser?.userid;
           const isSystem = msg.isSystem;
 
-          if (isSystem) return (
-            <div key={msg._id} className="flex justify-center">
-              <span className="text-[11px] text-[#42496B] bg-[#1a1d2b] px-3 py-1.5 rounded-full border border-[#252839]">
-                {msg.message}
-              </span>
-            </div>
-          );
+          if (isSystem) {
+            const sysIcon = /escalated/i.test(msg.message)
+              ? "/ticket-icons/owner-alert.png"
+              : /closed/i.test(msg.message)
+              ? "/ticket-icons/ticket-closed.png"
+              : null;
+            return (
+              <div key={msg._id} className="flex justify-center">
+                <span className="flex items-center gap-1.5 text-[11px] text-[#42496B] bg-[#1a1d2b] px-3 py-1.5 rounded-full border border-[#252839]">
+                  {sysIcon && <img src={sysIcon} alt="" className="w-3.5 h-3.5 object-contain" />}
+                  {msg.message}
+                </span>
+              </div>
+            );
+          }
 
           return (
             <div key={msg._id} className={`flex gap-2.5 ${isMe ? "flex-row-reverse" : ""}`}>
@@ -440,7 +450,7 @@ export default function SupportPage() {
 
   if (!userData) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-6" style={{ minHeight: "70vh" }}>
-      <div className="text-5xl mb-2">🎟️</div>
+      <img src="/ticket-icon.png" alt="" className="w-16 h-16 object-contain mb-2" />
       <h2 className="text-white text-xl font-bold">Log in to access Support</h2>
       <p className="text-[#68749C] text-sm">You must be logged in to open or view support tickets.</p>
     </div>
@@ -454,10 +464,13 @@ export default function SupportPage() {
       {/* ── Left Panel: Ticket List ── */}
       <div className="w-80 shrink-0 border-r border-[#252839] flex flex-col min-h-0 bg-[#0c0e16]">
         {/* Header */}
-        <div className="px-4 py-4 border-b border-[#252839] shrink-0">
+        <div
+          className="px-4 py-4 border-b border-[#252839] shrink-0 bg-cover bg-center"
+          style={{ backgroundImage: "linear-gradient(180deg, rgba(12,14,22,0.55), rgba(12,14,22,0.9)), url(/ticket-banner.png)" }}
+        >
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-white font-bold text-base flex items-center gap-2">
-              <span>🎟️</span> Support
+              <img src="/ticket-icon.png" alt="" className="w-5 h-5 object-contain" /> Support
             </h1>
             <button onClick={() => setShowCreate(true)}
               className="px-3 py-1.5 rounded-lg bg-white text-black text-xs font-bold hover:bg-white/90 transition-colors cursor-pointer">
@@ -488,7 +501,7 @@ export default function SupportPage() {
             <div className="text-center text-[#42496B] text-sm py-10">Loading…</div>
           ) : filteredTickets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <div className="text-4xl mb-3 opacity-30">🎟️</div>
+              <img src="/ticket-icon.png" alt="" className="w-10 h-10 object-contain mb-3 opacity-30" />
               <p className="text-[#42496B] text-sm">No {filter === "all" ? "" : filter} tickets</p>
               {filter === "open" && !isStaff && (
                 <button onClick={() => setShowCreate(true)}
@@ -522,7 +535,7 @@ export default function SupportPage() {
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-8">
-            <div className="text-6xl opacity-20">🎟️</div>
+            <img src="/ticket-icon.png" alt="" className="w-20 h-20 object-contain opacity-20" />
             <div>
               <h2 className="text-white font-bold text-lg mb-1">Select a ticket</h2>
               <p className="text-[#42496B] text-sm">

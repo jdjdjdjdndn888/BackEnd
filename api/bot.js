@@ -129,11 +129,58 @@ const {
 const SUPPORT_PANEL_CHANNEL_ID = "1521084432688222208";
 
 const TICKET_CATEGORIES = {
-  ticket_site_support:    "🎫 Site Support",
-  ticket_scams:           "🚨 Scams & Unfair Trades",
-  ticket_discord_support: "💬 Discord Support",
-  ticket_claim_gw:        "🎉 Claim DC GWs",
+  ticket_site_support:    "Site Support",
+  ticket_scams:           "Scams & Unfair Trades",
+  ticket_discord_support: "Discord Support",
+  ticket_claim_gw:        "Claim DC GWs",
 };
+
+// Ticket banner — same convention as BANNER_URL, but pointed at the
+// dedicated support/ticket artwork instead of the generic site banner.
+const TICKET_BANNER_URL = process.env.TICKET_BANNER_URL || (SITE_URL ? `${SITE_URL}/ticket-banner.png` : "");
+
+// Custom application emojis for the ticket system. Uploaded once on startup
+// (see ensureTicketEmojis) from the images shipped in /public so the ticket
+// flow never falls back to built-in Unicode emoji.
+const TICKET_EMOJI_FILES = {
+  ticket:         `${SITE_URL}/ticket-icon.png`,
+  siteSupport:    `${SITE_URL}/ticket-icons/site-support.png`,
+  scamReport:     `${SITE_URL}/ticket-icons/scam-report.png`,
+  discordSupport: `${SITE_URL}/ticket-icons/discord-support.png`,
+  claimGiveaway:  `${SITE_URL}/ticket-icons/claim-giveaway.png`,
+  ticketClosed:   `${SITE_URL}/ticket-icons/ticket-closed.png`,
+  ownerAlert:     `${SITE_URL}/ticket-icons/owner-alert.png`,
+};
+
+// Populated by ensureTicketEmojis(); { key: { id, name, mention } }
+const ticketEmojis = {};
+
+async function ensureTicketEmojis() {
+  try {
+    const existing = await client.application.emojis.fetch();
+    for (const [key, url] of Object.entries(TICKET_EMOJI_FILES)) {
+      const name = `ticket_${key}`.toLowerCase();
+      let emoji = existing.find((e) => e.name === name);
+      if (!emoji) {
+        if (!SITE_URL) { console.warn(`Skipping custom emoji ${name} — SITE_URL not set`); continue; }
+        emoji = await client.application.emojis.create({ name, attachment: url });
+        console.log(`Uploaded custom ticket emoji: ${name}`);
+      }
+      ticketEmojis[key] = { id: emoji.id, name: emoji.name, mention: `<:${emoji.name}:${emoji.id}>` };
+    }
+  } catch (e) {
+    console.error("Failed to set up custom ticket emojis:", e.message);
+  }
+}
+
+// Falls back to a plain string while emojis are still loading, so the bot
+// never crashes on a missing entry.
+function ticketEmoji(key) {
+  return ticketEmojis[key]?.mention || "";
+}
+function ticketEmojiButton(key) {
+  return ticketEmojis[key] ? { id: ticketEmojis[key].id, name: ticketEmojis[key].name } : undefined;
+}
 
 const activeGiveaways = new Map();
 
@@ -155,6 +202,11 @@ function isOwner(interaction) {
 
 function applyBanner(embed) {
   if (BANNER_URL) embed.setImage(BANNER_URL);
+  return embed;
+}
+
+function applyTicketBanner(embed) {
+  if (TICKET_BANNER_URL) embed.setImage(TICKET_BANNER_URL);
   return embed;
 }
 
@@ -186,26 +238,26 @@ async function sendSupportPanel() {
     for (const [, msg] of messages.filter((m) => m.author.id === client.user.id))
       await msg.delete().catch(() => {});
 
-    const embed = applyBanner(
+    const embed = applyTicketBanner(
       new EmbedBuilder()
         .setColor(0x8b5cf6)
-        .setTitle("🎫 GemTide Support Center")
+        .setTitle(`${ticketEmoji("ticket")} GemTide Support Center`)
         .setDescription(
           "Welcome to GemTide support! Click the button that matches your issue below.\n\n" +
-          "🌐 **Site Support** — Website, balance, or account issues\n" +
-          "🚨 **Scams / Unfair Trades** — Report a scam or bad trade\n" +
-          "💬 **Discord Support** — Roles, verification, or server issues\n" +
-          "🎉 **Claim DC GWs** — Claim your Discord giveaway winnings"
+          `${ticketEmoji("siteSupport")} **Site Support** — Website, balance, or account issues\n` +
+          `${ticketEmoji("scamReport")} **Scams / Unfair Trades** — Report a scam or bad trade\n` +
+          `${ticketEmoji("discordSupport")} **Discord Support** — Roles, verification, or server issues\n` +
+          `${ticketEmoji("claimGiveaway")} **Claim DC GWs** — Claim your Discord giveaway winnings`
         )
         .setFooter({ text: "GemTide • Support" })
         .setTimestamp()
     );
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket_site_support").setLabel("Site Support").setEmoji("🌐").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId("ticket_scams").setLabel("Scams / Unfair Trades").setEmoji("🚨").setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("ticket_discord_support").setLabel("Discord Support").setEmoji("💬").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket_claim_gw").setLabel("Claim DC GWs").setEmoji("🎉").setStyle(ButtonStyle.Success)
+      new ButtonBuilder().setCustomId("ticket_site_support").setLabel("Site Support").setEmoji(ticketEmojiButton("siteSupport")).setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("ticket_scams").setLabel("Scams / Unfair Trades").setEmoji(ticketEmojiButton("scamReport")).setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("ticket_discord_support").setLabel("Discord Support").setEmoji(ticketEmojiButton("discordSupport")).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket_claim_gw").setLabel("Claim DC GWs").setEmoji(ticketEmojiButton("claimGiveaway")).setStyle(ButtonStyle.Success)
     );
 
     await channel.send({ embeds: [embed], components: [row] });
@@ -274,6 +326,7 @@ client.once("clientReady", async () => {
   }
 
   logger.init(client);
+  await ensureTicketEmojis();
 
   let commands;
   try {
@@ -644,19 +697,23 @@ async function handleTicketCreate(interaction, customId) {
       ],
     });
 
+    const emojiKeyMap = {
+      ticket_site_support: "siteSupport", ticket_scams: "scamReport",
+      ticket_discord_support: "discordSupport", ticket_claim_gw: "claimGiveaway",
+    };
     const labelMap = {
-      ticket_site_support: "🌐 Site Support", ticket_scams: "🚨 Scams / Unfair Trades",
-      ticket_discord_support: "💬 Discord Support", ticket_claim_gw: "🎉 Claim DC GWs",
+      ticket_site_support: "Site Support", ticket_scams: "Scams / Unfair Trades",
+      ticket_discord_support: "Discord Support", ticket_claim_gw: "Claim DC GWs",
     };
 
     await ticketChannel.send({
       content: interaction.user.toString(),
-      embeds: [applyBanner(new EmbedBuilder()
-        .setColor(0x8b5cf6).setTitle(`${labelMap[customId]} Ticket`)
+      embeds: [applyTicketBanner(new EmbedBuilder()
+        .setColor(0x8b5cf6).setTitle(`${ticketEmoji(emojiKeyMap[customId])} ${labelMap[customId]} Ticket`)
         .setDescription(`Hello ${interaction.user.toString()}! A staff member will be with you shortly.\n\n**Category:** ${categoryName}\n\nPlease describe your issue below.`)
         .setFooter({ text: "GemTide Support" }).setTimestamp())],
       components: [new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket_close").setLabel("Close Ticket").setEmoji("🔒").setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId("ticket_close").setLabel("Close Ticket").setEmoji(ticketEmojiButton("ticketClosed")).setStyle(ButtonStyle.Danger)
       )],
     });
 
@@ -671,7 +728,7 @@ async function handleTicketClose(interaction) {
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels) && interaction.user.id !== OWNER_DISCORD_ID)
     return interaction.reply({ content: "❌ Only staff can close tickets.", ephemeral: true });
   try {
-    await interaction.reply({ content: "🔒 Closing ticket in 5 seconds..." });
+    await interaction.reply({ content: `${ticketEmoji("ticketClosed")} Closing ticket in 5 seconds...` });
     setTimeout(async () => { await interaction.channel.delete().catch(() => {}); }, 5000);
   } catch (e) { console.error("Ticket close error:", e.message); }
 }

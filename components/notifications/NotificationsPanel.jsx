@@ -52,7 +52,7 @@ function NotifItem({ n, dismiss, respondTrade }) {
 
   return (
     <div className={`flex gap-3 px-4 py-3 border-b border-[#1e2035] last:border-0 ${n.unread ? "bg-[#8B5CF615]" : ""}`}>
-      <span className="text-xl flex-shrink-0 mt-0.5">{typeIcon(n.type)}</span>
+      <span className="flex-shrink-0 mt-0.5 flex items-center justify-center w-5 h-5">{typeIcon(n.type)}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-1">
           <p className="text-sm font-semibold text-white truncate">{n.title}</p>
@@ -91,12 +91,21 @@ function NotifItem({ n, dismiss, respondTrade }) {
   );
 }
 
+const TICKET_ICON_SRC = {
+  ticket_escalated: "/ticket-icons/owner-alert.png",
+  ticket_reply:      "/ticket-icon.png",
+  ticket_closed:     "/ticket-icons/ticket-closed.png",
+};
+
 function typeIcon(type) {
+  if (TICKET_ICON_SRC[type]) {
+    return <img src={TICKET_ICON_SRC[type]} alt="" className="w-5 h-5 object-contain" />;
+  }
   switch (type) {
-    case "success":       return "✅";
-    case "warning":       return "⚠️";
-    case "alert":         return "🚨";
-    case "trade_request": return "🔄";
-    default:              return "📣";
+    case "success":       return <span className="text-xl">✅</span>;
+    case "warning":       return <span className="text-xl">⚠️</span>;
+    case "alert":         return <span className="text-xl">🚨</span>;
+    case "trade_request": return <span className="text-xl">🔄</span>;
+    default:              return <span className="text-xl">📣</span>;
   }
 }
