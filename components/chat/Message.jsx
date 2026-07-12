@@ -8,6 +8,7 @@ import { Avatar } from "../ui/avatar";
 import { useModal } from "@/utils/ModalContext";
 import Profile from "../popup/profile";
 import Tip from "../tip/tip.jsx";
+import DropClaim from "./DropClaim.jsx";
 
 /**
  * @typedef {Object} ChatMessage
@@ -27,6 +28,10 @@ export const Message = ({ msg }) => {
     e.stopPropagation();
     setModalState(<Tip userId={msg?.userid} onClose={() => setModalState(null)} />);
   };
+
+  if (msg.type === "drop") {
+    return <DropMessage msg={msg} />;
+  }
 
   return (
     <div style={{
@@ -79,6 +84,102 @@ export const Message = ({ msg }) => {
         <p style={{ fontSize: 12, color: "#aaa", overflowWrap: "anywhere", marginTop: 2, lineHeight: 1.5 }}>
           {msg.content}
         </p>
+      </div>
+    </div>
+  );
+};
+
+// Renders a claimable item drop inline in the chat feed. Shows the code
+// right on the card (that's the point — everyone sees it, but only one
+// person can actually redeem it) plus a Claim button that opens the
+// code-entry modal.
+const DropMessage = ({ msg }) => {
+  const { setModalState } = useModal();
+  const drop = msg.drop || {};
+  const claimed = drop.claimed;
+
+  const openClaim = (e) => {
+    e.stopPropagation();
+    setModalState(<DropClaim dropId={drop.id} itemname={drop.itemname} onClose={() => setModalState(null)} />);
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        padding: "12px 14px",
+        borderRadius: 12,
+        background: "linear-gradient(135deg, rgba(139,92,246,0.14), rgba(124,58,237,0.06))",
+        border: claimed ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(139,92,246,0.45)",
+        boxShadow: claimed ? "none" : "0 0 14px rgba(139,92,246,0.25)",
+      }}
+    >
+      <div
+        style={{
+          flexShrink: 0,
+          width: 46,
+          height: 46,
+          borderRadius: 8,
+          background: "#12141f",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
+      >
+        {drop.itemimage ? (
+          <img src={drop.itemimage} alt={drop.itemname} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+        ) : (
+          <span style={{ fontSize: 20 }}>🎁</span>
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#fff" }}>
+          🎁 Drop: {drop.itemname || "Unknown Item"}
+        </p>
+        <p style={{ margin: "2px 0 0", fontSize: 12, fontWeight: 600, color: "#8B5CF6" }}>
+          R${(drop.itemvalue || 0).toLocaleString()}
+        </p>
+
+        {claimed ? (
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: "#6B7280" }}>
+            ✅ Claimed by <span style={{ color: "#fff", fontWeight: 600 }}>{drop.claimedUsername || "someone"}</span>
+          </p>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.15em",
+                color: "#fff",
+                background: "rgba(0,0,0,0.35)",
+                border: "1px dashed rgba(139,92,246,0.6)",
+                borderRadius: 6,
+                padding: "3px 8px",
+              }}
+            >
+              {drop.code}
+            </span>
+            <button
+              onClick={openClaim}
+              style={{
+                border: "none",
+                cursor: "pointer",
+                borderRadius: 8,
+                padding: "5px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#fff",
+                background: "linear-gradient(135deg, #8B5CF6, #7C3AED)",
+              }}
+            >
+              Claim
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

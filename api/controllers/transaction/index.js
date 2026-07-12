@@ -10,6 +10,7 @@ const items = require("../../modules/items.js");
 const userSockets = require("../../socket/usersockets.js"); 
 const moment = require("moment")
 const { xp } = require("../../config.js")
+const dropstate = require("../../modules/dropstate.js")
 
 
 exports.addHistory = async function (userid, type, amount) {
@@ -219,6 +220,26 @@ exports.updatestats = async function (io) {
         return { success: true, message: "OK" };
     } catch (error) {
         console.error("Error in updatestats:", error);
+        return { success: false, message: "Something went wrong" };
+    }
+};
+
+// Every game controller calls this right after moving taxed items into the
+// house (taxer) account, inside the same transaction/session. It just bumps
+// a shared counter — the Discord bot process polls that counter and posts a
+// chat drop once it reaches the threshold, since the bot and API run as
+// separate workflows that only share MongoDB (no direct in-process link).
+exports.registerTaxedItems = async function (count, session) {
+    if (!count || count <= 0) return { success: true, message: "nothing to register" };
+    try {
+        await dropstate.updateOne(
+            { key: "global" },
+            { $inc: { taxedSinceDrop: count } },
+            { upsert: true, session }
+        );
+        return { success: true, message: "OK" };
+    } catch (error) {
+        console.error(`[LIBRARY - REGISTERTAXEDITEMS ERROR]: ${error.message}`);
         return { success: false, message: "Something went wrong" };
     }
 };

@@ -7,7 +7,8 @@ const asyncHandler = require("express-async-handler");
 const InventoryItem = require("../../modules/inventorys");
 const JackpotEntry = require("../../modules/jackpotjoins");
 const items = require("../../modules/items");
-const { addHistory, updateuser, updatestats, level, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, sendwebhook, WEBHOOK_COLORS, registerTaxedItems } = require("../transaction/index.js");
+const { checkAndTriggerDrop } = require("../chat/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -600,6 +601,7 @@ exports.payflip = asyncHandler(async (req, res, next) => {
           });
           await newItem.save({ session });
         }
+        await registerTaxedItems(taxedItems.length, session);
       }
     }
 
@@ -618,6 +620,7 @@ exports.payflip = asyncHandler(async (req, res, next) => {
       `+${activeJackpot.value - taxedValue}`
     );
     await updateuser(activeJackpot.winnerid, req.app.get("io"));
+    checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("jackpot drop check:", e));
 
     const winnerUser = await users.findOne({ userid: activeJackpot.winnerid });
 

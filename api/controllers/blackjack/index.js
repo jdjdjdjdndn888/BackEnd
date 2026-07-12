@@ -7,7 +7,8 @@ const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { taxer, taxes, blackjackwebh } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS, registerTaxedItems } = require("../transaction/index.js");
+const { checkAndTriggerDrop } = require("../chat/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -514,6 +515,7 @@ async function handlePayout(doc, resolved, session) {
     })),
     { session }
   );
+  await registerTaxedItems(taxedItems.length, session);
 
   await Promise.all([
     users.findOneAndUpdate(
@@ -587,6 +589,7 @@ async function finishSideEffects(finalUpdate, payout, req) {
       WEBHOOK_COLORS.WIN
     ),
   ]);
+  checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("blackjack drop check:", e));
 }
 
 async function actOnGame(req, res, action) {

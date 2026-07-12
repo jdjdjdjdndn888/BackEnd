@@ -5,6 +5,7 @@ const userSockets = require("../../socket/usersockets.js");
 const { logEvent } = require("../../logger.js");
 const { logAction } = require("../../utils/logaction.js");
 const { OWNER_TIER, FULL_STAFF_TIER, ANY_STAFF_TIER } = require("../../utils/rankTiers.js");
+const dropsController = require("./drops.js");
 
 // In-memory cache – seeded from MongoDB on first access so messages survive restarts
 let messages = null;
@@ -68,6 +69,42 @@ function broadcastSystem(io, content) {
   io.emit("MESSAGE", sysMsg);
   return sysMsg;
 }
+
+// Broadcasts a drop as its own chat message so it appears inline in the feed
+// like any other message, but carries a `drop` payload the frontend renders
+// as a claimable item card instead of plain text. Also used by both the
+// automatic tax-triggered drops and the owner `?forcedrop` command.
+async function broadcastDrop(io, drop) {
+  await getMessages();
+  const dropMsg = {
+    ...GEMTIDE_BOT,
+    content: "",
+    type: "drop",
+    drop: {
+      id: drop._id.toString(),
+      itemname: drop.itemname,
+      itemvalue: drop.itemvalue,
+      itemimage: drop.itemimage,
+      code: drop.code,
+      claimed: drop.claimed,
+      claimedBy: drop.claimedBy,
+      claimedUsername: drop.claimedUsername,
+    },
+    timestamp: new Date().toISOString().slice(11, 16),
+  };
+  addToCache(dropMsg);
+  persistMessage(dropMsg);
+  io.emit("MESSAGE", dropMsg);
+  return dropMsg;
+}
+exports.broadcastDrop = broadcastDrop;
+
+// Called from every game controller right after a tax transaction commits
+// (never from inside the transaction itself). No-ops below the drop
+// threshold.
+exports.checkAndTriggerDrop = async function (io) {
+  return dropsController.checkAndTriggerDrop(io, broadcastDrop);
+};
 
 exports.sendchat = asyncHandler(async (req, res, next, io) => {
   const { msgcontent } = req.body;
@@ -272,6 +309,18 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
         break;
       }
 
+      // ── OWNER-TIER ONLY: manually spawn a single-item drop ────────────────
+      case "?forcedrop": {
+        if (!isOwner) { systemResponse = "⛔ Only the site Owner/Co-Owner can use this command."; break; }
+        try {
+          await dropsController.forceDrop(io, broadcastDrop);
+        } catch (err) {
+          console.error("[CHAT ?forcedrop]", err);
+          systemResponse = "❌ Force drop failed — check server logs.";
+        }
+        break;
+      }
+
       // ── OWNER-TIER ONLY: reset all users ─────────────────────────────────
       case "?resetall": {
         if (!isOwner) { systemResponse = "⛔ Only the site Owner/Co-Owner can use this command."; break; }
@@ -295,7 +344,7 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
 
       default:
         systemResponse = isFullStaff
-          ? "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow ?purge — Owner/Co-Owner only: ?resetall"
+          ? "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow ?purge — Owner/Co-Owner only: ?forcedrop ?resetall"
           : "Available commands: ?mute ?unmute";
     }
   }
@@ -310,4 +359,41 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
 exports.latestmessages = asyncHandler(async (req, res) => {
   const msgs = await getMessages();
   return res.status(200).json({ messages: msgs });
+});
+
+exports.claimdrop = asyncHandler(async (req, res, next, io) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+  const { dropId, code } = req.body;
+  if (!dropId || !code) return res.status(400).json({ message: "Missing dropId or code." });
+
+  const result = await dropsController.claimDrop(userId, dropId, code);
+  if (!result.success) return res.status(400).json({ message: result.message });
+
+  // Update the persisted/cached chat message in place so a page refresh
+  // still shows the drop as claimed, then tell every connected client.
+  try {
+    await getMessages();
+    const cached = messages.find((m) => m.type === "drop" && m.drop?.id === String(dropId));
+    if (cached) {
+      cached.drop.claimed = true;
+      cached.drop.claimedBy = result.drop.claimedBy;
+      cached.drop.claimedUsername = result.drop.claimedUsername;
+    }
+    await ChatMessage.updateOne(
+      { type: "drop", "drop.id": String(dropId) },
+      { $set: { "drop.claimed": true, "drop.claimedBy": result.drop.claimedBy, "drop.claimedUsername": result.drop.claimedUsername } }
+    );
+  } catch (err) {
+    console.error("[CHAT claimdrop] Failed to sync cached message:", err.message);
+  }
+
+  io.emit("DROP_CLAIMED", {
+    dropId: String(dropId),
+    claimedBy: result.drop.claimedBy,
+    claimedUsername: result.drop.claimedUsername,
+  });
+
+  return res.status(200).json({ message: `✅ You claimed ${result.drop.itemname}!` });
 });

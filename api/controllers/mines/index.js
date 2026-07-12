@@ -7,7 +7,8 @@ const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { taxer, taxes, mineswebh } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS, registerTaxedItems } = require("../transaction/index.js");
+const { checkAndTriggerDrop } = require("../chat/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -293,6 +294,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           target: game.PlayerOne.id,
         }, game.PlayerOne.id, req.app.get("io")),
       ]);
+      checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("mines drop check:", e));
     } catch (e) { console.error("mines join side-effects:", e); }
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
@@ -379,6 +381,7 @@ exports.revealtile = asyncHandler(async (req, res) => {
           })),
           { session }
         );
+        await registerTaxedItems(taxedItems.length, session);
 
         await Promise.all([
           users.findOneAndUpdate(

@@ -8,7 +8,8 @@ const moment = require("moment");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { taxer, taxes, dicewebh } = require("../../config.js");
-const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHOOK_COLORS, registerTaxedItems } = require("../transaction/index.js");
+const { checkAndTriggerDrop } = require("../chat/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
@@ -361,6 +362,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         })),
         { session }
       );
+      await registerTaxedItems(taxedItems.length, session);
 
       const winnerId = winner === "PlayerOne" ? game.PlayerOne.id : user.userid;
       const loserId = winner === "PlayerOne" ? user.userid : game.PlayerOne.id;
@@ -419,6 +421,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         game.PlayerOne.id,
         req.app.get("io")
       );
+      checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("dice drop check:", e));
 
       setTimeout(async () => {
         try {

@@ -8,7 +8,8 @@ const users = require("../../modules/users.js");
 const items = require("../../modules/items.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
-const { addHistory, updateuser, updatestats, level, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
+const { addHistory, updateuser, updatestats, level, sendwebhook, WEBHOOK_COLORS, registerTaxedItems } = require("../transaction/index.js");
+const { checkAndTriggerDrop } = require("../chat/index.js");
 
 const MAX_WIN_CHANCE = 90;
 
@@ -203,6 +204,7 @@ exports.upgrade = [
           });
           await newItem.save({ session });
         }
+        await registerTaxedItems(betItemDocs.length, session);
 
         upgradeDoc = new Upgrader({
           userid: req.user.id,
@@ -279,6 +281,7 @@ exports.upgrade = [
           null,
           won ? WEBHOOK_COLORS.WIN : WEBHOOK_COLORS.LOSS
         ).catch((e) => console.error("upgrader webhook:", e));
+        checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("upgrader drop check:", e));
       } catch (e) {
         console.error("upgrader side-effects:", e);
       }

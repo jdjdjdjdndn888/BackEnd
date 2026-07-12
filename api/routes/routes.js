@@ -76,6 +76,10 @@ router.post("/chat/send", accountController.verifyToken, (req, res, next) => {
   chatController.sendchat(req, res, next, io);
 });
 router.post("/chat/latest", chatController.latestmessages);
+router.post("/chat/dropclaim", accountController.verifyToken, (req, res, next) => {
+  const io = req.app.get('io');
+  chatController.claimdrop(req, res, next, io);
+});
 
 router.get("/coinflips/flips", coinflipController.getcoinflips);
 router.post("/coinflips/create", mutationLimiter, accountController.verifyToken, coinflipController.creatematch);

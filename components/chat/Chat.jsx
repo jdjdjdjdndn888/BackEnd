@@ -14,6 +14,7 @@ import UserContext from "../../utils/user.js";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 import Tip from "../tip/tip.jsx";
 import { useModal } from "../../utils/ModalContext.jsx";
+import { DropSound } from "@/assets/exports.jsx";
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
@@ -52,13 +53,38 @@ export default function Chat() {
 
     const handlePurge = () => setMessages([]);
 
+    // A drop (auto tax-triggered or ?forcedrop) is just a MESSAGE with
+    // type "drop" — play the drop sound whenever one comes in.
+    const handleDropMessage = (msg) => {
+      if (msg.type === "drop") {
+        try {
+          const audio = new Audio(DropSound);
+          audio.play().catch(() => {});
+        } catch {}
+      }
+    };
+
+    const handleDropClaimed = ({ dropId, claimedBy, claimedUsername }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.type === "drop" && m.drop?.id === dropId
+            ? { ...m, drop: { ...m.drop, claimed: true, claimedBy, claimedUsername } }
+            : m
+        )
+      );
+    };
+
     socket.on("MESSAGE", handleSocketMessage);
+    socket.on("MESSAGE", handleDropMessage);
     socket.on("ONLINE_UPDATE", setOnlineCount);
     socket.on("CHAT_PURGED", handlePurge);
+    socket.on("DROP_CLAIMED", handleDropClaimed);
     return () => {
       socket.off("MESSAGE", handleSocketMessage);
+      socket.off("MESSAGE", handleDropMessage);
       socket.off("ONLINE_UPDATE");
       socket.off("CHAT_PURGED", handlePurge);
+      socket.off("DROP_CLAIMED", handleDropClaimed);
     };
   }, [socket]);
 
