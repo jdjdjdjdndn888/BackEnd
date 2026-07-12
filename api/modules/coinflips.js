@@ -5,6 +5,7 @@ const coinflipSchema = new Schema({
   creatorid: { type: Number, required: true },
   creatorcoin: { type: String, required: true },
   game: { type: String, required: true },
+  crazyMode: { type: Boolean, default: false }, // when true, the normal loser wins the pot instead
   PlayerOne: {
     id: { type: Number, required: true },
     username: { type: String, required: true },

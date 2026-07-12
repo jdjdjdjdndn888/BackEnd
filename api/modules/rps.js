@@ -6,6 +6,7 @@ const Schema = mongoose.Schema;
 // difference being each player picks a hand ("rock" | "paper" | "scissors")
 // instead of a coin side ("heads" | "trails").
 const rpsSchema = new Schema({
+  crazyMode: { type: Boolean, default: false }, // when true, the normal loser wins the pot instead
   creatorid: { type: Number, required: true },
   creatorchoice: { type: String, required: true, enum: ["rock", "paper", "scissors"] },
   game: { type: String, required: true },

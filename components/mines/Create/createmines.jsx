@@ -12,7 +12,7 @@ export default function CreateMines({ onCreate, onClose }) {
   const [inventory, setInventory] = useState([]);
   const [loadingInv, setLoadingInv] = useState(true);
   const [selectedItems, setSelectedItems] = useState([]);
-  const [minesCount, setMinesCount] = useState(5);
+  const [minesCount, setMinesCount] = useState(2);
   const [crazyMode, setCrazyMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -113,12 +113,12 @@ export default function CreateMines({ onCreate, onClose }) {
               Number of Mines: <span className="text-white font-bold ml-1">{minesCount}</span>
             </label>
             <input
-              type="range" min={1} max={20} value={minesCount}
+              type="range" min={1} max={4} value={minesCount}
               onChange={(e) => setMinesCount(Number(e.target.value))}
               className="w-full accent-white"
             />
             <div className="flex justify-between text-[10px] text-[#42496B] mt-1">
-              <span>1 (Easy)</span><span>10</span><span>20 (Hard)</span>
+              <span>1 (Easy)</span><span>2</span><span>4 (Hard)</span>
             </div>
           </div>
 

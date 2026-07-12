@@ -66,7 +66,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
   try {
     await session.withTransaction(async () => {
       const { items: clientItems, minesCount: mc, crazyMode: crazyModeRaw } = req.body;
-      const minesCount = Math.min(Math.max(parseInt(mc) || 5, 1), 20);
+      const minesCount = Math.min(Math.max(parseInt(mc) || 2, 1), 4);
       const crazyMode = crazyModeRaw === true || crazyModeRaw === "true";
 
       if (!clientItems?.length) throw httpError(400, "Select items!");

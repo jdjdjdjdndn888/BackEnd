@@ -31,6 +31,7 @@ const playerSchema = {
 };
 
 const blackjackSchema = new Schema({
+  crazyMode: { type: Boolean, default: false }, // when true, the normal loser wins the hand instead
   creatorid: { type: Number, required: true },
   game: { type: String, required: true },
   PlayerOne: playerSchema,
