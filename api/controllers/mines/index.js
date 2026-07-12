@@ -11,8 +11,10 @@ const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHO
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
 
+const GRID_SIZE = 25;
+
 /** Generate mine positions from seeds — provably fair */
-function generateGrid(serverSeed, randomSeed, minesCount, gridSize = 25) {
+function generateGrid(serverSeed, randomSeed, minesCount, gridSize = GRID_SIZE) {
   const combined = `${serverSeed}-${randomSeed}-mines`;
   const positions = [];
   let attempt = 0;
