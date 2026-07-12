@@ -189,6 +189,53 @@ export default function Sidenav({ mobileOpen = false, onMobileClose = () => {} }
           </p>
         )}
 
+        {/* Support */}
+        {(() => {
+          const isActive = location.pathname === "/support";
+          const showLabel = isMobile || !collapsed;
+          return (
+            <TooltipProvider delayDuration={(isMobile || !collapsed) ? 600 : 80}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div style={{ position: "relative" }}>
+                    {isActive && (
+                      <span style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)", width: 3, height: 18, borderRadius: "0 3px 3px 0", background: "#fff", boxShadow: "0 0 8px rgba(255,255,255,0.45)" }} />
+                    )}
+                    <NavLink to="/support"
+                      style={{
+                        display: "flex", alignItems: "center",
+                        gap: showLabel ? 11 : 0,
+                        padding: showLabel ? "9px 10px 9px 14px" : "9px 0",
+                        justifyContent: showLabel ? "flex-start" : "center",
+                        borderRadius: 9, textDecoration: "none",
+                        background: isActive ? "rgba(255,255,255,0.07)" : "transparent",
+                        transition: "background 0.15s",
+                      }}
+                      className="group hover:!bg-[rgba(255,255,255,0.04)]"
+                    >
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: showLabel ? 22 : 24, opacity: isActive ? 1 : 0.5, transition: "opacity 0.18s", flexShrink: 0, width: 36, height: 36 }}>
+                        🎟️
+                      </span>
+                      {showLabel && (
+                        <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 500, color: isActive ? "#fff" : "#555", transition: "color 0.15s", letterSpacing: "0.01em", whiteSpace: "nowrap" }}
+                          className="group-hover:!text-[rgba(255,255,255,0.65)]">
+                          Support
+                        </span>
+                      )}
+                    </NavLink>
+                  </div>
+                </TooltipTrigger>
+                {!isMobile && collapsed && (
+                  <TooltipContent side="right" sideOffset={10}
+                    style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, borderRadius: 8, padding: "5px 10px" }}>
+                    Support
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })()}
+
         {/* Leaderboard */}
         <TooltipProvider delayDuration={(isMobile || !collapsed) ? 600 : 80}>
           <Tooltip>

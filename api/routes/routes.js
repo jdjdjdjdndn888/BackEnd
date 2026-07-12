@@ -14,7 +14,8 @@ const diceController = require("../controllers/dice/index.js");
 const blackjackController = require("../controllers/blackjack/index.js");
 const upgraderController = require("../controllers/upgrader/index.js");
 const minesController = require("../controllers/mines/index.js");
-const rpsController = require("../controllers/rps/index.js");
+const rpsController     = require("../controllers/rps/index.js");
+const supportController = require("../controllers/support/index.js");
 const {
   authLimiter,
   mutationLimiter,
@@ -216,6 +217,13 @@ router.get("/__seed-gems", bothandler.real, async (req, res) => {
   }
   res.json({ ok: true, results });
 });
+
+// ── Support Tickets ───────────────────────────────────────────────────────────
+router.post("/support/tickets",                accountController.verifyToken, supportController.createTicket);
+router.get("/support/tickets",                 accountController.verifyToken, supportController.getTickets);
+router.get("/support/tickets/:id",             accountController.verifyToken, supportController.getTicket);
+router.post("/support/tickets/:id/message",    accountController.verifyToken, supportController.sendMessage);
+router.post("/support/tickets/:id/close",      accountController.verifyToken, supportController.closeTicket);
 
 router.all("*", (req, res) => {
   const rayId = req.headers['cf-ray'] || 'Unavailable';
