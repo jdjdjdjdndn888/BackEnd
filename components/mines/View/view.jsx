@@ -154,28 +154,31 @@ export default function MinesView({ game, onClose }) {
             Waiting for an opponent to join…
           </div>
         ) : (
-          <div className="grid gap-1.5 mb-4" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
-            {Array.from({ length: GRID_SIZE }).map((_, idx) => {
-              const state = getTileState(idx);
-              const clickable = canAct && state === "hidden";
-              return (
-                <button
-                  key={idx}
-                  onClick={() => revealTile(idx)}
-                  disabled={!clickable || acting}
-                  className={`
-                    aspect-square rounded-lg border flex items-center justify-center transition-all
-                    ${state === "hidden" ? `border-[#252839] bg-[#1a1d2b] ${clickable ? "hover:border-white/30 hover:bg-[#252839] cursor-pointer" : "cursor-default"}` : ""}
-                    ${state === "gem" ? "border-green-500/50 bg-green-500/10" : ""}
-                    ${state === "bomb" ? "border-red-500/50 bg-red-500/10" : ""}
-                  `}
-                >
-                  {state === "gem" && <img src="/mines-gem.png" alt="gem" className="w-5 h-5 object-contain" />}
-                  {state === "bomb" && <img src="/mines-bomb.png" alt="bomb" className="w-5 h-5 object-contain" />}
-                  {state === "hidden" && <span className="text-[#2F3347] text-xs">·</span>}
-                </button>
-              );
-            })}
+          <div className="mb-4 mx-auto" style={{ maxWidth: 300 }}>
+            <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+              {Array.from({ length: GRID_SIZE }).map((_, idx) => {
+                const state = getTileState(idx);
+                const clickable = canAct && state === "hidden";
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => revealTile(idx)}
+                    disabled={!clickable || acting}
+                    className={`
+                      rounded-lg border flex items-center justify-center transition-all
+                      ${state === "hidden" ? `border-[#252839] bg-[#1a1d2b] ${clickable ? "hover:border-white/30 hover:bg-[#252839] cursor-pointer" : "cursor-default"}` : ""}
+                      ${state === "gem" ? "border-green-500/50 bg-green-500/10" : ""}
+                      ${state === "bomb" ? "border-red-500/50 bg-red-500/10" : ""}
+                    `}
+                    style={{ aspectRatio: "1", padding: 4 }}
+                  >
+                    {state === "gem" && <img src="/mines-gem.png" alt="gem" className="w-8 h-8 object-contain" />}
+                    {state === "bomb" && <img src="/mines-bomb.png" alt="bomb" className="w-8 h-8 object-contain" />}
+                    {state === "hidden" && <span className="text-[#2F3347] text-xs">·</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
