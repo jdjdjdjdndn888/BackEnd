@@ -49,7 +49,10 @@ export default function MinesHistory() {
                   className="w-9 h-9 rounded-full object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">vs {opponent?.username}</p>
-                  <p className="text-[10px] text-[#42496B]">{g.minesCount} mines · {new Date(g.end).toLocaleDateString()}</p>
+                  <p className="text-[10px] text-[#42496B]">
+                    {g.minesCount} mines · {new Date(g.end).toLocaleDateString()}
+                    {g.crazyMode && <span className="text-red-400 font-bold"> · 🔥 Crazy</span>}
+                  </p>
                 </div>
                 <div className={`text-sm font-bold ${won ? "text-green-400" : "text-red-400"}`}>
                   {won ? "+" : "-"}{formatLargeNumber(g.requirements.static)}

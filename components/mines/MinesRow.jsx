@@ -52,6 +52,7 @@ export default function MinesRow({ game, userData, onView }) {
         <div style={{ fontSize: 11, color: "#555", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
           <img src="/mines-bomb.png" alt="bombs" style={{ width: 12, height: 12, objectFit: "contain" }} />
           {game.minesCount} mines · {game.PlayerOne.items.length} items
+          {game.crazyMode && <span style={{ color: "#f87171", fontWeight: 700, marginLeft: 4 }}>🔥 Crazy</span>}
         </div>
       </div>
 

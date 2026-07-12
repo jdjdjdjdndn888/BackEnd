@@ -4,8 +4,10 @@ const minesSchema = new mongoose.Schema({
   creatorid: { type: Number, required: true },
   game:      { type: String, required: true },
   minesCount: { type: Number, default: 5 },
+  crazyMode: { type: Boolean, default: false }, // when true, hitting a mine WINS instead of loses
   grid:      { type: [Number], default: [] }, // indices of bomb positions (revealed after game ends)
-  revealed:  { type: [Number], default: [] }, // indices the joiner has clicked
+  revealed:  { type: [Number], default: [] }, // indices either player has clicked, in click order
+  turn:      { type: Number, default: null }, // userid of whoever is up to click next
   PlayerOne: {
     id:        Number,
     username:  String,
@@ -19,7 +21,6 @@ const minesSchema = new mongoose.Schema({
     thumbnail: String,
     value:     Number,
     items:     Array,
-    cashedOut: { type: Boolean, default: false },
   },
   requirements: {
     min:    Number,

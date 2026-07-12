@@ -13,6 +13,7 @@ export default function CreateMines({ onCreate, onClose }) {
   const [loadingInv, setLoadingInv] = useState(true);
   const [selectedItems, setSelectedItems] = useState([]);
   const [minesCount, setMinesCount] = useState(5);
+  const [crazyMode, setCrazyMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState("high");
@@ -59,7 +60,7 @@ export default function CreateMines({ onCreate, onClose }) {
       const res = await fetch(`${api}/mines/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
-        body: JSON.stringify({ items: selectedItems, minesCount }),
+        body: JSON.stringify({ items: selectedItems, minesCount, crazyMode }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -120,6 +121,29 @@ export default function CreateMines({ onCreate, onClose }) {
               <span>1 (Easy)</span><span>10</span><span>20 (Hard)</span>
             </div>
           </div>
+
+          {/* Crazy Mode toggle */}
+          <button
+            type="button"
+            onClick={() => setCrazyMode((c) => !c)}
+            className={`flex items-center justify-between rounded-lg border p-3 text-left transition-all ${
+              crazyMode
+                ? "border-red-500/60 bg-red-500/10"
+                : "border-[#252839] bg-[#1a1d2b] hover:border-white/20"
+            }`}
+          >
+            <div>
+              <p className={`text-sm font-bold ${crazyMode ? "text-red-400" : "text-white"}`}>
+                🔥 Crazy Mode {crazyMode ? "ON" : "OFF"}
+              </p>
+              <p className="text-[11px] text-[#68749C] mt-0.5">
+                Flips the rules — whoever hits the mine WINS instead of losing.
+              </p>
+            </div>
+            <div className={`w-10 h-6 rounded-full flex items-center px-0.5 transition-colors ${crazyMode ? "bg-red-500" : "bg-[#252839]"}`}>
+              <div className={`w-5 h-5 rounded-full bg-white transition-transform ${crazyMode ? "translate-x-4" : ""}`} />
+            </div>
+          </button>
 
           {/* Search + sort */}
           <div className="flex gap-2">
@@ -208,6 +232,7 @@ export default function CreateMines({ onCreate, onClose }) {
             {selectedItems.length > 0 && (
               <span className="text-[#42496B] ml-2">({selectedItems.length} items)</span>
             )}
+            {crazyMode && <span className="text-red-400 ml-2 font-bold">🔥 Crazy Mode</span>}
           </div>
           <button
             onClick={handleCreate}

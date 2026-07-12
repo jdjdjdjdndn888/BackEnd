@@ -65,8 +65,9 @@ exports.creatematch = asyncHandler(async (req, res) => {
 
   try {
     await session.withTransaction(async () => {
-      const { items: clientItems, minesCount: mc } = req.body;
+      const { items: clientItems, minesCount: mc, crazyMode: crazyModeRaw } = req.body;
       const minesCount = Math.min(Math.max(parseInt(mc) || 5, 1), 20);
+      const crazyMode = crazyModeRaw === true || crazyModeRaw === "true";
 
       if (!clientItems?.length) throw httpError(400, "Select items!");
       const inventoryIds = clientItems.map((i) => i.inventoryid);
@@ -131,8 +132,10 @@ exports.creatematch = asyncHandler(async (req, res) => {
         creatorid: user.userid,
         game: gameType,
         minesCount,
+        crazyMode,
         grid: [],
         revealed: [],
+        turn: null,
         PlayerOne: {
           id: user.userid, username: user.username, thumbnail: user.thumbnail,
           value: totalItemValue, items: validatedItems,
@@ -248,13 +251,13 @@ exports.joinmatch = asyncHandler(async (req, res) => {
             state: "playing",
             randomSeed,
             grid,
+            turn: game.PlayerOne.id, // creator always clicks first
             "requirements.static": game.requirements.static + totalJoinerValue,
             PlayerTwo: {
               id: user.userid,
               username: user.username,
               thumbnail: user.thumbnail,
               value: totalJoinerValue,
-              cashedOut: false,
               items: inventoryItems.map((item) => ({
                 id: item._id,
                 itemname: itemMap.get(String(item.itemid))?.itemname,
@@ -303,7 +306,14 @@ exports.joinmatch = asyncHandler(async (req, res) => {
   }
 });
 
-/** Reveal a tile — called by the joiner (PlayerTwo) */
+/**
+ * Reveal a tile — true 1v1 turn-based play. PlayerOne and PlayerTwo alternate
+ * clicks (creator goes first) until someone hits a mine. Normally the player
+ * who clicks the mine loses the pot to their opponent; if the game was
+ * created in Crazy Mode, hitting the mine WINS the pot instead. If every
+ * safe tile gets cleared without anyone hitting a mine, whoever made the
+ * final safe click takes the pot.
+ */
 exports.revealtile = asyncHandler(async (req, res) => {
   if (!acquireLock(req.user.id, "mines_reveal")) {
     return res.status(429).json({ message: "Request already in progress, please wait." });
@@ -325,25 +335,34 @@ exports.revealtile = asyncHandler(async (req, res) => {
       const game = await mines.findOne({ _id: gameid }).session(session);
       if (!game) throw httpError(404, "Game not found!");
       if (game.state !== "playing") throw httpError(400, "Game not in playing state!");
-      if (game.PlayerTwo?.id !== Number(req.user.id))
-        throw httpError(403, "Only the joiner can reveal tiles!");
+
+      const clickerId = Number(req.user.id);
+      if (clickerId !== game.PlayerOne.id && clickerId !== game.PlayerTwo?.id)
+        throw httpError(403, "You are not a player in this game!");
+      if (game.turn !== clickerId)
+        throw httpError(403, "It's not your turn!");
       if (game.revealed.includes(tileIndex))
         throw httpError(400, "Tile already revealed!");
+
+      const opponentId = clickerId === game.PlayerOne.id ? game.PlayerTwo.id : game.PlayerOne.id;
 
       const newRevealed = [...game.revealed, tileIndex];
       isBomb = game.grid.includes(tileIndex);
 
       const safeCount = 25 - game.minesCount;
       const revealedSafe = newRevealed.filter((i) => !game.grid.includes(i)).length;
-      const allSafeRevealed = revealedSafe >= safeCount;
+      const allSafeRevealed = !isBomb && revealedSafe >= safeCount;
 
-      let updates = { $push: { revealed: tileIndex } };
+      let updates = { $push: { revealed: tileIndex }, $set: { turn: opponentId } };
 
       if (isBomb || allSafeRevealed) {
-        // Game over
-        const winnerId = isBomb ? game.PlayerOne.id : game.PlayerTwo.id;
-        const loserId = isBomb ? game.PlayerTwo.id : game.PlayerOne.id;
-        const loserValue = isBomb ? game.PlayerTwo.value : game.PlayerOne.value;
+        // Game over. Normally whoever clicks the mine loses; Crazy Mode flips that.
+        // If the board gets fully cleared with no mine hit, the player who made
+        // the final safe click wins.
+        const clickerWins = allSafeRevealed || game.crazyMode;
+        const winnerId = clickerWins ? clickerId : opponentId;
+        const loserId = clickerWins ? opponentId : clickerId;
+        const loserValue = loserId === game.PlayerOne.id ? game.PlayerOne.value : game.PlayerTwo.value;
 
         const allItems = [...game.PlayerOne.items, ...game.PlayerTwo.items];
         const sortedItems = [...allItems].sort((a, b) => a.itemvalue - b.itemvalue);
@@ -451,133 +470,6 @@ exports.revealtile = asyncHandler(async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   } finally {
     releaseLock(req.user.id, "mines_reveal");
-    session.endSession();
-  }
-});
-
-/** Cash out — joiner wins the full pot (minus tax) by stopping early */
-exports.cashout = asyncHandler(async (req, res) => {
-  if (!acquireLock(req.user.id, "mines_cashout")) {
-    return res.status(429).json({ message: "Request already in progress, please wait." });
-  }
-  const session = await mongoose.startSession();
-
-  try {
-    let finalUpdate, payout;
-
-    await session.withTransaction(async () => {
-      const { gameid } = req.body;
-      if (!gameid) throw httpError(400, "gameid required!");
-
-      const game = await mines.findOne({ _id: gameid }).session(session);
-      if (!game) throw httpError(404, "Game not found!");
-      if (game.state !== "playing") throw httpError(400, "Game not in playing state!");
-      if (game.PlayerTwo?.id !== Number(req.user.id))
-        throw httpError(403, "Only the joiner can cash out!");
-      if (game.revealed.length === 0)
-        throw httpError(400, "Reveal at least one tile before cashing out!");
-
-      const winnerId = game.PlayerTwo.id;
-      const loserId = game.PlayerOne.id;
-      const loserValue = game.PlayerOne.value;
-
-      const allItems = [...game.PlayerOne.items, ...game.PlayerTwo.items];
-      const sortedItems = [...allItems].sort((a, b) => a.itemvalue - b.itemvalue);
-      const taxedCount = Math.floor(sortedItems.length * taxes);
-      const taxedItems = sortedItems.slice(0, taxedCount);
-      const winnerItems = sortedItems.slice(taxedCount);
-
-      await inventorys.insertMany(
-        taxedItems.map((item) => ({
-          _id: item.id || item._id,
-          owner: taxer,
-          itemid: item.itemid,
-          locked: false,
-        })),
-        { session }
-      );
-
-      await Promise.all([
-        users.findOneAndUpdate(
-          { userid: winnerId },
-          [{ $set: { won: { $add: ["$won", loserValue] }, wager: { $add: ["$wager", loserValue] } } }],
-          { session }
-        ),
-        users.findOneAndUpdate(
-          { userid: loserId },
-          [{ $set: { lost: { $add: ["$lost", loserValue] }, wager: { $add: ["$wager", loserValue] } } }],
-          { session }
-        ),
-      ]);
-
-      await mines.updateOne(
-        { _id: gameid },
-        { $set: { state: "finished", active: false, end: new Date(), winner: winnerId, "PlayerTwo.cashedOut": true } },
-        { session }
-      );
-
-      const updated = await mines.findOne({ _id: gameid }).session(session);
-      finalUpdate = updated.toObject();
-      delete finalUpdate.serverSeed;
-
-      payout = { winnerId, loserId, loserValue, winnerItems };
-    });
-
-    res.status(200).json({ message: "Cashed out!", data: finalUpdate });
-
-    try {
-      const { winnerId, loserId, loserValue, winnerItems } = payout;
-      req.app.get("io").emit("MINES_UPDATE", finalUpdate);
-      req.app.get("io").emit("LIVE_WIN", {
-        user: finalUpdate.PlayerTwo.username,
-        game: "Mines",
-        amount: finalUpdate.requirements.static,
-      });
-
-      setTimeout(async () => {
-        try {
-          if (winnerItems.length) {
-            await inventorys.insertMany(
-              winnerItems.map((item) => ({ _id: item.id || item._id, owner: winnerId, itemid: item.itemid, locked: false })),
-              { ordered: false }
-            );
-          }
-          await updateuser(winnerId, req.app.get("io"));
-          await updateuser(loserId, req.app.get("io"));
-        } catch (e) { if (e.code !== 11000) console.error("mines cashout payout:", e); }
-      }, 2000);
-
-      setTimeout(() => {
-        req.app.get("io").emit("MINES_CANCEL", { _id: finalUpdate._id, active: false });
-        updatestats(req.app.get("io"));
-      }, 60000);
-
-      await Promise.all([
-        addHistory(winnerId, "Mines Cash Out Win", `+${loserValue}`),
-        addHistory(loserId, "Mines Loss", `-${loserValue}`),
-        level(winnerId, loserValue),
-        level(loserId, loserValue),
-        updatestats(req.app.get("io")),
-        sendwebhook(
-          mineswebh,
-          "💰 Mines Cash Out",
-          `**${finalUpdate.PlayerTwo.username}** cashed out a R$${loserValue.toLocaleString()} mines game!`,
-          [
-            { name: "Tiles Revealed", value: `${finalUpdate.revealed.length}`, inline: true },
-            { name: "Value", value: `R$${loserValue.toLocaleString()}`, inline: true },
-          ],
-          null,
-          null,
-          WEBHOOK_COLORS.WIN
-        ).catch((e) => console.error("mines cashout webhook:", e)),
-      ]);
-    } catch (e) { console.error("mines cashout side-effects:", e); }
-  } catch (error) {
-    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
-    console.error("mines cashout:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
-  } finally {
-    releaseLock(req.user.id, "mines_cashout");
     session.endSession();
   }
 });

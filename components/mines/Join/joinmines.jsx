@@ -74,7 +74,10 @@ export default function JoinMines({ game, onClose }) {
             <img src="/mines-gem.png" alt="Mines" className="w-6 h-6 object-contain" />
             <div>
               <h2 className="text-white font-bold text-base">Join Mines Game</h2>
-              <p className="text-[#68749C] text-xs mt-0.5">vs {game.PlayerOne.username} · {game.minesCount} mines</p>
+              <p className="text-[#68749C] text-xs mt-0.5">
+                vs {game.PlayerOne.username} · {game.minesCount} mines
+                {game.crazyMode && <span className="text-red-400 font-bold"> · 🔥 Crazy Mode</span>}
+              </p>
             </div>
           </div>
           <button className="text-[#68749C] hover:text-white bg-transparent border-none text-xl cursor-pointer"

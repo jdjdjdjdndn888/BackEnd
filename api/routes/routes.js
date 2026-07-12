@@ -132,7 +132,6 @@ router.get("/mines/games", minesController.getgames);
 router.post("/mines/create", mutationLimiter, accountController.verifyToken, minesController.creatematch);
 router.post("/mines/join", mutationLimiter, accountController.verifyToken, minesController.joinmatch);
 router.post("/mines/reveal", mutationLimiter, accountController.verifyToken, minesController.revealtile);
-router.post("/mines/cashout", mutationLimiter, accountController.verifyToken, minesController.cashout);
 router.post("/mines/cancel", mutationLimiter, accountController.verifyToken, minesController.cancelmatch);
 router.post("/mines/history/me", accountController.verifyToken, minesController.historyme);
 

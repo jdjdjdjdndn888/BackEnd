@@ -20,8 +20,11 @@ export default function MinesView({ game, onClose }) {
 
   const isJoiner = userData?.userid === localGame.PlayerTwo?.id;
   const isCreator = userData?.userid === localGame.PlayerOne?.id;
-  const canAct = isJoiner && localGame.state === "playing";
+  const isPlayer = isCreator || isJoiner;
+  const isMyTurn = isPlayer && userData?.userid === localGame.turn;
+  const canAct = isMyTurn && localGame.state === "playing";
   const finished = localGame.state === "finished";
+  const opponentUsername = isCreator ? localGame.PlayerTwo?.username : localGame.PlayerOne?.username;
 
   const winnerName = localGame.winner
     ? (localGame.PlayerOne.id === localGame.winner ? localGame.PlayerOne.username : localGame.PlayerTwo?.username)
@@ -40,29 +43,12 @@ export default function MinesView({ game, onClose }) {
       const data = await res.json();
       if (res.ok) {
         setLocalGame(data.data);
-        if (data.isBomb) toast.error("💥 You hit a bomb! Creator wins.");
-        else toast.success("💎 Safe! Keep going or cash out.");
-      } else {
-        toast.error(data.message || "Something went wrong");
-      }
-    } catch { toast.error("Something went wrong"); }
-    setActing(false);
-  };
-
-  const cashOut = async () => {
-    if (!canAct || acting) return;
-    if (!localGame.revealed?.length) return toast.error("Reveal at least one tile first!");
-    setActing(true);
-    try {
-      const res = await fetch(`${api}/mines/cashout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
-        body: JSON.stringify({ gameid: localGame._id }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setLocalGame(data.data);
-        toast.success("💰 Cashed out! You win!");
+        if (data.isBomb) {
+          const clickerWon = localGame.crazyMode;
+          toast.error(clickerWon ? "🔥 Crazy Mode! Bomb hit — you win!" : "💥 You hit a bomb! Your opponent wins.");
+        } else {
+          toast.success("💎 Safe! Opponent's turn.");
+        }
       } else {
         toast.error(data.message || "Something went wrong");
       }
@@ -117,6 +103,11 @@ export default function MinesView({ game, onClose }) {
             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-white/10 text-[#68749C]">
               {localGame.minesCount} Mines
             </span>
+            {localGame.crazyMode && (
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">
+                🔥 Crazy Mode
+              </span>
+            )}
           </div>
           <button className="text-[#68749C] hover:text-white bg-transparent border-none text-xl cursor-pointer"
             onClick={() => { onClose?.(); setModalState(null); }}>✕</button>
@@ -124,7 +115,8 @@ export default function MinesView({ game, onClose }) {
 
         {/* Players */}
         <div className="flex items-center justify-between mb-4">
-          <PlayerChip player={localGame.PlayerOne} label="Creator" isWinner={finished && localGame.winner === localGame.PlayerOne.id} />
+          <PlayerChip player={localGame.PlayerOne} label="Creator" isWinner={finished && localGame.winner === localGame.PlayerOne.id}
+            isTurn={localGame.state === "playing" && localGame.turn === localGame.PlayerOne.id} />
           <div className="flex flex-col items-center gap-1">
             <span className="text-white font-black text-lg">VS</span>
             <span className="text-xs text-[#68749C]">
@@ -133,7 +125,8 @@ export default function MinesView({ game, onClose }) {
             </span>
           </div>
           {localGame.PlayerTwo
-            ? <PlayerChip player={localGame.PlayerTwo} label="Joiner" isWinner={finished && localGame.winner === localGame.PlayerTwo.id} />
+            ? <PlayerChip player={localGame.PlayerTwo} label="Joiner" isWinner={finished && localGame.winner === localGame.PlayerTwo.id}
+                isTurn={localGame.state === "playing" && localGame.turn === localGame.PlayerTwo.id} />
             : <div className="flex flex-col items-center gap-1">
                 <div className="w-10 h-10 rounded-full border-2 border-dashed border-[#252839] flex items-center justify-center text-[#42496B] text-xl">?</div>
                 <span className="text-xs text-[#42496B]">Waiting…</span>
@@ -186,17 +179,11 @@ export default function MinesView({ game, onClose }) {
           </div>
         )}
 
-        {/* Actions */}
-        {canAct && !finished && (
-          <div className="flex gap-2">
-            <button
-              onClick={cashOut}
-              disabled={acting || !localGame.revealed?.length}
-              className="flex-1 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white font-bold text-sm transition-colors"
-            >
-              💰 Cash Out
-            </button>
-          </div>
+        {/* Turn indicator */}
+        {localGame.state === "playing" && !finished && (
+          <p className={`text-center text-sm font-semibold mb-2 ${canAct ? "text-white animate-pulse" : "text-[#68749C]"}`}>
+            {canAct ? "🎯 Your turn — pick a tile!" : `Waiting for ${localGame.turn === localGame.PlayerOne.id ? localGame.PlayerOne.username : localGame.PlayerTwo?.username} to play…`}
+          </p>
         )}
 
         {/* Creator cancel button */}
@@ -215,29 +202,23 @@ export default function MinesView({ game, onClose }) {
           <div className="mt-3 text-center">
             <p className="text-lg font-bold" style={{ color: "#8B5CF6" }}>
               🏆 {winnerName} wins!
-              {localGame.PlayerTwo?.cashedOut && <span className="text-sm font-normal text-[#68749C] ml-2">(Cash Out)</span>}
+              {localGame.crazyMode && <span className="text-sm font-normal text-red-400 ml-2">(Crazy Mode — bomb hit!)</span>}
             </p>
           </div>
-        )}
-
-        {/* Opponent game state message */}
-        {localGame.state === "playing" && !isJoiner && !finished && (
-          <p className="mt-3 text-center text-sm text-[#68749C] animate-pulse">
-            Waiting for {localGame.PlayerTwo?.username} to play…
-          </p>
         )}
       </div>
     </div>
   );
 }
 
-const PlayerChip = ({ player, label, isWinner }) => (
+const PlayerChip = ({ player, label, isWinner, isTurn }) => (
   <div className="flex flex-col items-center gap-1">
     <img src={player.thumbnail} alt={player.username}
       className="w-10 h-10 rounded-full object-cover border-2 transition-all"
-      style={{ borderColor: isWinner ? "#8B5CF6" : "#252839" }} />
+      style={{ borderColor: isWinner ? "#8B5CF6" : isTurn ? "#22c55e" : "#252839" }} />
     <span className="text-xs font-semibold text-white max-w-[80px] truncate">{player.username}</span>
     <span className="text-[10px] text-[#42496B] uppercase">{label}</span>
     {isWinner && <span className="text-[10px] font-bold text-[#8B5CF6]">🏆 Winner</span>}
+    {!isWinner && isTurn && <span className="text-[10px] font-bold text-green-500">● Their turn</span>}
   </div>
 );
