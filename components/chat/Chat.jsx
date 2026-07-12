@@ -27,6 +27,8 @@ export default function Chat() {
   const { setModalState } = useModal();
   const messagesEndRef = useRef(null);
 
+  const dropAudioRef = useRef(null);
+
   useEffect(() => {
     const fetchMessages = async () => {
       try {
@@ -54,11 +56,16 @@ export default function Chat() {
     const handlePurge = () => setMessages([]);
 
     // A drop (auto tax-triggered or ?forcedrop) is just a MESSAGE with
-    // type "drop" — play the drop sound whenever one comes in.
+    // type "drop" — play the drop sound once per drop event. If the song
+    // is already playing (e.g. batch of 2 drops fires back-to-back) we
+    // don't restart it; a new drop after the song finishes starts it again.
     const handleDropMessage = (msg) => {
       if (msg.type === "drop") {
         try {
+          const current = dropAudioRef.current;
+          if (current && !current.paused && !current.ended) return;
           const audio = new Audio(DropSound);
+          dropAudioRef.current = audio;
           audio.play().catch(() => {});
         } catch {}
       }

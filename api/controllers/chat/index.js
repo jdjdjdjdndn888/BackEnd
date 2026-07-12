@@ -321,6 +321,23 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
         break;
       }
 
+      // ── OWNER-TIER ONLY: disable / enable automatic drops ────────────────
+      case "?disable": {
+        if (!isOwner) { systemResponse = "⛔ Only the site Owner/Co-Owner can use this command."; break; }
+        dropsController.setDropsEnabled(false);
+        systemResponse = "🔴 Automatic drops are now DISABLED.";
+        logAction(user, "Disable Drops", null, null, "chat");
+        break;
+      }
+
+      case "?enable": {
+        if (!isOwner) { systemResponse = "⛔ Only the site Owner/Co-Owner can use this command."; break; }
+        dropsController.setDropsEnabled(true);
+        systemResponse = "🟢 Automatic drops are now ENABLED.";
+        logAction(user, "Enable Drops", null, null, "chat");
+        break;
+      }
+
       // ── OWNER-TIER ONLY: reset all users ─────────────────────────────────
       case "?resetall": {
         if (!isOwner) { systemResponse = "⛔ Only the site Owner/Co-Owner can use this command."; break; }
@@ -344,7 +361,7 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
 
       default:
         systemResponse = isFullStaff
-          ? "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow ?purge — Owner/Co-Owner only: ?forcedrop ?resetall"
+          ? "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow ?purge — Owner/Co-Owner only: ?forcedrop ?disable ?enable ?resetall"
           : "Available commands: ?mute ?unmute";
     }
   }

@@ -131,13 +131,14 @@ const DropMessage = ({ msg }) => {
         {drop.itemimage ? (
           <img src={drop.itemimage} alt={drop.itemname} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
         ) : (
-          <span style={{ fontSize: 20 }}>🎁</span>
+          <img src="/logo-gemtide.png" alt="drop" style={{ width: "80%", height: "80%", objectFit: "contain" }} />
         )}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#fff" }}>
-          🎁 Drop: {drop.itemname || "Unknown Item"}
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 6 }}>
+          <img src="/logo-gemtide.png" alt="drop" style={{ width: 18, height: 18, objectFit: "contain", display: "inline-block", verticalAlign: "middle" }} />
+          Drop: {drop.itemname || "Unknown Item"}
         </p>
         <p style={{ margin: "2px 0 0", fontSize: 12, fontWeight: 600, color: "#8B5CF6" }}>
           R${(drop.itemvalue || 0).toLocaleString()}

@@ -10,6 +10,9 @@ const { taxer } = require("../../config.js");
 const DROP_THRESHOLD = 5;
 const DROP_BATCH_SIZE = 2;
 
+// Can be toggled by ?disable / ?enable in chat commands.
+let dropsEnabled = true;
+
 function generateCode() {
   // Short, easy to type into the claim box, but not guessable at a glance.
   return crypto.randomBytes(4).toString("hex").toUpperCase();
@@ -86,6 +89,7 @@ async function spawnDrops(io, count, source, broadcastFn) {
  * threshold, and self-limiting so a huge backlog doesn't spawn forever.
  */
 async function checkAndTriggerDrop(io, broadcastFn) {
+  if (!dropsEnabled) return;
   try {
     let guard = 0;
     while (guard++ < 10) {
@@ -154,4 +158,6 @@ module.exports = {
   claimDrop,
   DROP_THRESHOLD,
   DROP_BATCH_SIZE,
+  setDropsEnabled: (v) => { dropsEnabled = v; },
+  getDropsEnabled: () => dropsEnabled,
 };
