@@ -30,14 +30,14 @@ export default function JoinMines({ game, onClose }) {
 
   const toggleItem = (item) => {
     setSelectedItems((prev) =>
-      prev.find((i) => i.inventoryid === item._id)
-        ? prev.filter((i) => i.inventoryid !== item._id)
-        : [...prev, { inventoryid: item._id, itemid: item.itemid }]
+      prev.find((i) => i.inventoryid === item.inventoryid)
+        ? prev.filter((i) => i.inventoryid !== item.inventoryid)
+        : [...prev, { inventoryid: item.inventoryid, itemid: item.itemid }]
     );
   };
 
   const totalValue = selectedItems.reduce((sum, si) => {
-    const inv = inventory.find((i) => i._id === si.inventoryid);
+    const inv = inventory.find((i) => i.inventoryid === si.inventoryid);
     return sum + (inv?.itemvalue || 0);
   }, 0);
 
@@ -97,9 +97,9 @@ export default function JoinMines({ game, onClose }) {
             ) : (
               <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                 {inventory.map((item) => {
-                  const sel = selectedItems.find((i) => i.inventoryid === item._id);
+                  const sel = selectedItems.find((i) => i.inventoryid === item.inventoryid);
                   return (
-                    <button key={item._id}
+                    <button key={item.inventoryid}
                       onClick={() => toggleItem(item)}
                       className={`rounded-lg border p-2 flex flex-col items-center gap-1 cursor-pointer transition-all ${sel ? "border-white bg-white/10" : "border-[#252839] bg-[#1a1d2b] hover:border-white/30"}`}>
                       <img src={item.itemimage} alt={item.itemname} className="w-10 h-10 object-contain" />
