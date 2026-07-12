@@ -23,7 +23,7 @@ function generateGameResult(clientSeed, serverSeed, totalAmount) {
 }
 
 let jackpotTimeout = null;
-let jackpotCooldown = 120;
+let jackpotCooldown = 45;
 let playing = false
 
 // -------------------------------------------
@@ -53,7 +53,7 @@ async function startJackpotCountdown(io) {
         setTimeout(() => exports.create_jackpot({ app: { get: () => io } }, {}, () => {}), 15000);
         setTimeout(async () => await updatestats(io), 15000);
         setTimeout(() => { playing = false; }, 15000);
-        jackpotCooldown = 120;
+        jackpotCooldown = 45;
         return;
       }
 
@@ -221,12 +221,12 @@ exports.join_jackpot = [
           updateData.$set = { state: "Waiting" };
         } else {
           if (recentJackpot.state === "Waiting") {
-            const endsAt = new Date(Date.now() + 120 * 1000);
+            const endsAt = new Date(Date.now() + 45 * 1000);
             updateData.$set = {
               state: "rollingsoon",
               endsAt: endsAt,
             };
-            jackpotCooldown = 120;
+            jackpotCooldown = 45;
             startJackpotCountdown(req.app.get("io"));
           }
         }
@@ -556,11 +556,22 @@ exports.payflip = asyncHandler(async (req, res, next) => {
 
     const allItems = jackpotEntries.flatMap((entry) => entry.items);
     const sortedItems = allItems.sort((a, b) => a.itemvalue - b.itemvalue);
-    const taxedItemsCount = Math.floor(sortedItems.length * taxes);
-    const taxedItems = sortedItems.slice(0, taxedItemsCount); 
-    const winnerItems = sortedItems.slice(taxedItemsCount);
 
-    const taxedValue = taxedItems.reduce((sum, item) => sum + item.itemvalue, 0);
+    // Value-based tax: take cheapest items until we've collected >= taxes% of total pot.
+    // Count-based (Math.floor) rounds to 0 for small pots and never collects tax.
+    const totalPotValue = sortedItems.reduce((sum, item) => sum + item.itemvalue, 0);
+    const taxTarget = totalPotValue * taxes;
+    let taxedValue = 0;
+    const taxedItems = [];
+    const winnerItems = [];
+    for (const item of sortedItems) {
+      if (taxedValue < taxTarget) {
+        taxedItems.push(item);
+        taxedValue += item.itemvalue;
+      } else {
+        winnerItems.push(item);
+      }
+    }
 
     for (const item of winnerItems) {
       const newItem = new InventoryItem({
