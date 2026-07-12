@@ -22,6 +22,7 @@ export default function CreateDice({ onCreate, onClose }) {
   const [selectedValue, setSelectedValue] = useState(0);
   const [sortOrder, setSortOrder] = useState("highest");
   const [selectedGame, setSelectedGame] = useState("all");
+  const [crazyMode, setCrazyMode] = useState(false);
   const [creating, setCreating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -78,7 +79,7 @@ export default function CreateDice({ onCreate, onClose }) {
       const res = await fetch(`${api}/dice/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
-        body: JSON.stringify({ items: selectedItems.map((i) => ({ inventoryid: i.inventoryid })) }),
+        body: JSON.stringify({ items: selectedItems.map((i) => ({ inventoryid: i.inventoryid })), crazyMode }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -177,19 +178,43 @@ export default function CreateDice({ onCreate, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-[#252839]">
-          <div>
-            <p className="text-sm text-[#68749C]">{selectedItems.length} items selected</p>
-            <p className="text-lg font-bold text-white">R${formatLargeNumber(selectedValue)}</p>
+        <div className="border-t border-[#252839]">
+          {/* Crazy Mode toggle */}
+          <div className="px-5 pt-4">
+            <button
+              type="button"
+              onClick={() => setCrazyMode((c) => !c)}
+              className={`w-full flex items-center justify-between rounded-lg border p-3 text-left transition-all ${
+                crazyMode ? "border-red-500/60 bg-red-500/10" : "border-[#252839] bg-[#1a1d2b] hover:border-white/20"
+              }`}
+            >
+              <div>
+                <p className={`text-sm font-bold ${crazyMode ? "text-red-400" : "text-white"}`}>
+                  🔥 Crazy Mode {crazyMode ? "ON" : "OFF"}
+                </p>
+                <p className="text-[11px] text-[#68749C] mt-0.5">
+                  Flips the rules — whoever normally loses wins instead.
+                </p>
+              </div>
+              <div className={`w-10 h-6 rounded-full flex items-center px-0.5 transition-colors flex-shrink-0 ml-2 ${crazyMode ? "bg-red-500" : "bg-[#252839]"}`}>
+                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${crazyMode ? "translate-x-4" : ""}`} />
+              </div>
+            </button>
           </div>
-          <button
-            onClick={createGame}
-            disabled={creating || !selectedItems.length}
-            className="rounded-xl px-6 py-2.5 text-sm font-bold text-white border-none cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}
-          >
-            {creating ? "Creating..." : `Create R$${formatLargeNumber(selectedValue)}`}
-          </button>
+          <div className="flex items-center justify-between px-5 py-4">
+            <div>
+              <p className="text-sm text-[#68749C]">{selectedItems.length} items selected</p>
+              <p className="text-lg font-bold text-white">R${formatLargeNumber(selectedValue)}</p>
+            </div>
+            <button
+              onClick={createGame}
+              disabled={creating || !selectedItems.length}
+              className="rounded-xl px-6 py-2.5 text-sm font-bold text-white border-none cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}
+            >
+              {creating ? "Creating..." : `Create R${formatLargeNumber(selectedValue)}`}
+            </button>
+          </div>
         </div>
       </div>
     </div>

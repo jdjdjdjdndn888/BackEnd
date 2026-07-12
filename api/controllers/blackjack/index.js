@@ -109,6 +109,11 @@ function resolveRound(doc) {
     winnerKey = dealer.total > player.total ? dealerKey : playerKey;
   }
 
+  // Crazy Mode: flip the winner (the normal loser wins instead)
+  if (doc.crazyMode) {
+    winnerKey = winnerKey === dealerKey ? playerKey : dealerKey;
+  }
+
   doc.turn = "finished";
   doc.active = false;
   doc.end = new Date();
@@ -146,7 +151,8 @@ exports.creatematch = asyncHandler(async (req, res) => {
 
   try {
     await session.withTransaction(async () => {
-      const { items: clientItems } = req.body;
+      const { items: clientItems, crazyMode: crazyModeRaw } = req.body;
+      const crazyMode = crazyModeRaw === true || crazyModeRaw === "true";
       if (!clientItems?.length) throw httpError(400, "Select items!");
 
       const inventoryIds = clientItems.map((i) => i.inventoryid);
@@ -212,6 +218,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
       const savedGame = await new blackjack({
         creatorid: user.userid,
         game: gameType,
+        crazyMode,
         PlayerOne: {
           id: user.userid,
           username: user.username,

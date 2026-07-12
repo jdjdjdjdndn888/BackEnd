@@ -76,7 +76,8 @@ exports.creatematch = asyncHandler(async (req, res) => {
 
   try {
     await session.withTransaction(async () => {
-      const { items: clientItems } = req.body;
+      const { items: clientItems, crazyMode: crazyModeRaw } = req.body;
+      const crazyMode = crazyModeRaw === true || crazyModeRaw === "true";
 
       if (!clientItems?.length) throw httpError(400, "Select items!");
 
@@ -143,6 +144,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
       const savedGame = await new dice({
         creatorid: user.userid,
         game: gameType,
+        crazyMode,
         PlayerOne: {
           id: user.userid,
           username: user.username,
@@ -292,6 +294,8 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 
       // Higher total wins; tie goes to creator
       winner = joinerTotal > creatorTotal ? "PlayerTwo" : "PlayerOne";
+      // Crazy Mode flips the outcome: the side that would normally lose wins the pot instead.
+      if (game.crazyMode) winner = winner === "PlayerOne" ? "PlayerTwo" : "PlayerOne";
 
       const updateResult = await dice.updateOne(
         { _id: gameid, active: true },

@@ -83,7 +83,8 @@ exports.creatematch = asyncHandler(async (req, res) => {
 
   try {
     await session.withTransaction(async () => {
-      const { items: clientItems, choice } = req.body;
+      const { items: clientItems, choice, crazyMode: crazyModeRaw } = req.body;
+      const crazyMode = crazyModeRaw === true || crazyModeRaw === "true";
 
       if (!clientItems?.length) throw httpError(400, "Select items!");
       if (!CHOICES.includes(choice)) throw httpError(400, "Invalid choice");
@@ -150,6 +151,7 @@ exports.creatematch = asyncHandler(async (req, res) => {
         creatorid: user.userid,
         creatorchoice: choice,
         game: gameType,
+        crazyMode,
         PlayerOne: {
           id: user.userid,
           username: user.username,
@@ -349,6 +351,8 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       );
 
       winner = winningPlayer;
+      // Crazy Mode flips the outcome: the side that would normally lose wins the pot instead.
+      if (match.crazyMode) winner = winner === "PlayerOne" ? "PlayerTwo" : "PlayerOne";
       allItems = [...match.PlayerOne.items, ...inventoryItems.map(item => ({
         ...item.toObject(),
         itemname: itemMap.get(String(item.itemid))?.itemname,

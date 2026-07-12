@@ -35,6 +35,7 @@ export default function CreateMatch({ onCreate, onClose }) {
   const [sortOrder, setSortOrder] = useState("highest");
   const [selectedGame, setSelectedGame] = useState("all");
   const [coin, setCoin] = useState("heads");
+  const [crazyMode, setCrazyMode] = useState(false);
   const [create, setCreating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -90,6 +91,7 @@ export default function CreateMatch({ onCreate, onClose }) {
             inventoryid: selectedItem.inventoryid,
           })),
           coin: coin,
+          crazyMode,
         }),
       });
 
@@ -351,6 +353,34 @@ export default function CreateMatch({ onCreate, onClose }) {
         </div>
 
         <div className={inventorystyles.buttonWrapper}>
+          <button
+            type="button"
+            onClick={() => setCrazyMode((c) => !c)}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", borderRadius: 8, border: crazyMode ? "1px solid rgba(239,68,68,0.6)" : "1px solid #252839",
+              background: crazyMode ? "rgba(239,68,68,0.1)" : "#1a1d2b",
+              padding: "10px 12px", cursor: "pointer", marginBottom: 8, transition: "all 0.15s"
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: crazyMode ? "#f87171" : "#fff" }}>
+                🔥 Crazy Mode {crazyMode ? "ON" : "OFF"}
+              </p>
+              <p style={{ margin: 0, fontSize: 11, color: "#68749C", marginTop: 2 }}>
+                Flips the rules — whoever normally loses wins instead.
+              </p>
+            </div>
+            <div style={{
+              width: 40, height: 24, borderRadius: 12, display: "flex", alignItems: "center",
+              padding: "0 2px", background: crazyMode ? "#ef4444" : "#252839", transition: "background 0.15s", flexShrink: 0, marginLeft: 8
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: "50%", background: "#fff",
+                transform: crazyMode ? "translateX(16px)" : "translateX(0)", transition: "transform 0.15s"
+              }} />
+            </div>
+          </button>
           <div className={inventorystyles.coins}>
             <img
               className={`${inventorystyles.coin} ${coin === "heads" ? inventorystyles.selectedcoin : ""}`}
