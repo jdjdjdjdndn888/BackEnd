@@ -17,3 +17,27 @@ id = "ehT-2_sU-TokOcjWG-uHi"
 uri = "file://attached_assets/ps99bet_bot_updated.lua"
 type = "unspecified"
 title = "PS99Bet Bot — Updated Script"
+
+[[outputs]]
+id = "ohTAZrwrVUdTIqXMgNFry"
+uri = "file://attached_assets/crazy_emoji_1.png"
+type = "image"
+title = "Option 1 — Wild Crazy Face"
+
+[[outputs]]
+id = "GhxsfjmP7jLeAf_N2FIOH"
+uri = "file://attached_assets/crazy_emoji_2.png"
+type = "image"
+title = "Option 2 — Fire Skull"
+
+[[outputs]]
+id = "k35Guxt-IGFR0U2rifSaY"
+uri = "file://attached_assets/crazy_emoji_3.png"
+type = "image"
+title = "Option 3 — Jester/Joker"
+
+[[outputs]]
+id = "E89RKiGIYr30Z1xe6oDLW"
+uri = "file://attached_assets/crazy_emoji_4.png"
+type = "image"
+title = "Option 4 — Glitch Cyberpunk"
