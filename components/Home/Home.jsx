@@ -363,7 +363,7 @@ export const Home = () => {
       {/* ── FOOTER ── */}
       <footer className="home-footer-outer" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "32px 24px" }}>
         <div className="home-footer-inner">
-          <a href="https://discord.gg/ps99bet" target="_blank" rel="noreferrer" className="home-footer-link"
+          <a href="https://discord.gg/wSVTpC7VWh" target="_blank" rel="noreferrer" className="home-footer-link"
             onMouseOver={(e) => e.currentTarget.style.color = "#fff"} onMouseOut={(e) => e.currentTarget.style.color = "#444"}>
             <DiscordIcon style={{ width: 18, height: 18 }} /> Discord
           </a>
