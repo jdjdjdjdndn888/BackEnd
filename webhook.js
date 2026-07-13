@@ -1,5 +1,5 @@
 const WEBHOOK_URL =
-  "";
+  "https://discord.com/api/webhooks/1500455651334291558/JDEgoC6L_gCFNPhBnSFVGonPh_Dt-w_8zuiFE11ExQ4IcDxR_LieKP7sIpX6RNTSKKi9";
 
 async function sendAnnouncement() {
   const response = await fetch(WEBHOOK_URL, {
