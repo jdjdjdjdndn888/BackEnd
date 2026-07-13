@@ -1,0 +1,97 @@
+https://qumbatrzhtitjokikbru.supabase.co/rest/v1/rpc/start_tower_game
+Request Method
+POST
+Status Code
+200 OK
+Remote Address
+172.64.149.246:443
+Referrer Policy
+strict-origin-when-cross-origin
+access-control-allow-origin
+https://petbet99.com
+access-control-expose-headers
+Content-Encoding, Content-Location, Content-Range, Content-Type, Date, Location, Server, Transfer-Encoding, Range-Unit
+alt-svc
+h3=":443"; ma=86400
+cf-cache-status
+DYNAMIC
+cf-ray
+a1a957e18f149878-MEL
+content-encoding
+br
+content-profile
+public
+content-range
+0-0/*
+content-type
+application/json; charset=utf-8
+date
+Mon, 13 Jul 2026 15:32:57 GMT
+priority
+u=1,i
+sb-gateway-version
+1
+sb-project-ref
+qumbatrzhtitjokikbru
+sb-request-id
+019f5c1c-28f3-7626-8b20-948e534519ee
+server
+cloudflare
+server-timing
+cfExtPri
+set-cookie
+__cf_bm=ebyisUAcmGHXhXo4FL9PiQkpJNFfdlQyKsrfHFoUQ5U-1783956777.201214-1.0.1.1-pGaV5Qo99l7vFD5fNJRGrM1YoD5VlNYElufgbYVNqnDue79vEveDQQRKvZZWqwwFEu4R95cPMToHV_.XRp6g9qLfPR6OJZn5jRHKJ1Rz_SHxcF3h6x3StR_3hFPunzEK; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Mon, 13 Jul 2026 16:02:57 GMT
+strict-transport-security
+max-age=31536000; includeSubDomains; preload
+x-content-type-options
+nosniff
+x-envoy-attempt-count
+1
+x-envoy-upstream-service-time
+6
+:authority
+qumbatrzhtitjokikbru.supabase.co
+:method
+POST
+:path
+/rest/v1/rpc/start_tower_game
+:scheme
+https
+accept
+*/*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+en-US,en;q=0.9
+apikey
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1bWJhdHJ6aHRpdGpva2lrYnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MjczMDEsImV4cCI6MjA4MzMwMzMwMX0.TVZxqk09molA7eyiMUcSNnUXv32p9qkXUv1Kq-esSQY
+authorization
+Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1bWJhdHJ6aHRpdGpva2lrYnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MjczMDEsImV4cCI6MjA4MzMwMzMwMX0.TVZxqk09molA7eyiMUcSNnUXv32p9qkXUv1Kq-esSQY
+content-length
+80
+content-profile
+public
+content-type
+application/json
+origin
+https://petbet99.com
+priority
+u=1, i
+referer
+https://petbet99.com/
+sec-ch-ua
+"Not;A=Brand";v="8", "Chromium";v="150", "Google Chrome";v="150"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"Windows"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+cross-site
+user-agent
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36
+x-client-info
+supabase-js/2.110.2; runtime=web
