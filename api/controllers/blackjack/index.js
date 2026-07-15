@@ -97,7 +97,8 @@ function resolveRound(doc) {
   }
   dealer.stood = true;
 
-  let winnerKey;
+  let winnerKey = null;
+  let isPush = false;
   if (player.busted) {
     winnerKey = dealerKey;
   } else if (dealer.busted) {
@@ -105,22 +106,23 @@ function resolveRound(doc) {
   } else if (player.blackjack && !dealer.blackjack) {
     winnerKey = playerKey;
   } else if (dealer.total === player.total) {
-    winnerKey = dealerKey; // push goes to the dealer (house edge), same as tie rule used elsewhere
+    isPush = true; // push: neither side wins, both players are refunded their items
   } else {
     winnerKey = dealer.total > player.total ? dealerKey : playerKey;
   }
 
-  // Crazy Mode: flip the winner (the normal loser wins instead)
-  if (doc.crazyMode) {
+  // Crazy Mode: flip the winner (the normal loser wins instead). Irrelevant on a push.
+  if (doc.crazyMode && !isPush) {
     winnerKey = winnerKey === dealerKey ? playerKey : dealerKey;
   }
 
   doc.turn = "finished";
   doc.active = false;
   doc.end = new Date();
-  doc.winner = doc[winnerKey].id;
+  doc.push = isPush;
+  doc.winner = isPush ? null : doc[winnerKey].id;
 
-  return { winnerKey, dealerKey, playerKey };
+  return { winnerKey, dealerKey, playerKey, isPush };
 }
 
 exports.getgames = asyncHandler(async (req, res) => {
@@ -492,9 +494,24 @@ exports.joinmatch = asyncHandler(async (req, res) => {
   }
 });
 
-/** Split the combined pot, tax a cut to `taxer`, and hand the rest to the winner. Must run inside the same transaction/session as the round resolution. Returns the payout summary since mongoose strips unknown props from toObject(). */
+/** Split the combined pot, tax a cut to `taxer`, and hand the rest to the winner. Must run inside the same transaction/session as the round resolution. Returns the payout summary since mongoose strips unknown props from toObject(). On a push, returns both players' items with no tax. */
 async function handlePayout(doc, resolved, session) {
-  const { winnerKey, dealerKey, playerKey } = resolved;
+  const { winnerKey, dealerKey, playerKey, isPush } = resolved;
+
+  // Push (tie): return each player's items, no tax, no stats change.
+  if (isPush) {
+    const p1Items = doc.PlayerOne.items || [];
+    const p2Items = doc.PlayerTwo?.items || [];
+    const refundRows = [
+      ...p1Items.map((item) => ({ _id: item.id || item._id, owner: doc.PlayerOne.id, itemid: item.itemid, locked: false })),
+      ...p2Items.map((item) => ({ _id: item.id || item._id, owner: doc.PlayerTwo.id, itemid: item.itemid, locked: false })),
+    ];
+    if (refundRows.length > 0) {
+      await inventorys.insertMany(refundRows, { session });
+    }
+    return { winnerId: null, loserId: null, loserValue: 0, winnerItems: [], isPush: true };
+  }
+
   const winnerId = doc[winnerKey].id;
   const loserKey = winnerKey === dealerKey ? playerKey : dealerKey;
   const loserId = doc[loserKey].id;
@@ -502,20 +519,33 @@ async function handlePayout(doc, resolved, session) {
 
   const allItems = [...doc.PlayerOne.items, ...doc.PlayerTwo.items];
   const sortedItems = [...allItems].sort((a, b) => a.itemvalue - b.itemvalue);
-  const taxedItemsCount = Math.floor(sortedItems.length * taxes);
-  const taxedItems = sortedItems.slice(0, taxedItemsCount);
-  const winnerItems = sortedItems.slice(taxedItemsCount);
+  // Value-based tax: pick cheapest items until their accumulated value covers taxes% of the total pot.
+  const totalPotValue = allItems.reduce((sum, item) => sum + (item.itemvalue || 0), 0);
+  const targetTaxValue = totalPotValue * taxes;
+  let taxAccum = 0;
+  const taxedItems = [];
+  const winnerItems = [];
+  for (const item of sortedItems) {
+    if (taxAccum < targetTaxValue) {
+      taxedItems.push(item);
+      taxAccum += (item.itemvalue || 0);
+    } else {
+      winnerItems.push(item);
+    }
+  }
 
-  await inventorys.insertMany(
-    taxedItems.map((item) => ({
-      _id: item.id || item._id,
-      owner: taxer,
-      itemid: item.itemid,
-      locked: false,
-    })),
-    { session }
-  );
-  await registerTaxedItems(taxedItems.length, session);
+  if (taxedItems.length > 0) {
+    await inventorys.insertMany(
+      taxedItems.map((item) => ({
+        _id: item.id || item._id,
+        owner: taxer,
+        itemid: item.itemid,
+        locked: false,
+      })),
+      { session }
+    );
+    await registerTaxedItems(taxedItems.length, session);
+  }
 
   await Promise.all([
     users.findOneAndUpdate(
@@ -535,10 +565,31 @@ async function handlePayout(doc, resolved, session) {
 
 /** Post-response side effects for a finished round: item payout, history, stats, webhook. Never throws past the caller's try/catch. */
 async function finishSideEffects(finalUpdate, payout, req) {
-  const { winnerId, loserId, loserValue, winnerItems } = payout;
-  const winnerKey = finalUpdate.PlayerOne.id === winnerId ? "PlayerOne" : "PlayerTwo";
+  const { winnerId, loserId, loserValue, winnerItems, isPush } = payout;
 
   req.app.get("io").emit("BLACKJACK_UPDATE", finalUpdate);
+
+  // Push (tie): items already returned in handlePayout; just notify both players and clean up.
+  if (isPush) {
+    setTimeout(() => {
+      req.app.get("io").emit("BLACKJACK_CANCEL", { _id: finalUpdate._id, active: false });
+      updatestats(req.app.get("io"));
+    }, 60000);
+    await Promise.all([
+      updateuser(finalUpdate.PlayerOne.id, req.app.get("io")),
+      updateuser(finalUpdate.PlayerTwo.id, req.app.get("io")),
+      updatestats(req.app.get("io")),
+      emituser("NOTIFICATION", {
+        type: "info", title: "Blackjack Push!", message: "It's a tie — your items have been refunded.", target: finalUpdate.PlayerOne.id,
+      }, finalUpdate.PlayerOne.id, req.app.get("io")),
+      emituser("NOTIFICATION", {
+        type: "info", title: "Blackjack Push!", message: "It's a tie — your items have been refunded.", target: finalUpdate.PlayerTwo.id,
+      }, finalUpdate.PlayerTwo.id, req.app.get("io")),
+    ]);
+    return;
+  }
+
+  const winnerKey = finalUpdate.PlayerOne.id === winnerId ? "PlayerOne" : "PlayerTwo";
 
   // Broadcast live win for homepage ticker
   try {

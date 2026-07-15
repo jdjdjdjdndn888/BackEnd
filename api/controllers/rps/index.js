@@ -360,21 +360,10 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         itemvalue: itemMap.get(String(item.itemid))?.itemvalue
       }))];
 
+      // RPS is not taxed — all items go to the winner.
       const sortedItems = allItems.sort((a, b) => a.itemvalue - b.itemvalue);
-      const taxedItemsCount = Math.floor(sortedItems.length * taxes);
-      taxedItems = sortedItems.slice(0, taxedItemsCount);
-      winnerItems = sortedItems.slice(taxedItemsCount);
-
-      await inventorys.insertMany(
-        taxedItems.map(item => ({
-          _id: item._id,
-          owner: taxer,
-          itemid: item.itemid,
-          locked: false,
-        })),
-        { session }
-      );
-      await registerTaxedItems(taxedItems.length, session);
+      taxedItems = [];
+      winnerItems = sortedItems;
 
       await Promise.all([
         users.findOneAndUpdate(

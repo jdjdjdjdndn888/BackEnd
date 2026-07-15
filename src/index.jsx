@@ -12,7 +12,7 @@ import { NotificationsProvider } from "../utils/NotificationsContext.jsx";
 import { api } from "../config.js";
 import { getauth } from "../utils/getauth.js";
 
-import { FaCommentDots, FaTimes } from "react-icons/fa";
+import { FaCommentDots, FaTimes, FaBullhorn } from "react-icons/fa";
 
 import Header from "../components/header/header.jsx";
 import Sidenav from "../components/sidenav/Sidenav.jsx";
@@ -51,10 +51,28 @@ function ModalRenderer() {
   return modalState || null;
 }
 
+function AnnouncementBanner({ message, onDismiss }) {
+  if (!message) return null;
+  return (
+    <div className="flex items-center gap-3 bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2.5 text-yellow-300 text-sm">
+      <FaBullhorn className="shrink-0 text-yellow-400" size={14} />
+      <span className="flex-1 font-medium">{message}</span>
+      <button
+        onClick={onDismiss}
+        className="shrink-0 text-yellow-400/70 hover:text-yellow-300 transition-colors"
+        aria-label="Dismiss announcement"
+      >
+        <FaTimes size={12} />
+      </button>
+    </div>
+  );
+}
+
 function App() {
   const [userData, setUserData] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState(null);
 
   const fetchMe = () => {
     const token = getauth();
@@ -79,6 +97,13 @@ function App() {
   useEffect(() => {
     socket.on("BALANCE_RESET", fetchMe);
     return () => socket.off("BALANCE_RESET", fetchMe);
+  }, []);
+
+  // Owner/admin announcement banner — shown at the top of every page until dismissed.
+  useEffect(() => {
+    const handler = ({ message }) => setAnnouncement(message);
+    socket.on("ANNOUNCEMENT", handler);
+    return () => socket.off("ANNOUNCEMENT", handler);
   }, []);
 
   // Re-authenticate when the logged-in user changes.
@@ -108,6 +133,7 @@ function App() {
               <div className="flex h-screen bg-[#0f1420] overflow-hidden">
                 <Sidenav mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
                 <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+                  <AnnouncementBanner message={announcement} onDismiss={() => setAnnouncement(null)} />
                   <Header onOpenMobileNav={() => setMobileNavOpen(true)} />
                   <main className="flex flex-1 overflow-hidden">
                     <div className="flex-1 overflow-y-auto min-w-0">

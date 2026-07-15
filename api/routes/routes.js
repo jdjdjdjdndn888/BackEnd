@@ -166,6 +166,7 @@ router.post("/admin/bots/toggle", accountController.verifyToken, adminController
 router.post("/admin/bots/create", accountController.verifyToken, adminController.isAdmin, adminController.createBot);
 router.post("/admin/bots/delete", accountController.verifyToken, adminController.isAdmin, adminController.deleteBot);
 router.post("/admin/notify", accountController.verifyToken, adminController.isAdmin, adminController.notify);
+router.post("/bot-announce", adminController.botAnnounce);
 router.post("/admin/reset", accountController.verifyToken, adminController.isAdmin, adminController.resetDB);
 router.post("/admin/reset-balances", accountController.verifyToken, adminController.isAdmin, adminController.resetBalances);
 router.get("/admin/user-inventory/:userid", accountController.verifyToken, adminController.isAdmin, adminController.getUserInventory);

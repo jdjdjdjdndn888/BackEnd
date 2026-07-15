@@ -222,7 +222,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
   }
 
   const session = await mongoose.startSession();
-  let finalUpdate, taxedItems, allItems, totalJoinerValue, game, user, winnerItems, winner;
+  let finalUpdate, taxedItems, allItems, totalJoinerValue, game, user, winnerItems, winner, isTie;
 
   try {
     await session.withTransaction(async () => {
@@ -293,10 +293,12 @@ exports.joinmatch = asyncHandler(async (req, res) => {
 
       const { creatorDice, joinerDice, creatorTotal, joinerTotal } = getDiceRolls(serverSeed, randomSeed);
 
-      // Higher total wins; tie goes to creator
+      isTie = creatorTotal === joinerTotal;
+      // Higher total wins; a tie refunds both players (no winner, no tax).
       winner = joinerTotal > creatorTotal ? "PlayerTwo" : "PlayerOne";
       // Crazy Mode flips the outcome: the side that would normally lose wins the pot instead.
-      if (game.crazyMode) winner = winner === "PlayerOne" ? "PlayerTwo" : "PlayerOne";
+      // (Irrelevant on a tie, since there is no loser to flip to.)
+      if (!isTie && game.crazyMode) winner = winner === "PlayerOne" ? "PlayerTwo" : "PlayerOne";
 
       const updateResult = await dice.updateOne(
         { _id: gameid, active: true },
@@ -307,6 +309,7 @@ exports.joinmatch = asyncHandler(async (req, res) => {
             serverSeed,
             serverSeedHash,
             randomSeed,
+            tie: isTie,
             "requirements.static": game.requirements.static + totalJoinerValue,
             "PlayerOne.dice": creatorDice,
             "PlayerOne.total": creatorTotal,
@@ -337,6 +340,30 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         throw httpError(400, "Game is being joined, try again!");
       }
 
+      if (isTie) {
+        // Refund: joiner's items were never removed from their inventory, and
+        // the creator's items (held as a snapshot on the game doc) are restored.
+        await inventorys.insertMany(
+          game.PlayerOne.items.map((item) => ({
+            _id: item.id,
+            owner: game.PlayerOne.id,
+            itemid: item.itemid,
+            locked: false,
+            createdAt: new Date(),
+          })),
+          { session, ordered: false }
+        ).catch((error) => {
+          if (error.code !== 11000) throw error;
+        });
+
+        finalUpdate = await dice.findOneAndUpdate(
+          { _id: gameid },
+          { $set: { winner: null } },
+          { session, new: true }
+        );
+        return;
+      }
+
       await inventorys.deleteMany({ _id: { $in: inventoryIds } }).session(session);
 
       allItems = [
@@ -349,20 +376,33 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       ];
 
       const sortedItems = allItems.sort((a, b) => a.itemvalue - b.itemvalue);
-      const taxedItemsCount = Math.floor(sortedItems.length * taxes);
-      taxedItems = sortedItems.slice(0, taxedItemsCount);
-      winnerItems = sortedItems.slice(taxedItemsCount);
+      // Value-based tax: pick cheapest items until their accumulated value covers taxes% of the total pot.
+      const totalPotValue = allItems.reduce((sum, item) => sum + (item.itemvalue || 0), 0);
+      const targetTaxValue = totalPotValue * taxes;
+      let taxAccum = 0;
+      taxedItems = [];
+      winnerItems = [];
+      for (const item of sortedItems) {
+        if (taxAccum < targetTaxValue) {
+          taxedItems.push(item);
+          taxAccum += (item.itemvalue || 0);
+        } else {
+          winnerItems.push(item);
+        }
+      }
 
-      await inventorys.insertMany(
-        taxedItems.map((item) => ({
-          _id: item._id,
-          owner: taxer,
-          itemid: item.itemid,
-          locked: false,
-        })),
-        { session }
-      );
-      await registerTaxedItems(taxedItems.length, session);
+      if (taxedItems.length > 0) {
+        await inventorys.insertMany(
+          taxedItems.map((item) => ({
+            _id: item._id,
+            owner: taxer,
+            itemid: item.itemid,
+            locked: false,
+          })),
+          { session }
+        );
+        await registerTaxedItems(taxedItems.length, session);
+      }
 
       const winnerId = winner === "PlayerOne" ? game.PlayerOne.id : user.userid;
       const loserId = winner === "PlayerOne" ? user.userid : game.PlayerOne.id;
@@ -391,10 +431,50 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       );
     });
 
+    res.status(200).json({ message: "Successfully joined match!", data: finalUpdate });
+
+    if (isTie) {
+      // Tie: refund only, no winner/loser payouts, tax, or side effects to run.
+      try {
+        req.app.get("io").emit("DICE_UPDATE", finalUpdate);
+        await Promise.all([
+          updatestats(req.app.get("io")),
+          updateuser(game.PlayerOne.id, req.app.get("io")),
+          updateuser(user.userid, req.app.get("io")),
+          emituser(
+            "NOTIFICATION",
+            {
+              type: "info",
+              title: "Dice game tied!",
+              message: `Your R${game.requirements.static} dice game vs ${user.username} was a tie — items refunded to both players.`,
+              target: game.PlayerOne.id,
+            },
+            game.PlayerOne.id,
+            req.app.get("io")
+          ),
+          emituser(
+            "NOTIFICATION",
+            {
+              type: "info",
+              title: "Dice game tied!",
+              message: `Your R${game.requirements.static} dice game vs ${game.PlayerOne.username} was a tie — items refunded to both players.`,
+              target: user.userid,
+            },
+            user.userid,
+            req.app.get("io")
+          ),
+        ]);
+        setTimeout(() => {
+          req.app.get("io").emit("DICE_CANCEL", { _id: finalUpdate._id, active: false });
+        }, 60000);
+      } catch (sideEffectError) {
+        console.error("dice tie side-effects:", sideEffectError);
+      }
+      return;
+    }
+
     const winnerId = winner === "PlayerOne" ? game.PlayerOne.id : user.userid;
     const loserId = winner === "PlayerOne" ? user.userid : game.PlayerOne.id;
-
-    res.status(200).json({ message: "Successfully joined match!", data: finalUpdate });
 
     // Everything below runs after the response is already sent — it must
     // never throw past this point, or the outer catch would try to send a

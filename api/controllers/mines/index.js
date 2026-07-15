@@ -368,20 +368,33 @@ exports.revealtile = asyncHandler(async (req, res) => {
 
         const allItems = [...game.PlayerOne.items, ...game.PlayerTwo.items];
         const sortedItems = [...allItems].sort((a, b) => a.itemvalue - b.itemvalue);
-        const taxedCount = Math.floor(sortedItems.length * taxes);
-        const taxedItems = sortedItems.slice(0, taxedCount);
-        const winnerItems = sortedItems.slice(taxedCount);
+        // Value-based tax: pick cheapest items until their accumulated value covers taxes% of the total pot.
+        const totalPotValue = allItems.reduce((sum, item) => sum + (item.itemvalue || 0), 0);
+        const targetTaxValue = totalPotValue * taxes;
+        let taxAccum = 0;
+        const taxedItems = [];
+        const winnerItems = [];
+        for (const item of sortedItems) {
+          if (taxAccum < targetTaxValue) {
+            taxedItems.push(item);
+            taxAccum += (item.itemvalue || 0);
+          } else {
+            winnerItems.push(item);
+          }
+        }
 
-        await inventorys.insertMany(
-          taxedItems.map((item) => ({
-            _id: item.id || item._id,
-            owner: taxer,
-            itemid: item.itemid,
-            locked: false,
-          })),
-          { session }
-        );
-        await registerTaxedItems(taxedItems.length, session);
+        if (taxedItems.length > 0) {
+          await inventorys.insertMany(
+            taxedItems.map((item) => ({
+              _id: item.id || item._id,
+              owner: taxer,
+              itemid: item.itemid,
+              locked: false,
+            })),
+            { session }
+          );
+          await registerTaxedItems(taxedItems.length, session);
+        }
 
         await Promise.all([
           users.findOneAndUpdate(

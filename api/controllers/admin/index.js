@@ -280,6 +280,27 @@ exports.notify = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Notification sent to all users." });
 });
 
+// ── Bot announcement (called by Discord bot via shared secret) ───────────────
+
+exports.botAnnounce = asyncHandler(async (req, res) => {
+  const secret = process.env.ANNOUNCE_SECRET;
+  const provided = req.headers["x-announce-secret"] || req.body.secret;
+  if (!secret || provided !== secret) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const { message } = req.body;
+  if (!message || typeof message !== "string" || !message.trim()) {
+    return res.status(400).json({ message: "message required" });
+  }
+
+  const io = req.app.get("io");
+  if (!io) return res.status(500).json({ message: "Socket not available" });
+
+  io.emit("ANNOUNCEMENT", { message: message.trim() });
+  res.json({ success: true });
+});
+
 // ── Reset database ────────────────────────────────────────────────────────────
 exports.resetDB = asyncHandler(async (req, res) => {
   const io = req.app.get("io");
