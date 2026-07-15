@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { label: "RPS",       href: "/rps",       icon: null,            img: "/nav-rps.png"        },
   { label: "Upgrader",  href: "/upgrader",  icon: null,            img: "/nav-upgrader.png"   },
   { label: "Trades",    href: "/trades",    icon: null,            img: "/nav-trades.png"     },
+  { label: "Cases",     href: "/cases",     icon: null,            img: "/nav-cases.png",   badge: "NEW" },
 ];
 
 function NavIcon({ icon: Icon, img, active, size = 28 }) {
@@ -112,7 +113,7 @@ export default function Sidenav({ mobileOpen = false, onMobileClose = () => {} }
         )}
         {!isMobile && collapsed && <div style={{ height: 12 }} />}
 
-        {NAV_ITEMS.map(({ label, href, icon, img }) => {
+        {NAV_ITEMS.map(({ label, href, icon, img, badge }) => {
           const isActive = href === "/" ? location.pathname === "/" : location.pathname.startsWith(href);
           const showLabel = isMobile || !collapsed;
           return (
@@ -160,11 +161,27 @@ export default function Sidenav({ mobileOpen = false, onMobileClose = () => {} }
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
+                          flex: 1,
                         }}
                           className="group-hover:!text-[rgba(255,255,255,0.65)]"
                         >
                           {label}
                         </span>
+                      )}
+                      {showLabel && badge && (
+                        <span style={{
+                          fontSize: 8, fontWeight: 800, letterSpacing: "0.1em",
+                          background: "linear-gradient(90deg,#f59e0b,#fbbf24)",
+                          color: "#0c0c0c", borderRadius: 100,
+                          padding: "2px 6px", flexShrink: 0,
+                        }}>{badge}</span>
+                      )}
+                      {!showLabel && badge && (
+                        <span style={{
+                          position: "absolute", top: 4, right: 4,
+                          width: 8, height: 8, borderRadius: "50%",
+                          background: "#f59e0b",
+                        }} />
                       )}
                     </NavLink>
                   </div>

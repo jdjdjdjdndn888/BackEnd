@@ -184,13 +184,13 @@ exports.upgrade = [
           // Winning an upgrade with multiple selected targets awards every one of them.
           await InventoryItem.updateMany(
             { _id: { $in: targetIds } },
-            { owner: req.user.id, locked: false },
+            { $set: { owner: req.user.id, locked: false } },
             { session }
           );
         } else {
           await InventoryItem.updateMany(
             { _id: { $in: targetIds } },
-            { locked: false },
+            { $set: { locked: false } },
             { session }
           );
         }

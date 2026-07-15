@@ -17,6 +17,24 @@ import { useNavigate } from "react-router-dom";
 /** @type {BannerSlide[]} */
 export const banners = [
   {
+    title: <Banner.Title>🎁 Cases are here — open now!</Banner.Title>,
+    description: (
+      <Banner.Description className="md:my-4">
+        Spend gems, spin the reel, and win rare PS99 items. New cases added weekly!
+      </Banner.Description>
+    ),
+    button: (
+      <Banner.Button
+        action={() => { window.location.href = "/cases"; }}
+      >
+        Open Cases →
+      </Banner.Button>
+    ),
+    imgLarge: "/banner/cases.png",
+    imgSmall: "/banner/cases.png",
+    className: "[&_img]:[filter:brightness(0.55)]",
+  },
+  {
     title: <Banner.Title>Claim your welcome offer today!</Banner.Title>,
     description: (
       <Banner.Description className="md:my-4">

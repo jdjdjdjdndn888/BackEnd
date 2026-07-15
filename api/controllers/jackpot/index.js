@@ -408,7 +408,7 @@ exports.close_jackpot = asyncHandler(async () => {
 
     await Jackpot.updateOne(
       { _id: activeJackpot._id },
-      { state: "Ended" },
+      { $set: { state: "Ended" } },
       { session }
     );
 
@@ -470,10 +470,12 @@ exports.play_jackpot = asyncHandler(async (req, res, next) => {
     await Jackpot.updateOne(
       { _id: activeJackpot._id },
       {
-        winnerid: winnerEntry.joinerid,
-        winnerusername: winnerEntry.username,
-        clientSeed,
-        result: randomNumber,
+        $set: {
+          winnerid: winnerEntry.joinerid,
+          winnerusername: winnerEntry.username,
+          clientSeed,
+          result: randomNumber,
+        },
       },
       { session }
     );
@@ -558,48 +560,56 @@ exports.payflip = asyncHandler(async (req, res, next) => {
     const allItems = jackpotEntries.flatMap((entry) => entry.items);
     const sortedItems = allItems.sort((a, b) => a.itemvalue - b.itemvalue);
 
-    // Only tax when there are 5 or more items in the pot.
-    // With fewer than 5 items the value-based slice would take items
-    // disproportionately large relative to the pot, so we skip it entirely.
+    // Always tax the pot (value-based slice, consistent regardless of item
+    // count) — previously this was gated behind `sortedItems.length >= 5`,
+    // which meant small pots paid no tax at all.
     const totalPotValue = sortedItems.reduce((sum, item) => sum + item.itemvalue, 0);
+    const taxTarget = totalPotValue * taxes;
     let taxedValue = 0;
     let taxedItems = [];
     let winnerItems = [];
-    if (sortedItems.length >= 5) {
-      const taxTarget = totalPotValue * taxes;
-      for (const item of sortedItems) {
-        if (taxedValue < taxTarget) {
-          taxedItems.push(item);
-          taxedValue += item.itemvalue;
-        } else {
-          winnerItems.push(item);
-        }
+    for (const item of sortedItems) {
+      if (taxedValue < taxTarget) {
+        taxedItems.push(item);
+        taxedValue += item.itemvalue;
+      } else {
+        winnerItems.push(item);
       }
-    } else {
-      winnerItems = sortedItems;
     }
 
-    for (const item of winnerItems) {
-      const newItem = new InventoryItem({
-        _id: item._id,
-        itemid: item.itemid,
-        owner: activeJackpot.winnerid,
-        locked: false,
-      });
-      await newItem.save({ session });
+    if (winnerItems.length > 0) {
+      try {
+        await InventoryItem.insertMany(
+          winnerItems.map((item) => ({
+            _id: item._id,
+            itemid: item.itemid,
+            owner: activeJackpot.winnerid,
+            locked: false,
+          })),
+          { session, ordered: false }
+        );
+      } catch (insertErr) {
+        if (insertErr.code !== 11000) throw insertErr;
+        console.error("Jackpot winner payout duplicate-key (ignored):", insertErr.message);
+      }
     }
 
     if (taxedItems.length > 0) {
       const taxUser = await users.findOne({ userid: taxer }).session(session);
       if (taxUser) {
-        for (const item of taxedItems) {
-          const newItem = new InventoryItem({
-            _id: item._id,
-            itemid: item.itemid,
-            owner: taxUser.userid,
-            locked: false,
-          });
-          await newItem.save({ session });
+        try {
+          await InventoryItem.insertMany(
+            taxedItems.map((item) => ({
+              _id: item._id,
+              itemid: item.itemid,
+              owner: taxUser.userid,
+              locked: false,
+            })),
+            { session, ordered: false }
+          );
+        } catch (insertErr) {
+          if (insertErr.code !== 11000) throw insertErr;
+          console.error("Jackpot tax payout duplicate-key (ignored):", insertErr.message);
         }
         await registerTaxedItems(taxedItems.length, session);
       }
@@ -607,7 +617,7 @@ exports.payflip = asyncHandler(async (req, res, next) => {
 
     await users.findOneAndUpdate(
       { userid: activeJackpot.winnerid },
-      { $inc: { won: activeJackpot.value * 2 } }, 
+      { $inc: { won: activeJackpot.value - taxedValue } },
       { session }
     );
 

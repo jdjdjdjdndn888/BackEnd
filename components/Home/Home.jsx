@@ -73,6 +73,7 @@ const TwitterIcon = ({ className }) => (
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 
 const GAMES = [
+  { name: "Cases",      desc: "Spend gems, spin the reel, win rare PS99 items.",     href: "/cases",     banner: "/bg-cases.jpg",    isNew: true },
   { name: "Coinflip",   desc: "A 50/50 chance to double your wager.",               href: "/coinflip",  banner: "/bg-coinflip.jpg"  },
   { name: "Jackpot",    desc: "Deposit items into the pool to win it all.",           href: "/jackpot",   banner: "/bg-jackpot.jpg"   },
   { name: "Dice Roll",  desc: "Roll the dice to hit your target multiplier.",         href: "/dice",      banner: "/bg-dice.jpg"      },
@@ -294,7 +295,12 @@ export const Home = () => {
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: 20, fontWeight: 600 }}>Games</div>
         <div className="home-game-grid">
           {GAMES.map((game) => (
-            <div key={game.href} className="home-game-cell" onClick={() => navigate(game.href)}>
+            <div key={game.href} className="home-game-cell" onClick={() => navigate(game.href)} style={{ position: "relative" }}>
+              {game.isNew && (
+                <div style={{ position: "absolute", top: 8, left: 8, zIndex: 2, background: "linear-gradient(90deg,#f59e0b,#fbbf24)", color: "#0c0c0c", fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", padding: "3px 8px", borderRadius: 100, textTransform: "uppercase" }}>
+                  NEW
+                </div>
+              )}
               <img
                 src={game.banner}
                 alt={game.name}

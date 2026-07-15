@@ -30,6 +30,7 @@ import BlackjackPage from "../components/blackjack/layout.jsx";
 import MinesPage from "../components/mines/layout.jsx";
 import RpsPage      from "../components/rps/layout.jsx";
 import SupportPage  from "../components/support/SupportPage.jsx";
+import CasesPage    from "../components/cases/layout.jsx";
 
 // Vercel's edge proxy cannot upgrade HTTP connections to WebSockets, so
 // routing socket.io through the Vercel rewrite (`/socket.io/*`) always gets
@@ -124,6 +125,7 @@ function App() {
                         <Route path="/mines" element={<MinesPage />} />
                         <Route path="/rps" element={<RpsPage />} />
                         <Route path="/support" element={<SupportPage />} />
+                        <Route path="/cases" element={<CasesPage />} />
                       </Routes>
                     </div>
                     <aside className="hidden lg:flex flex-col w-[17rem] shrink-0 border-l border-[#252839] bg-[#171925] overflow-hidden">

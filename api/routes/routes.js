@@ -16,6 +16,7 @@ const upgraderController = require("../controllers/upgrader/index.js");
 const minesController = require("../controllers/mines/index.js");
 const rpsController     = require("../controllers/rps/index.js");
 const supportController = require("../controllers/support/index.js");
+const casesController   = require("../controllers/cases/index.js");
 const {
   authLimiter,
   mutationLimiter,
@@ -221,6 +222,19 @@ router.get("/__seed-gems", bothandler.real, async (req, res) => {
   }
   res.json({ ok: true, results });
 });
+
+// ── Cases ─────────────────────────────────────────────────────────────────────
+router.get("/cases",                   casesController.getCases);
+router.get("/cases/history",           casesController.getHistory);
+router.get("/cases/history/me",        accountController.verifyToken, casesController.getMyHistory);
+router.get("/cases/:id",               casesController.getCase);
+router.post("/cases/:id/open",         mutationLimiter, accountController.verifyToken, casesController.openCase);
+
+// Admin cases management
+router.get("/admin/cases",             accountController.verifyToken, adminController.isAdmin, casesController.adminGetCases);
+router.post("/admin/cases",            accountController.verifyToken, adminController.isAdmin, casesController.adminCreateCase);
+router.put("/admin/cases/:id",         accountController.verifyToken, adminController.isAdmin, casesController.adminUpdateCase);
+router.delete("/admin/cases/:id",      accountController.verifyToken, adminController.isAdmin, casesController.adminDeleteCase);
 
 // ── Support Tickets ───────────────────────────────────────────────────────────
 router.post("/support/tickets",                accountController.verifyToken, supportController.createTicket);

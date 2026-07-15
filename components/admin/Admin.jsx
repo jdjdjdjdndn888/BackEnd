@@ -6,7 +6,7 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
-const TABS = ["Overview", "Users", "Items", "Bots", "Inventory", "Withdrawals", "Logs", "Danger"];
+const TABS = ["Overview", "Users", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Logs", "Danger"];
 const GAMES = ["PS99", "MM2"];
 
 // Assignable ranks, lowest to highest. Must match api/utils/rankTiers.js ALL_RANKS.
@@ -78,6 +78,7 @@ export default function Admin() {
         {tab === "Bots"         && <BotsTab />}
         {tab === "Inventory"    && <InventoryTab />}
         {tab === "Withdrawals"  && <WithdrawalsTab />}
+        {tab === "Cases"        && <CasesTab />}
         {tab === "Logs"         && <LogsTab />}
         {tab === "Danger"       && <DangerTab />}
       </div>
@@ -1251,6 +1252,261 @@ function InventoryTab() {
               })}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Cases Tab ─────────────────────────────────────────────────────────────────
+function CasesTab() {
+  const [cases, setCases] = useState([]);
+  const [allItems, setAllItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingCase, setEditingCase] = useState(null);
+
+  // Form state
+  const [form, setForm] = useState({ name: "", image: "", cost: "" });
+  const [caseItems, setCaseItems] = useState([]); // [{itemid, weight, rarity}]
+  const [itemSearch, setItemSearch] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const RARITIES = ["common", "uncommon", "rare", "epic", "legendary"];
+
+  const authH = { authorization: `Bearer ${getauth()}` };
+
+  const loadCases = () => {
+    setLoading(true);
+    fetch(`${api}/admin/cases`, { headers: authH })
+      .then(r => r.json())
+      .then(d => { if (d.success) setCases(d.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  const loadItems = () => {
+    fetch(`${api}/admin/items`, { headers: authH })
+      .then(r => r.json())
+      .then(d => { if (d.success) setAllItems(d.data); })
+      .catch(() => {});
+  };
+
+  useEffect(() => { loadCases(); loadItems(); }, []);
+
+  const openCreate = () => {
+    setForm({ name: "", image: "", cost: "" });
+    setCaseItems([]);
+    setEditingCase(null);
+    setShowCreate(true);
+  };
+
+  const openEdit = (c) => {
+    setForm({ name: c.name, image: c.image, cost: String(c.cost) });
+    setCaseItems(c.items.map(i => ({ itemid: i.itemid, weight: i.weight, rarity: i.rarity, itemname: i.itemname, itemimage: i.itemimage })));
+    setEditingCase(c);
+    setShowCreate(true);
+  };
+
+  const addItemToCase = (item) => {
+    if (caseItems.find(i => i.itemid === item.itemid)) return;
+    setCaseItems(prev => [...prev, { itemid: item.itemid, weight: 10, rarity: "common", itemname: item.itemname, itemimage: item.itemimage }]);
+    setItemSearch("");
+  };
+
+  const removeItemFromCase = (itemid) => {
+    setCaseItems(prev => prev.filter(i => i.itemid !== itemid));
+  };
+
+  const updateCaseItem = (itemid, field, value) => {
+    setCaseItems(prev => prev.map(i => i.itemid === itemid ? { ...i, [field]: value } : i));
+  };
+
+  const handleSave = async () => {
+    if (!form.name || !form.image || !form.cost) { toast.error("Name, image, and cost are required"); return; }
+    if (caseItems.length < 2) { toast.error("Add at least 2 items to the case"); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        image: form.image,
+        cost: Number(form.cost),
+        items: caseItems.map(({ itemid, weight, rarity }) => ({ itemid, weight: Number(weight), rarity })),
+      };
+      const url = editingCase ? `${api}/admin/cases/${editingCase._id}` : `${api}/admin/cases`;
+      const method = editingCase ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: { ...authH, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const d = await res.json();
+      if (d.success) {
+        toast.success(editingCase ? "Case updated!" : "Case created!");
+        setShowCreate(false);
+        loadCases();
+      } else {
+        toast.error(d.message || "Failed");
+      }
+    } catch { toast.error("Network error"); }
+    finally { setSaving(false); }
+  };
+
+  const handleToggle = async (c) => {
+    await fetch(`${api}/admin/cases/${c._id}`, {
+      method: "PUT",
+      headers: { ...authH, "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !c.active }),
+    });
+    loadCases();
+  };
+
+  const handleDelete = async (c) => {
+    if (!confirm(`Delete case "${c.name}"? This cannot be undone.`)) return;
+    await fetch(`${api}/admin/cases/${c._id}`, { method: "DELETE", headers: authH });
+    toast.success("Case deleted");
+    loadCases();
+  };
+
+  const filteredItems = allItems.filter(i =>
+    i.itemname?.toLowerCase().includes(itemSearch.toLowerCase()) && !caseItems.find(ci => ci.itemid === i.itemid)
+  ).slice(0, 20);
+
+  const RARITY_COLORS = { common: "#4ade80", uncommon: "#38bdf8", rare: "#a78bfa", epic: "#e879f9", legendary: "#fbbf24" };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-lg font-bold text-white">Cases</h2>
+          <p className="text-xs text-[#6B7280]">{cases.length} case{cases.length !== 1 ? "s" : ""} total</p>
+        </div>
+        <button onClick={openCreate}
+          className="px-4 py-2 rounded-xl text-sm font-semibold text-white border-none cursor-pointer hover:opacity-90"
+          style={{ background: "linear-gradient(135deg,#38bdf8,#0ea5e9)" }}>
+          + Create Case
+        </button>
+      </div>
+
+      {/* Create / Edit form */}
+      {showCreate && (
+        <div className="mb-6 rounded-2xl border border-[#1e2035] bg-[#0c0e1a] p-5">
+          <h3 className="text-sm font-bold text-white mb-4">{editingCase ? "Edit Case" : "Create New Case"}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div>
+              <label className="text-xs text-[#6B7280] mb-1 block">Case Name</label>
+              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Starter Case"
+                className="w-full rounded-lg px-3 py-2 text-sm text-white border border-[#1e2035] bg-[#0a0b14] outline-none focus:border-[#38bdf8]" />
+            </div>
+            <div>
+              <label className="text-xs text-[#6B7280] mb-1 block">Image URL</label>
+              <input value={form.image} onChange={e => setForm(p => ({ ...p, image: e.target.value }))}
+                placeholder="https://..."
+                className="w-full rounded-lg px-3 py-2 text-sm text-white border border-[#1e2035] bg-[#0a0b14] outline-none focus:border-[#38bdf8]" />
+            </div>
+            <div>
+              <label className="text-xs text-[#6B7280] mb-1 block">Cost (gems)</label>
+              <input value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))}
+                placeholder="e.g. 10000000" type="number"
+                className="w-full rounded-lg px-3 py-2 text-sm text-white border border-[#1e2035] bg-[#0a0b14] outline-none focus:border-[#38bdf8]" />
+            </div>
+          </div>
+
+          {/* Item search */}
+          <div className="mb-3">
+            <label className="text-xs text-[#6B7280] mb-1 block">Add Items from Database</label>
+            <input value={itemSearch} onChange={e => setItemSearch(e.target.value)}
+              placeholder="Search items by name…"
+              className="w-full rounded-lg px-3 py-2 text-sm text-white border border-[#1e2035] bg-[#0a0b14] outline-none focus:border-[#38bdf8] mb-2" />
+            {itemSearch && filteredItems.length > 0 && (
+              <div className="rounded-xl border border-[#1e2035] bg-[#0a0b14] max-h-40 overflow-y-auto">
+                {filteredItems.map(item => (
+                  <button key={item.itemid} onClick={() => addItemToCase(item)}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#1e2035] border-none bg-transparent cursor-pointer">
+                    {item.itemimage && <img src={item.itemimage} alt="" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4 }} />}
+                    <span className="text-sm text-white flex-1">{item.itemname}</span>
+                    <span className="text-xs text-[#6B7280]">{fmtVal(item.itemvalue)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Case items list */}
+          {caseItems.length > 0 && (
+            <div className="mb-4">
+              <label className="text-xs text-[#6B7280] mb-2 block">Items in Case ({caseItems.length})</label>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {caseItems.map(item => (
+                  <div key={item.itemid} className="flex items-center gap-2 rounded-lg border border-[#1e2035] bg-[#0a0b14] p-2">
+                    {item.itemimage && <img src={item.itemimage} alt="" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, flexShrink: 0 }} />}
+                    <span className="text-sm text-white flex-1 truncate">{item.itemname}</span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <label className="text-[10px] text-[#6B7280]">Weight</label>
+                      <input type="number" value={item.weight} min={1}
+                        onChange={e => updateCaseItem(item.itemid, "weight", e.target.value)}
+                        className="w-14 rounded px-2 py-1 text-xs text-white border border-[#1e2035] bg-[#0c0e1a] outline-none text-center" />
+                    </div>
+                    <select value={item.rarity} onChange={e => updateCaseItem(item.itemid, "rarity", e.target.value)}
+                      className="rounded px-2 py-1 text-xs border border-[#1e2035] bg-[#0c0e1a] outline-none flex-shrink-0"
+                      style={{ color: RARITY_COLORS[item.rarity] || "#fff" }}>
+                      {RARITIES.map(r => <option key={r} value={r} style={{ color: RARITY_COLORS[r] }}>{r}</option>)}
+                    </select>
+                    <button onClick={() => removeItemFromCase(item.itemid)}
+                      className="text-[#6B7280] hover:text-red-400 bg-transparent border-none cursor-pointer text-sm px-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white border-none cursor-pointer disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#38bdf8,#0ea5e9)" }}>
+              {saving ? "Saving…" : editingCase ? "Save Changes" : "Create Case"}
+            </button>
+            <button onClick={() => setShowCreate(false)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-[#6B7280] border border-[#1e2035] bg-transparent cursor-pointer hover:text-white">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cases list */}
+      {loading ? (
+        <div className="text-center text-[#6B7280] py-10">Loading cases…</div>
+      ) : cases.length === 0 ? (
+        <div className="text-center text-[#6B7280] py-10">No cases yet. Create your first one!</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cases.map(c => (
+            <div key={c._id} className="rounded-2xl border border-[#1e2035] bg-[#0c0e1a] overflow-hidden">
+              <div className="relative h-32 bg-[#0a0b14]">
+                <img src={c.image} alt={c.name} className="w-full h-full object-cover opacity-80" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0c0e1a] to-transparent" />
+                <span className={`absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded-full ${c.active ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}>
+                  {c.active ? "ACTIVE" : "INACTIVE"}
+                </span>
+              </div>
+              <div className="p-3">
+                <div className="text-sm font-bold text-white mb-0.5">{c.name}</div>
+                <div className="text-xs text-[#6B7280] mb-2">{fmtVal(c.cost)} gems · {c.items.length} items</div>
+                <div className="flex gap-1.5">
+                  <button onClick={() => openEdit(c)}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white border border-[#38bdf8] bg-transparent cursor-pointer hover:bg-[#38bdf820]">
+                    Edit
+                  </button>
+                  <button onClick={() => handleToggle(c)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${c.active ? "text-yellow-400 border-yellow-400/30 hover:bg-yellow-400/10" : "text-green-400 border-green-400/30 hover:bg-green-400/10"} bg-transparent`}>
+                    {c.active ? "Deactivate" : "Activate"}
+                  </button>
+                  <button onClick={() => handleDelete(c)}
+                    className="py-1.5 px-2 rounded-lg text-xs font-semibold text-red-400 border border-red-400/30 bg-transparent cursor-pointer hover:bg-red-400/10">
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
