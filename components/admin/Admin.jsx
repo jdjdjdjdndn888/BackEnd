@@ -1323,14 +1323,21 @@ function CasesTab() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.image || !form.cost) { toast.error("Name, image, and cost are required"); return; }
+    const name = form.name.trim();
+    const image = form.image.trim();
+    const cost = Number(form.cost);
+    const missing = [];
+    if (!name) missing.push("name");
+    if (!image) missing.push("image");
+    if (!form.cost || !Number.isFinite(cost) || cost <= 0) missing.push("cost");
+    if (missing.length) { toast.error(`Missing/invalid: ${missing.join(", ")}`); return; }
     if (caseItems.length < 2) { toast.error("Add at least 2 items to the case"); return; }
     setSaving(true);
     try {
       const payload = {
-        name: form.name,
-        image: form.image,
-        cost: Number(form.cost),
+        name,
+        image,
+        cost,
         items: caseItems.map(({ itemid, weight, rarity }) => ({ itemid, weight: Number(weight), rarity })),
       };
       const url = editingCase ? `${api}/admin/cases/${editingCase._id}` : `${api}/admin/cases`;
@@ -1403,8 +1410,9 @@ function CasesTab() {
             </div>
             <div>
               <label className="text-xs text-[#6B7280] mb-1 block">Cost (gems)</label>
-              <input value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))}
-                placeholder="e.g. 10000000" type="number"
+              <input value={form.cost}
+                onChange={e => setForm(p => ({ ...p, cost: e.target.value.replace(/[^0-9]/g, "") }))}
+                placeholder="e.g. 10000000" type="text" inputMode="numeric"
                 className="w-full rounded-lg px-3 py-2 text-sm text-white border border-[#1e2035] bg-[#0a0b14] outline-none focus:border-[#38bdf8]" />
             </div>
           </div>
