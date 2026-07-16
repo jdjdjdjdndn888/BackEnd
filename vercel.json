@@ -9,10 +9,10 @@
       "headers": {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "SAMEORIGIN",
+        "X-XSS-Protection": "1; mode=block",
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-        "X-XSS-Protection": "1; mode=block",
         "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; connect-src 'self' https://ps99bet-backend.onrender.com wss://ps99bet-backend.onrender.com; font-src 'self' https: data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
       },
       "continue": true
@@ -28,7 +28,12 @@
     { "src": "/config\\.json", "status": 404 },
     { "src": "/graphql(.*)", "status": 404 },
     { "src": "/wp-admin(.*)", "status": 404 },
+    { "src": "/wp-login\\.php(.*)", "status": 404 },
     { "src": "/actuator(.*)", "status": 404 },
+    { "src": "/phpinfo\\.php(.*)", "status": 404 },
+    { "src": "/phpmyadmin(.*)", "status": 404 },
+    { "src": "/shell(.*)", "status": 404 },
+    { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

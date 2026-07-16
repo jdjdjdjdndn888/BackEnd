@@ -48,21 +48,27 @@ app.use(ipBlocklist);
 // Security headers (hides framework fingerprint, sets HSTS, disables sniffing, etc.)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  // X-XSS-Protection: tell older browsers to block reflected XSS
-  xXssProtection: true,
-  // Content-Security-Policy: API-only service — no HTML served, so lock it down tight
+  // Disable helmet's CSP defaults so our explicit directives are the only ones set
   contentSecurityPolicy: {
+    useDefaults: false,
     directives: {
-      defaultSrc:  ["'none'"],
-      scriptSrc:   ["'none'"],
-      styleSrc:    ["'none'"],
-      imgSrc:      ["'none'"],
-      connectSrc:  ["'self'"],
+      defaultSrc:     ["'none'"],
+      scriptSrc:      ["'none'"],
+      styleSrc:       ["'none'"],
+      imgSrc:         ["'none'"],
+      connectSrc:     ["'self'"],
       frameAncestors: ["'none'"],
-      formAction:  ["'none'"],
+      formAction:     ["'none'"],
+      baseUri:        ["'none'"],
     },
   },
 }));
+// Helmet v8 hard-sets X-XSS-Protection: 0 — override to 1; mode=block so
+// older browsers activate their built-in XSS filter instead of disabling it.
+app.use((_req, res, next) => {
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  next();
+});
 
 app.use(cors(corsOptions));
 
