@@ -1,0 +1,162 @@
+Reachable: /.env
+Returned 206 (text/html; charset=utf-8). Identical content to /.env.local — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+Environment file often contains DB passwords, API keys, JWT secrets, and third-party tokens. An attacker can copy credentials, log into the database, impersonate the app to Stripe/SendGrid/AWS, forge JWTs, and pivot from there.
+critical
+Exposed Endpoint
+Reachable: /.env.local
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+Environment file often contains DB passwords, API keys, JWT secrets, and third-party tokens. An attacker can copy credentials, log into the database, impersonate the app to Stripe/SendGrid/AWS, forge JWTs, and pivot from there.
+critical
+Exposed Endpoint
+Reachable: /.env.production
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+Environment file often contains DB passwords, API keys, JWT secrets, and third-party tokens. An attacker can copy credentials, log into the database, impersonate the app to Stripe/SendGrid/AWS, forge JWTs, and pivot from there.
+critical
+Exposed Endpoint
+Reachable: /.git/config
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+The .git directory lets an attacker reconstruct the full source tree with tools like git-dumper. That exposes business logic, hardcoded secrets, internal endpoints, and old vulnerable code paths.
+critical
+Exposed Endpoint
+Reachable: /.git/HEAD
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+The .git directory lets an attacker reconstruct the full source tree with tools like git-dumper. That exposes business logic, hardcoded secrets, internal endpoints, and old vulnerable code paths.
+critical
+Exposed Endpoint
+Reachable: /backup.sql
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+A database dump usually contains full user tables (emails, hashes, PII, session tokens). Attackers crack hashes offline and reuse credentials on other sites (credential stuffing).
+critical
+Exposed Endpoint
+Reachable: /database.sql
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+A database dump usually contains full user tables (emails, hashes, PII, session tokens). Attackers crack hashes offline and reuse credentials on other sites (credential stuffing).
+critical
+Exposed Endpoint
+Reachable: /dump.sql
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+A database dump usually contains full user tables (emails, hashes, PII, session tokens). Attackers crack hashes offline and reuse credentials on other sites (credential stuffing).
+critical
+Exposed Endpoint
+Reachable: /.DS_Store
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+.DS_Store lists every filename in the directory. Attackers use it to discover hidden files, admin pages, and old backups they couldn't guess.
+high
+Exposed Endpoint
+Reachable: /graphql
+Returned 206 (text/html; charset=utf-8). Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+What an attacker could do
+If introspection is enabled, an attacker can enumerate every type, query, and mutation — including admin operations. Common target for auth bypass and IDOR.
+high
+Exposed Endpoint
+Missing content-security-policy
+Response does not set the content-security-policy header.
+medium
+Headers
+Missing x-xss-protection
+Response does not set the x-xss-protection header.
+low
+Headers
+Exposed / reachable paths
+/.env
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: Environment file often contains DB passwords, API keys, JWT secrets, and third-party tokens. An attacker can copy credentials, log into the database, impersonate the app to Stripe/SendGrid/AWS, forge JWTs, and pivot from there.
+Dupe detected: Identical content to /.env.local — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/.env.local
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: Environment file often contains DB passwords, API keys, JWT secrets, and third-party tokens. An attacker can copy credentials, log into the database, impersonate the app to Stripe/SendGrid/AWS, forge JWTs, and pivot from there.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/.env.production
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: Environment file often contains DB passwords, API keys, JWT secrets, and third-party tokens. An attacker can copy credentials, log into the database, impersonate the app to Stripe/SendGrid/AWS, forge JWTs, and pivot from there.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/.git/config
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: The .git directory lets an attacker reconstruct the full source tree with tools like git-dumper. That exposes business logic, hardcoded secrets, internal endpoints, and old vulnerable code paths.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/.git/HEAD
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: The .git directory lets an attacker reconstruct the full source tree with tools like git-dumper. That exposes business logic, hardcoded secrets, internal endpoints, and old vulnerable code paths.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/.DS_Store
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: .DS_Store lists every filename in the directory. Attackers use it to discover hidden files, admin pages, and old backups they couldn't guess.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/config.json
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: Generic config files often embed API tokens, feature flags, and internal service URLs. Worth checking manually for anything sensitive.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/backup.sql
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: A database dump usually contains full user tables (emails, hashes, PII, session tokens). Attackers crack hashes offline and reuse credentials on other sites (credential stuffing).
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/database.sql
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: A database dump usually contains full user tables (emails, hashes, PII, session tokens). Attackers crack hashes offline and reuse credentials on other sites (credential stuffing).
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/dump.sql
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: A database dump usually contains full user tables (emails, hashes, PII, session tokens). Attackers crack hashes offline and reuse credentials on other sites (credential stuffing).
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/admin
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: Admin login page — target for credential stuffing, brute force, and known-CVE exploits for the underlying CMS.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/wp-admin
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: Admin login page — target for credential stuffing, brute force, and known-CVE exploits for the underlying CMS.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/robots.txt
+HTTP 206
+· text/plain; charset=utf-8
+/sitemap.xml
+HTTP 206
+· application/xml
+/graphql
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: If introspection is enabled, an attacker can enumerate every type, query, and mutation — including admin operations. Common target for auth bypass and IDOR.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+/actuator
+HTTP 206
+· text/html; charset=utf-8
+possible dupe
+Risk: Debug/admin consoles often allow arbitrary code execution, config changes, or shell access. Even when auth-protected they're a prime brute-force target.
+Dupe detected: Identical content to /.env — one file is a duplicate/backup of the other. Attackers use dupes to grab a copy of a live config that admins forgot about (e.g. .env.bak next to .env, or config.old mirroring config.json).
+Missing security headers
+content-security-policy
+x-xss-protection
