@@ -11,6 +11,7 @@ const giveawayjoins = require("../../modules/giveawayjoins.js");
 const { addHistory, updateuser, sendwebhook } = require("../transaction/index.js");
 const moment = require('moment');
 const { httpError } = require("../../utils/httpError.js");
+const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 
 // `giveawaywebh` was previously referenced but never defined anywhere in this
 // file/module, which threw a ReferenceError every time a giveaway was created
@@ -21,79 +22,69 @@ const { httpError } = require("../../utils/httpError.js");
 const giveawaywebh = process.env.GIVEAWAY_WEBHOOK_URL || null;
 
 const rollwinner = async (giveawayid) => {
-    if (!giveawayid) {
-        return "Something went wrong";
-    }
+    if (!giveawayid) return "Something went wrong";
 
+    const session = await mongoose.startSession();
     try {
-        const giveaway = await giveaways.findOne({ "_id": giveawayid });
+        let winnerUsername = null;
 
-        if (!giveaway) {
-            return "Something went wrong";
-        }
+        await session.withTransaction(async () => {
+            // Atomically claim the giveaway — if complete is already true this
+            // returns null and the transaction no-ops, preventing double-roll.
+            const giveaway = await giveaways.findOneAndUpdate(
+                { _id: giveawayid, complete: false, winner: null },
+                { $set: { complete: true } },
+                { session, new: false } // get the pre-update doc so we can read its fields
+            );
 
-        if (giveaway.winner) {
-            return "Something went wrong";
-        }
+            if (!giveaway) return; // already rolled or doesn't exist
 
-        const entries = await giveawayjoins.find({ "giveawayid": giveawayid });
+            if (!giveaway.item || giveaway.item.length === 0 || !giveaway.item[0]) return;
 
-        if (!entries || entries.length === 0) {
-            return "No participants";
-        }
+            const entries = await giveawayjoins.find({ giveawayid }).session(session);
+            if (!entries || entries.length === 0) return;
 
-        const randomIndex = Math.floor(Math.random() * entries.length);
-        const winner = entries[randomIndex];
+            const randomIndex = Math.floor(Math.random() * entries.length);
+            const winner = entries[randomIndex];
 
-        const winnerUser = await users.findOne({ "userid": winner.userid });
+            const winnerUser = await users.findOne({ userid: winner.userid }).session(session);
+            if (!winnerUser) return;
 
-        if (!winnerUser) {
-            return "Something went wrong";
-        }
+            // Transfer giveaway item to winner
+            await inventorys.create([{
+                _id: giveaway.item[0].id,
+                itemid: giveaway.item[0].itemid,
+                owner: winnerUser.userid,
+                locked: false,
+            }], { session });
 
-        if (!giveaway.item || giveaway.item.length === 0 || !giveaway.item[0]) {
-            return "Something went wrong";
-        }
+            // Record winner on giveaway doc
+            await giveaways.updateOne(
+                { _id: giveawayid },
+                { $set: {
+                    winner: winnerUser.userid,
+                    winnerid: winnerUser.userid,
+                    winnerusername: winnerUser.username,
+                }},
+                { session }
+            );
 
-        const itemInventory = new inventorys({
-            _id: giveaway.item[0].id,
-            itemid: giveaway.item[0].itemid,
-            owner: winnerUser.userid,
-            locked: false,
+            winnerUsername = winnerUser.username;
+
+            // Fire webhook after we have a username (non-transactional side-effect)
+            await sendwebhook(giveawaywebh, "BloxySpin Giveaway Concluded!", `A new **${giveaway.item[0].itemname}** giveaway has been concluded!`, [
+                { name: "Host",   value: `\`\`\`${giveaway.starterusername}\`\`\``, inline: false },
+                { name: "Item",   value: `\`\`\`${giveaway.item[0].itemname} - R${giveaway.item[0].itemvalue}\`\`\``, inline: false },
+                { name: "Winner", value: `\`\`\`${winnerUser.username}\`\`\``, inline: false },
+            ], giveaway.item[0].itemimage);
         });
 
-        await itemInventory.save();
-
-        giveaway.winner = winnerUser.userid;
-        giveaway.winnerid = winnerUser.userid,
-        giveaway.winnerusername = winnerUser.username;
-        giveaway.complete = true;
-
-        await giveaway.save();
-
-        const res = await sendwebhook(giveawaywebh, "BloxySpin Giveaway Concluded!", `A new **${giveaway.item[0].itemname}** giveaway has been concluded!`, [
-            {
-                name: "Host",
-                value: `\`\`\`${giveaway.starterusername}\`\`\``,
-                inline: false
-            },
-            {
-                name: "Item",
-                value: `\`\`\`${giveaway.item[0].itemname} - R$${giveaway.item[0].itemvalue}\`\`\``,
-                inline: false
-            },
-            {
-                name: "Winner",
-                value: `\`\`\`${winnerUser.username}\`\`\``,
-                inline: false
-            },
-        ], giveaway.item[0].itemimage);
-
-        return `Winner: ${winnerUser.username}`;
-
+        return winnerUsername ? `Winner: ${winnerUsername}` : "No participants";
     } catch (error) {
         console.log(`gw roller: ${error}`);
         return "Something went wrong";
+    } finally {
+        session.endSession();
     }
 };
 
@@ -330,53 +321,59 @@ exports.giveaway = asyncHandler(async (req, res) => {
   });
 
 exports.joingiveaway = asyncHandler(async (req, res) => {
+    if (!req.user || !req.user.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!acquireLock(req.user.id, "giveaway_join")) {
+        return res.status(429).json({ message: "Request already in progress, please wait." });
+    }
+
+    const session = await mongoose.startSession();
+    let updatedGiveaway;
+
     try {
-        const { giveawayid } = req.body;
+        await session.withTransaction(async () => {
+            const { giveawayid } = req.body;
 
-        if (!req.user || !req.user.id) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
+            if (!giveawayid) throw httpError(400, "No giveaway specified");
 
-        const user = await users.findOne({ "userid": req.user.id });
+            const [user, giveaway] = await Promise.all([
+                users.findOne({ userid: req.user.id }).session(session),
+                giveaways.findOne({ _id: giveawayid }).session(session),
+            ]);
 
-        if (!user) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
+            if (!user) throw httpError(401, "Unauthorized");
+            if (!giveaway || giveaway.complete) throw httpError(400, "Giveaway not found or already completed");
+            if (user.level < 2) throw httpError(400, "You must be at least level 2 to do that!");
 
-        if (!giveawayid) {
-            return res.status(400).json({ message: "No giveaway specified" });
-        }
+            // Atomic duplicate-entry guard: insert with a unique compound index;
+            // if the user already joined this throws code 11000 which we catch below.
+            await giveawayjoins.create([{
+                userid: req.user.id,
+                giveawayid,
+            }], { session });
 
-        const giveaway = await giveaways.findOne({ "_id": giveawayid });
+            // Increment entry count atomically
+            updatedGiveaway = await giveaways.findOneAndUpdate(
+                { _id: giveawayid, complete: false },
+                { $inc: { entries: 1 } },
+                { session, new: true }
+            );
 
-        if (!giveaway || giveaway.complete) {
-            return res.status(400).json({ message: "Giveaway not found or already completed" });
-        }
-
-        const entry = await giveawayjoins.findOne({ "userid": req.user.id, "giveawayid": giveawayid });
-
-        if (entry) {
-            return res.status(400).json({ message: "You have already joined this giveaway" });
-        }
-
-        if (user.level < 2) {
-            return res.status(400).json({ message: "you must be at least level 2 to do that!" });
-        }
-
-        const entryuser = new giveawayjoins({
-            userid: req.user.id,
-            giveawayid: giveawayid,
+            if (!updatedGiveaway) throw httpError(400, "Giveaway ended while joining, try again!");
         });
 
-        await entryuser.save();
-
-        giveaway.entries += 1;
-        await giveaway.save();
-
-        req.app.get("io").emit("GIVEAWAY_UPDATE", giveaway);
-
+        req.app.get("io").emit("GIVEAWAY_UPDATE", updatedGiveaway);
         return res.status(200).json({ message: "Successfully joined the giveaway!" });
+
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
+        if (error.code === 11000) return res.status(400).json({ message: "You have already joined this giveaway" });
+        console.error("giveaway join:", error);
         return res.status(500).json({ message: "Internal Server Error" });
+    } finally {
+        releaseLock(req.user.id, "giveaway_join");
+        session.endSession();
     }
 });

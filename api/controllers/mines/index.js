@@ -409,6 +409,15 @@ exports.revealtile = asyncHandler(async (req, res) => {
           ),
         ]);
 
+        // Deliver winner items inside the transaction so a server restart between
+        // commit and the old setTimeout can never cause items to go missing.
+        if (winnerItems.length) {
+          await inventorys.insertMany(
+            winnerItems.map((item) => ({ _id: item.id || item._id, owner: winnerId, itemid: item.itemid, locked: false })),
+            { session, ordered: false }
+          );
+        }
+
         updates = {
           $push: { revealed: tileIndex },
           $set: { state: "finished", active: false, end: new Date(), winner: winnerId },
@@ -440,17 +449,13 @@ exports.revealtile = asyncHandler(async (req, res) => {
           amount: finalUpdate.requirements.static,
         });
 
+        // Items already committed inside the transaction above.
+        // Delay the socket inventory-update only (UI animation timing).
         setTimeout(async () => {
           try {
-            if (winnerItems.length) {
-              await inventorys.insertMany(
-                winnerItems.map((item) => ({ _id: item.id || item._id, owner: winnerId, itemid: item.itemid, locked: false })),
-                { ordered: false }
-              );
-            }
             await updateuser(winnerId, req.app.get("io"));
             await updateuser(loserId, req.app.get("io"));
-          } catch (e) { if (e.code !== 11000) console.error("mines reveal payout:", e); }
+          } catch (e) { console.error("mines reveal updateuser:", e); }
         }, 2000);
 
         setTimeout(() => {

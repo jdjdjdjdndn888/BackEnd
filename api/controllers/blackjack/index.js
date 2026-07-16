@@ -560,6 +560,20 @@ async function handlePayout(doc, resolved, session) {
     ),
   ]);
 
+  // Deliver winner items atomically inside the transaction so a server restart
+  // between commit and the old setTimeout can never cause items to go missing.
+  if (winnerItems.length > 0) {
+    await inventorys.insertMany(
+      winnerItems.map((item) => ({
+        _id: item.id || item._id,
+        owner: winnerId,
+        itemid: item.itemid,
+        locked: false,
+      })),
+      { session, ordered: false }
+    );
+  }
+
   return { winnerId, loserId, loserValue, winnerItems };
 }
 
@@ -596,23 +610,14 @@ async function finishSideEffects(finalUpdate, payout, req) {
     req.app.get("io").emit("LIVE_WIN", { user: finalUpdate[winnerKey].username, game: "Blackjack", amount: finalUpdate.requirements.static });
   } catch {}
 
+  // Items already committed inside handlePayout's transaction above.
+  // Delay only the socket inventory-update for UI animation timing.
   setTimeout(async () => {
     try {
-      if (winnerItems.length) {
-        await inventorys.insertMany(
-          winnerItems.map((item) => ({
-            _id: item.id || item._id,
-            owner: winnerId,
-            itemid: item.itemid,
-            locked: false,
-          })),
-          { ordered: false }
-        );
-      }
       await updateuser(winnerId, req.app.get("io"));
       await updateuser(loserId, req.app.get("io"));
     } catch (error) {
-      if (error.code !== 11000) console.error("Blackjack setTimeout payout error:", error);
+      console.error("Blackjack setTimeout updateuser error:", error);
     }
   }, 3000);
 
