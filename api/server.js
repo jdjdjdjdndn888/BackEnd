@@ -20,6 +20,18 @@ const {
 const app = express();
 const server = http.createServer(app);
 
+// ── Connection-level timeouts ────────────────────────────────────────────────
+// Node's defaults leave connections open indefinitely, which lets slowloris-
+// style attacks hold sockets open forever. These cut off stragglers:
+//   headersTimeout  – drop connections that never finish sending their headers
+//   requestTimeout  – drop connections that never finish sending the body
+//   keepAliveTimeout – close idle keep-alive connections sooner (default 5 s is
+//                      fine here; Cloudflare/Render proxies add their own idle
+//                      timeouts on top of this)
+server.headersTimeout  = 15_000;  // 15 s to complete headers
+server.requestTimeout  = 30_000;  // 30 s to complete the full request
+server.keepAliveTimeout = 65_000; // slightly above Cloudflare's 60 s idle close
+
 const io = new Server(server, {
   cors: {
     origin(origin, callback) {
