@@ -184,17 +184,12 @@ function ticketEmojiButton(key) {
 
 const activeGiveaways = new Map();
 
-// Internal API URL — the Discord bot calls this to broadcast announcements to the site.
-// Defaults to localhost on the same machine; override with BOT_API_URL env var if needed.
-const BOT_API_URL = process.env.BOT_API_URL || "http://localhost:3001";
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -673,43 +668,6 @@ client.on("interactionCreate", async (interaction) => {
     logger.logEvent({ type: "⚙️ Tipping Changed", color: settings.tippingLocked ? 0xff6b6b : 0x4ade80,
       description: `**${interaction.user.username}** ${settings.tippingLocked ? "locked" : "unlocked"} tipping.` });
     await interaction.editReply(`Tipping is now **${settings.tippingLocked ? "🔒 Locked" : "🔓 Unlocked"}**.`);
-  }
-});
-
-// ─── Text prefix commands ─────────────────────────────────────────────────────
-
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
-  if (!message.content.startsWith("?ann ")) return;
-
-  // Only the owner can send announcements.
-  if (message.author.id !== OWNER_DISCORD_ID) {
-    return message.reply("❌ Only the owner can send site announcements.");
-  }
-
-  const text = message.content.slice("?ann ".length).trim();
-  if (!text) return message.reply("❌ Provide a message: `?ann Your announcement here`");
-
-  const secret = process.env.ANNOUNCE_SECRET;
-  if (!secret) {
-    return message.reply("❌ ANNOUNCE_SECRET env var is not set on the server.");
-  }
-
-  try {
-    const res = await fetch(`${BOT_API_URL}/bot-announce`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-announce-secret": secret },
-      body: JSON.stringify({ message: text }),
-    });
-    if (res.ok) {
-      await message.reply(`✅ Announcement sent to all site users:\n> ${text}`);
-    } else {
-      const body = await res.json().catch(() => ({}));
-      await message.reply(`❌ API error: ${body.message || res.status}`);
-    }
-  } catch (err) {
-    console.error("?ann error:", err.message);
-    await message.reply(`❌ Failed to reach the API: ${err.message}`);
   }
 });
 

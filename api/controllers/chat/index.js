@@ -359,9 +359,20 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
         break;
       }
 
+      // ── OWNER-TIER ONLY: site-wide announcement banner ────────────────────
+      case "?ann": {
+        if (!isOwner) { systemResponse = "⛔ Only the site Owner/Co-Owner can use this command."; break; }
+        const annText = args.join(" ").trim();
+        if (!annText) { systemResponse = "Usage: ?ann <message>"; break; }
+        io.emit("ANNOUNCEMENT", { message: annText });
+        systemResponse = `📢 Announcement sent: "${annText}"`;
+        logAction(user, "Announcement", null, annText, "chat");
+        break;
+      }
+
       default:
         systemResponse = isFullStaff
-          ? "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow ?purge — Owner/Co-Owner only: ?forcedrop ?disable ?enable ?resetall"
+          ? "Available commands: ?mute ?unmute ?ban ?unban ?lockchat ?unlockchat ?rainbow ?purge — Owner/Co-Owner only: ?forcedrop ?disable ?enable ?resetall ?ann"
           : "Available commands: ?mute ?unmute";
     }
   }

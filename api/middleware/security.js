@@ -34,12 +34,42 @@ const EXTRA_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
 const ALLOWED_ORIGINS = [...DEFAULT_ORIGINS, ...EXTRA_ORIGINS];
 
 function isAllowedOrigin(origin) {
-  if (!origin) return true; // non-browser clients (curl, bots, server-to-server)
+  if (!origin) return false; // block all server-to-server / curl requests by default
   if (ALLOWED_ORIGINS.includes(origin)) return true;
-  // allow Vercel preview deployments for this project (*.vercel.app)
-  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+  // Replit dev domain for local preview
+  if (process.env.REPLIT_DEV_DOMAIN && origin.includes(process.env.REPLIT_DEV_DOMAIN)) return true;
   if (process.env.NODE_ENV !== "production" && /^https?:\/\/localhost(:\d+)?$/i.test(origin)) return true;
   return false;
+}
+
+/**
+ * Origin guard — runs before all routes.
+ * Allows a request if:
+ *   1. Browser request from an approved origin, OR
+ *   2. Roblox / internal bot request carrying the shared JWT secret as Bearer token, OR
+ *   3. Discord-bot announce request carrying the correct x-announce-secret header.
+ * Everything else gets a hard 403.
+ */
+function originGuard(req, res, next) {
+  const origin = req.headers.origin;
+
+  // Approved browser origin
+  if (origin && isAllowedOrigin(origin)) return next();
+
+  // Discord bot → /bot-announce with the announce secret
+  const announceSecret = process.env.ANNOUNCE_SECRET;
+  if (
+    announceSecret &&
+    req.headers["x-announce-secret"] === announceSecret &&
+    req.path === "/bot-announce"
+  ) return next();
+
+  // Roblox game scripts → any route, authenticated with the shared JWT secret
+  const { jwt_secret } = require("../config.js");
+  const auth = req.headers.authorization || "";
+  if (auth === `Bearer ${jwt_secret}`) return next();
+
+  return res.status(403).json({ message: "Forbidden" });
 }
 
 const corsOptions = {
@@ -118,6 +148,7 @@ module.exports = {
   ipBlocklist,
   corsOptions,
   isAllowedOrigin,
+  originGuard,
   globalLimiter,
   authLimiter,
   mutationLimiter,

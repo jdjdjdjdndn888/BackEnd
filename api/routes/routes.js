@@ -26,26 +26,7 @@ const {
 
 router.use(express.json());
 
-router.get("/", (req, res) => {
-  const uptime = process.uptime();
-  const systemUptime = os.uptime();
-  const ping = Date.now() - req.startTime;
-
-  const info = {
-    ping: `${ping}ms`,
-    uptime: `${uptime} seconds`,
-    systemUptime: `${systemUptime} seconds`,
-    cpuCores: "...",
-    loadAverage: os.loadavg(),
-    timestamp: new Date().toISOString(),
-  };
-
-  res.json({
-    success: true,
-    message: "sucessfuly pinged the spiney api.",
-    data: info,
-  });
-});
+router.get("/", (req, res) => res.status(403).json({ message: "Forbidden" }));
 
 router.post("/me", accountController.verifyToken, accountController.me);
 router.post("/users/profile", accountController.profile);

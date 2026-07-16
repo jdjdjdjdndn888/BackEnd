@@ -12,6 +12,7 @@ const {
   ipBlocklist,
   corsOptions,
   isAllowedOrigin,
+  originGuard,
   globalLimiter,
   speedLimiter,
 } = require("./middleware/security");
@@ -48,6 +49,10 @@ app.use(ipBlocklist);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
 app.use(cors(corsOptions));
+
+// Hard origin guard — blocks any request that isn't from the approved frontend
+// origin, the Roblox bot scripts (Bearer JWT), or the Discord bot announce path.
+app.use(originGuard);
 
 // Cap request body size so someone can't DoS the process with huge payloads.
 app.use(express.json({ limit: "256kb" }));
