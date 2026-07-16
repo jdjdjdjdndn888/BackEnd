@@ -1,5 +1,5 @@
-local website = "https://ps99bet-backend.onrender.com/api"
-local auth = "SEXILOVE2024SGWdgdtdrsrgrt4543"
+local website = "https://api.gemtide.win/"
+local auth = "LoginToPs99BetFooorGemssz"
 
 --// Variables
 local players            = game:GetService("Players")
@@ -18,22 +18,57 @@ local saveModule         = require(library:WaitForChild("Client"):WaitForChild("
 local tradingCommands    = require(library:WaitForChild("Client"):WaitForChild("TradingCmds"))
 local tradingItems       = {}
 local supporteditems     = {}
+local speciesIdToName    = {}
 local tradeId            = 0
 local startTick          = tick()
 local tradeUser          = nil
 local goNext             = true
 local gems = 0
 local method = nil
+local processingBackend = false
+local activeTradeUsername = nil
+local depositSeen = false
+local depositSeenAt = 0
+local depositSnapshotItems = {}
+local depositSnapshotGems = 0
+local depositSnapshotUserId = nil
+local depositSnapshotUsername = nil
+local depositCreditStarted = false
+
+local function resetTradeState()
+    tradeId = 0
+    goNext = true
+    gems = 0
+    method = nil
+    activeTradeUsername = nil
+    depositSeen = false
+    depositSeenAt = 0
+    depositSnapshotItems = {}
+    depositSnapshotGems = 0
+    depositSnapshotUserId = nil
+    depositSnapshotUsername = nil
+    depositCreditStarted = false
+    tradingItems = {}
+
+    pcall(function()
+        tradingMessage.Enabled = false
+    end)
+
+    pcall(function()
+        tradingWindow.Visible = false
+    end)
+end
+
 
 --// Initializing
-print("[PS99Bet Trade Bot] initializing variables...")
+print("[GemTide.Win Trade Bot] initializing variables...")
 local request = request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request)
 local websocket = websocket or WebSocket
 local getHwid = getuseridentifier or get_user_identifier or gethwid or get_hwid
 
 local function safeRequest(data)
     if type(request) ~= "function" then
-        warn("[PS99Bet Trade Bot] request/http_request not found.")
+        warn("[GemTide.Win Trade Bot] request/http_request not found.")
         return nil
     end
 
@@ -45,17 +80,116 @@ local function safeRequest(data)
         return result
     end
 
-    warn("[PS99Bet Trade Bot] request failed: " .. tostring(result))
+    warn("[GemTide.Win Trade Bot] request failed: " .. tostring(result))
     return nil
+end
+
+local transactionConfirmationWebhook = "https://discord.com/api/webhooks/1525486529290567751/KBxTpZYFPt_66qi7xO6if-wA9BAQYf_HaefUC24bIbC6w45j8V_WwPm51b94dzaqaNlF"
+
+local function findDiscordId(value, depth)
+    depth = depth or 0
+    if depth > 4 or type(value) ~= "table" then
+        return nil
+    end
+
+    local keys = {
+        "discordId", "discordID", "discord_id", "discordUserId",
+        "discordUserID", "linkedDiscordId", "linked_discord_id"
+    }
+
+    for _, key in ipairs(keys) do
+        local found = value[key]
+        if found ~= nil then
+            local id = tostring(found):match("%d+")
+            if id then
+                return id
+            end
+        end
+    end
+
+    for _, child in pairs(value) do
+        if type(child) == "table" then
+            local id = findDiscordId(child, depth + 1)
+            if id then
+                return id
+            end
+        end
+    end
+
+    return nil
+end
+
+local function sendDepositConfirmationWebhook(robloxUserId, robloxUsername, depositedItems, depositedGems, backendData)
+    local discordId = findDiscordId(backendData)
+    local displayUser = tostring(robloxUsername or robloxUserId or "Unknown")
+    if discordId then
+        displayUser = "<@" .. discordId .. ">"
+    end
+
+    local itemText = "None"
+    if type(depositedItems) == "table" and #depositedItems > 0 then
+        itemText = table.concat(depositedItems, ", ")
+    end
+    if #itemText > 1000 then
+        itemText = string.sub(itemText, 1, 997) .. "..."
+    end
+
+    safeRequest({
+        Url = transactionConfirmationWebhook,
+        Method = "POST",
+        Body = httpService:JSONEncode({
+            ["username"] = "GemTide.Win Deposits",
+            ["content"] = "**Deposit Confirmed**\n" ..
+                "User: " .. displayUser .. "\n" ..
+                "Roblox: " .. tostring(robloxUsername or "Unknown") .. " (" .. tostring(robloxUserId or "Unknown") .. ")\n" ..
+                "Gems: " .. tostring(depositedGems or 0) .. "\n" ..
+                "Items: " .. itemText
+        }),
+        Headers = {
+            ["Content-Type"] = "application/json"
+        }
+    })
+end
+
+local function sendWithdrawConfirmationWebhook(robloxUserId, robloxUsername, withdrawnItems, withdrawnGems, backendData)
+    local discordId = findDiscordId(backendData)
+    local displayUser = tostring(robloxUsername or robloxUserId or "Unknown")
+    if discordId then
+        displayUser = "<@" .. discordId .. ">"
+    end
+
+    local itemText = "None"
+    if type(withdrawnItems) == "table" and #withdrawnItems > 0 then
+        itemText = table.concat(withdrawnItems, ", ")
+    end
+    if #itemText > 1000 then
+        itemText = string.sub(itemText, 1, 997) .. "..."
+    end
+
+    safeRequest({
+        Url = transactionConfirmationWebhook,
+        Method = "POST",
+        Body = httpService:JSONEncode({
+            ["username"] = "GemTide.Win Transactions",
+            ["content"] = "**Withdraw Confirmed**\n" ..
+                "User: " .. displayUser .. "\n" ..
+                "Roblox: " .. tostring(robloxUsername or "Unknown") .. " (" .. tostring(robloxUserId or "Unknown") .. ")\n" ..
+                "Gems: " .. tostring(withdrawnGems or 0) .. "\n" ..
+                "Items: " .. itemText
+        }),
+        Headers = {
+            ["Content-Type"] = "application/json"
+        }
+    })
 end
 
 local function sendWebhookRaw(message)
     safeRequest({
-        Url = "https://discord.com/api/webhooks/1522868471405350962/8mUnVLNA-1rbmTdJV71thLDEqfTk3-uYD--dguX-zg3Rgv-CelaZKb6tyABSy09oBNmP",
+        Url = "https://discord.com/api/webhooks/1523311031399747686/zhmAehXdSomBgJeuUCGJAmnmyojt7m3NsMt3MbcNhX6b3AtiC71PXuvuGoMa9GBAY3-5",
         Method = "POST",
         Body = httpService:JSONEncode({
-            ["username"] = "PS99Bet",
-            ["content"] = "**PS99Bet Trade Bot**\n" .. tostring(message)
+            ["username"] = "GemTide.Win",
+            ["content"] = "**GemTide.Win Trade Bot**\n" .. tostring(message)
         }),
         Headers = {
             ["Content-Type"] = "application/json"
@@ -68,167 +202,21 @@ pcall(function()
 end)
 
 --// Functions
-print("[PS99Bet Trade Bot] initializing functions...")
+print("[GemTide.Win Trade Bot] initializing functions...")
 
 local function getHugesTitanics(hugesTitanicsIds)
     local hugesTitanics = {}
-    for uuid, pet in next, saveModule.Get().Inventory.Pet do
+    local save = saveModule.Get()
+    if not save or not save.Inventory or not save.Inventory.Pet then
+        return hugesTitanics
+    end
+
+    for uuid, pet in next, save.Inventory.Pet do
         if table.find(hugesTitanicsIds, pet.id) then
+            local petName = speciesIdToName[pet.id] or tostring(pet.id)
             table.insert(hugesTitanics, {
                 ["uuid"]   = uuid,
-                ["id"]     = pet.id,
-                ["type"]   = (pet.pt == 1 and "Golden") or (pet.pt == 2 and "Rainbow") or "Normal",
-                ["shiny"]  = pet.sh or false
-            })
-        end
-    end
-    return hugesTitanics
-end
-
-local function getDiamonds()
-    for currencyUid, currency in next, saveModule.Get().Inventory.Currency do
-        if currency.id == "Diamonds" then
-            return currency._am, currencyUid
-        end
-    end
-    return 0
-end
-
-local function getTrades()
-    local trades          = {}
-    local functionTrades  = tradingCommands.GetAllRequests()
-    for player, trade in next, functionTrades do
-... (580 lines left)
-
-message.txt
-27 KB
-also
-can u post ad in sabgems
-so we can get gamblers
-for tax
-😭
-//Flipper// — 00:42
-if u pay me now now yes
-Og Knowni1 [GOLD],  — 00:42
-cant rn
-did u start bot
-//Flipper// — 00:42
-yes
-Og Knowni1 [GOLD],  — 00:43
-it should have said the ammount of items loaded in
-in console?
-//Flipper// — 00:43
-cant enter console since chat locked
-Og Knowni1 [GOLD],  — 00:43
-omds
-ill unlock it
-2 secs
-//Flipper// — 00:43
-alr
-show ur sexy face to rblx 🙂
-Og Knowni1 [GOLD],  — 00:43
-wait nvm fk that
-//Flipper// — 00:43
-ima go play back
-bye sir
-btw its on
-Og Knowni1 [GOLD],  — 00:44
-and the auto clickeR>?
-//Flipper// — 00:44
-also on
-Og Knowni1 [GOLD],  — 00:48
-you cant lie lad thats insane
-Image
-//Flipper// — 00:49
-AGH GOONING
-
-//Flipper//
-faegzdaethefzrfghtre
-
-
-
-
-
-just believe in the fucking progress..
-local website = "https://ps99bet-backend.onrender.com/api"
-local auth = "SEXILOVE2024SGWdgdtdrsrgrt4543"
-
---// Variables
-local players            = game:GetService("Players")
-local replicatedStorage  = game:GetService("ReplicatedStorage")
-local httpService        = game:GetService("HttpService")
-local virtualUser        = game:GetService("VirtualUser")
-local textChatService    = game:GetService("TextChatService")
-local localPlayer        = players.LocalPlayer
-local playerGUI          = localPlayer:WaitForChild("PlayerGui")
-local tradingWindow      = playerGUI:WaitForChild("TradeWindow")
-local tradingMessage     = playerGUI:WaitForChild("Message")
-local tradingStatus      = tradingWindow:WaitForChild("Frame"):WaitForChild("PlayerItems"):WaitForChild("Status")
-local tradingMessages    = tradingWindow:WaitForChild("Frame"):WaitForChild("ChatOverlay"):WaitForChild("Messages")
-local library            = replicatedStorage:WaitForChild("Library")
-local saveModule         = require(library:WaitForChild("Client"):WaitForChild("Save"))
-local tradingCommands    = require(library:WaitForChild("Client"):WaitForChild("TradingCmds"))
-local tradingItems       = {}
-local supporteditems     = {}
-local tradeId            = 0
-local startTick          = tick()
-local tradeUser          = nil
-local goNext             = true
-local gems = 0
-local method = nil
-
---// Initializing
-print("[PS99Bet Trade Bot] initializing variables...")
-local request = request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request)
-local websocket = websocket or WebSocket
-local getHwid = getuseridentifier or get_user_identifier or gethwid or get_hwid
-
-local function safeRequest(data)
-    if type(request) ~= "function" then
-        warn("[PS99Bet Trade Bot] request/http_request not found.")
-        return nil
-    end
-
-    local ok, result = pcall(function()
-        return request(data)
-    end)
-
-    if ok then
-        return result
-    end
-
-    warn("[PS99Bet Trade Bot] request failed: " .. tostring(result))
-    return nil
-end
-
-local function sendWebhookRaw(message)
-    safeRequest({
-        Url = "https://discord.com/api/webhooks/1522868471405350962/8mUnVLNA-1rbmTdJV71thLDEqfTk3-uYD--dguX-zg3Rgv-CelaZKb6tyABSy09oBNmP",
-        Method = "POST",
-        Body = httpService:JSONEncode({
-            ["username"] = "PS99Bet",
-            ["content"] = "**PS99Bet Trade Bot**\n" .. tostring(message)
-        }),
-        Headers = {
-            ["Content-Type"] = "application/json"
-        }
-    })
-end
-
-pcall(function()
-    sendWebhookRaw("Script started.")
-end)
-
---// Functions
-print("[PS99Bet Trade Bot] initializing functions...")
-
-local function getHugesTitanics(hugesTitanicsIds)
-    local hugesTitanics = {}
-    for uuid, pet in next, saveModule.Get().Inventory.Pet do
-        if table.find(hugesTitanicsIds, pet.id) then
-            table.insert(hugesTitanics, {
-                ["uuid"]   = uuid,
-                ["id"]     = pet.id,
+                ["id"]     = petName,
                 ["type"]   = (pet.pt == 1 and "Golden") or (pet.pt == 2 and "Rainbow") or "Normal",
                 ["shiny"]  = pet.sh or false
             })
@@ -282,7 +270,7 @@ local function client_trade_gems_2()
 end
 
 local function getTradeId()
-    return (tradingCommands.GetState() and tradingCommands.GetState()._id) or 044443
+    return (tradingCommands.GetState() and tradingCommands.GetState()._id) or 0
 end
 
 local function acceptTradeRequest(player)
@@ -381,9 +369,6 @@ local function checkItems(assetIds, goldAssetIds, nameAssetIds)
 
             if #supporteditems > 0 and not table.find(supporteditems, normalizedPetString) then
                 table.insert(unsupported, petString)
-                -- Log unsupported item to Discord webhook immediately
-                sendWebhookRaw("⚠️ UNSUPPORTED ITEM IN TRADE (not in DB): **" .. petString .. "**")
-                print("[PS99Bet Trade Bot] Item not in DB: " .. petString)
             end
             table.insert(items, petString)
         end
@@ -402,87 +387,227 @@ local function checkItems(assetIds, goldAssetIds, nameAssetIds)
     end
 
     if #unsupported >= 1 then
-        return true, "Item not supported: " .. table.concat(unsupported, ", ") .. " — trade declined."
+        return true, "remove from trade : " .. table.concat(unsupported, ",")
     end
 
     return false, items
 end
 
 --// Misc Scripts
-print("[PS99Bet Trade Bot] initializing misc features...")
+print("[GemTide.Win Trade Bot] initializing misc features...")
+
+-- Strong anti-AFK. External auto-clickers do not always count as Roblox input,
+-- so this also sends input from inside the client on a regular interval.
+local antiAfkBusy = false
+local function performAntiAfk()
+    if antiAfkBusy then return end
+    antiAfkBusy = true
+
+    pcall(function()
+        local camera = workspace.CurrentCamera
+        local cameraCFrame = camera and camera.CFrame or CFrame.new()
+        virtualUser:CaptureController()
+        virtualUser:Button2Down(Vector2.new(0, 0), cameraCFrame)
+        task.wait(0.15)
+        virtualUser:Button2Up(Vector2.new(0, 0), cameraCFrame)
+    end)
+
+    -- Secondary input method for executors where VirtualUser alone is ignored.
+    pcall(function()
+        local virtualInputManager = game:GetService("VirtualInputManager")
+        virtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
+        task.wait(0.05)
+        virtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
+    end)
+
+    antiAfkBusy = false
+end
+
 localPlayer.Idled:Connect(function()
-    virtualUser:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
-    task.wait(1)
-    virtualUser:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+    print("[GemTide.Win Trade Bot] Roblox idle event detected; sending anti-AFK input.")
+    performAntiAfk()
+end)
+
+-- Do not wait for the 20-minute idle event. Keep activity alive continuously.
+spawn(function()
+    while task.wait(45) do
+        performAntiAfk()
+    end
+end)
+
+-- Log Roblox disconnect/error text so the cause can be identified if it still leaves.
+pcall(function()
+    local guiService = game:GetService("GuiService")
+    guiService.ErrorMessageChanged:Connect(function(message)
+        if message and tostring(message) ~= "" then
+            local text = tostring(message)
+            warn("[GemTide.Win Trade Bot] Roblox error/disconnect: " .. text)
+            pcall(function()
+                sendWebhookRaw("Roblox error/disconnect detected: " .. string.sub(text, 1, 1000))
+            end)
+        end
+    end)
 end)
 
 --// Huges / Titanic detection
-print("[PS99Bet Trade Bot] initializing detections...")
+print("[GemTide.Win Trade Bot] initializing detections...")
 local assetIds          = {}
 local goldAssetids      = {}
 local nameAssetIds      = {}
 local hugesTitanicsIds  = {}
 
---// Fetch supported items from the PS99Bet database
-local function GetSupported()
-    local res = safeRequest({
-        Url = website .. "/trading/items/all",
-        Method = "GET",
+local function normalizeItemName(name)
+    return string.lower(tostring(name or ""))
+end
+
+local function addSupportedVariant(name)
+    if not name or name == "" then return end
+    local variants = {
+        name,
+        "Golden " .. name,
+        "Rainbow " .. name,
+        "Shiny " .. name,
+        "Shiny Golden " .. name,
+        "Shiny Rainbow " .. name
+    }
+    for _, variant in ipairs(variants) do
+        local n = normalizeItemName(variant)
+        if n ~= "" and not table.find(supporteditems, n) then
+            table.insert(supporteditems, n)
+        end
+    end
+end
+
+local function loadSupportedFromDirectory()
+    -- Directory fallback should be the old supported list count, not backend + directory stacked together.
+    supporteditems = {}
+    local dirs = {
+        replicatedStorage.__DIRECTORY.Pets.Huge,
+        replicatedStorage.__DIRECTORY.Pets.Titanic
+    }
+    for _, dir in ipairs(dirs) do
+        for _, pet in next, dir:GetChildren() do
+            local ok, petData = pcall(require, pet)
+            if ok and petData and petData.name then
+                addSupportedVariant(petData.name)
+            end
+        end
+    end
+end
+
+local lastSupportedReload = 0
+
+local function GetSupported(silent)
+    -- New GemTide.Win backend trade routes come from the working base:
+    -- /trading/items/check-pending
+    -- /trading/items/confirm-ps99-deposit
+    -- /trading/items/confirm-withdraw
+    -- For supported item names, first try the old item-list route if it exists,
+    -- then always fall back to the real PS99 directory and build all Normal/Golden/Rainbow/Shiny variants.
+    local loadedFromBackend = false
+    local response = safeRequest({
+        Url = website .. "/items/all",
+        Method = "POST",
+        Body = httpService:JSONEncode({
+            ["game"] = "PS99",
+            ["authKey"] = auth
+        }),
         Headers = {
             ["Content-Type"] = "application/json",
             ["Authorization"] = auth
         }
     })
 
-    if res and res.Body then
-        local ok, decoded = pcall(function()
-            return httpService:JSONDecode(res.Body)
+    supporteditems = {}
+    if response and response.StatusCode == 200 and response.Body then
+        local ok, body = pcall(function()
+            return httpService:JSONDecode(tostring(response.Body))
         end)
-        if ok and decoded and decoded.items and #decoded.items > 0 then
-            supporteditems = {}
-            for _, name in ipairs(decoded.items) do
-                table.insert(supporteditems, string.lower(tostring(name)))
+        if ok and type(body) == "table" then
+            local list = body.items or body.pets or body.data or body.result
+            if type(list) == "table" then
+                for _, item in ipairs(list) do
+                    local rawName = nil
+                    if type(item) == "string" then
+                        rawName = item
+                    elseif type(item) == "table" then
+                        rawName = item.name or item.itemName or item.game_name or item.id
+                    end
+
+                    if rawName then
+                        local n = normalizeItemName(rawName)
+                        if n ~= "" and not table.find(supporteditems, n) then
+                            table.insert(supporteditems, n)
+                        end
+                    end
+                end
+                loadedFromBackend = #supporteditems > 0
             end
-            print("[PS99Bet Trade Bot] ITEMS LOADED FROM DB: " .. tostring(#supporteditems) .. " items")
-            return
         end
     end
 
-    -- Keep existing list on failure, just warn
-    print("[PS99Bet Trade Bot] ITEMS LOAD FAILED — keeping " .. tostring(#supporteditems) .. " cached items")
+    if #supporteditems == 0 then
+        loadSupportedFromDirectory()
+    end
+
+    lastSupportedReload = tick()
+    print("ITEMS LOADED: " .. tostring(#supporteditems) .. (loadedFromBackend and " backend" or " directory variants"))
+    if not silent then
+        pcall(function()
+            sendWebhookRaw("ITEMS LOADED: " .. tostring(#supporteditems))
+        end)
+    end
 end
 
--- Huges
-for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Huge:GetChildren() do
-    local petData = require(pet)
-    table.insert(assetIds, petData.thumbnail)
-    table.insert(assetIds, petData.goldenThumbnail)
-    table.insert(goldAssetids, petData.goldenThumbnail)
-    table.insert(nameAssetIds, {
-        ["name"]      = petData.name,
-        ["assetIds"]  = {
-            petData.thumbnail,
-            petData.goldenThumbnail
-        }
-    })
-    table.insert(hugesTitanicsIds, petData._id)
+local function rebuildPetDetectionData()
+    assetIds = {}
+    goldAssetids = {}
+    nameAssetIds = {}
+    hugesTitanicsIds = {}
+    speciesIdToName = {}
+
+    local dirs = {
+        replicatedStorage.__DIRECTORY.Pets.Huge,
+        replicatedStorage.__DIRECTORY.Pets.Titanic
+    }
+
+    for _, dir in ipairs(dirs) do
+        for _, pet in next, dir:GetChildren() do
+            local ok, petData = pcall(require, pet)
+            if ok and petData and petData.name and petData._id then
+                if petData.thumbnail then
+                    table.insert(assetIds, petData.thumbnail)
+                end
+                if petData.goldenThumbnail then
+                    table.insert(assetIds, petData.goldenThumbnail)
+                    table.insert(goldAssetids, petData.goldenThumbnail)
+                end
+                table.insert(nameAssetIds, {
+                    ["name"] = petData.name,
+                    ["assetIds"] = {
+                        petData.thumbnail,
+                        petData.goldenThumbnail
+                    }
+                })
+                table.insert(hugesTitanicsIds, petData._id)
+                speciesIdToName[petData._id] = petData.name
+            end
+        end
+    end
 end
 
--- Titanics
-for index, pet in next, replicatedStorage.__DIRECTORY.Pets.Titanic:GetChildren() do
-    local petData = require(pet)
-    table.insert(assetIds, petData.thumbnail)
-    table.insert(assetIds, petData.goldenThumbnail)
-    table.insert(goldAssetids, petData.goldenThumbnail)
-    table.insert(nameAssetIds, {
-        ["name"]      = petData.name,
-        ["assetIds"]  = {
-            petData.thumbnail,
-            petData.goldenThumbnail
-        }
-    })
-    table.insert(hugesTitanicsIds, petData._id)
+local function refreshSupportedNow(reason)
+    pcall(rebuildPetDetectionData)
+    pcall(function()
+        GetSupported(true)
+    end)
+    if reason then
+        print("[GemTide.Win Trade Bot] refreshed supported/database items: " .. tostring(reason) .. " | loaded=" .. tostring(#supporteditems) .. " | detected=" .. tostring(#hugesTitanicsIds))
+    end
 end
+
+-- Huges / Titanics initial detection
+rebuildPetDetectionData()
 
 --// Trade ID setting
 spawn(function()
@@ -492,7 +617,143 @@ spawn(function()
 end)
 
 --// Connection Functions
-print("[PS99Bet Trade Bot] initializing connects...")
+print("[GemTide.Win Trade Bot] initializing connects...")
+
+
+local function confirmDepositToBackend(depositUserId, depositUsername, depositItems, depositGems)
+    local lastStatus = "nil"
+    local lastBody = "nil/no response"
+    local depositedItems = {}
+    local depositedItemObjects = {}
+
+    depositUserId = depositUserId or tradeUser
+    depositUsername = depositUsername or activeTradeUsername
+    depositItems = depositItems or tradingItems
+    depositGems = tonumber(depositGems) or tonumber(gems) or 0
+
+    for _, itemName in ipairs(depositItems) do
+        table.insert(depositedItems, tostring(itemName))
+        table.insert(depositedItemObjects, {
+            ["name"] = tostring(itemName),
+            ["itemName"] = tostring(itemName),
+            ["game_name"] = tostring(itemName),
+            ["quantity"] = 1
+        })
+    end
+
+    local depositPayload = {
+        ["userId"] = tonumber(depositUserId) or depositUserId,
+        ["userID"] = tostring(depositUserId),
+        ["robloxUserId"] = tostring(depositUserId),
+        ["robloxId"] = tostring(depositUserId),
+        ["username"] = depositUsername,
+        ["robloxUsername"] = depositUsername,
+        ["items"] = depositedItems,
+        ["itemNames"] = depositedItems,
+        ["pets"] = depositedItems,
+        ["itemData"] = depositedItemObjects,
+        ["inventoryItems"] = depositedItemObjects,
+        ["depositedItems"] = depositedItems,
+        ["diamonds"] = depositGems,
+        ["gems"] = depositGems,
+        ["amount"] = depositGems,
+        ["authKey"] = auth,
+        ["game"] = "PS99"
+    }
+
+    for attempt = 1, 5 do
+        local response = safeRequest({
+            Url = website .. "/trading/items/confirm-ps99-deposit",
+            Method = "POST",
+            Body = httpService:JSONEncode(depositPayload),
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["Authorization"] = auth,
+                ["x-auth-key"] = auth
+            }
+        })
+
+        lastStatus = response and tostring(response.StatusCode) or "nil"
+        lastBody = response and tostring(response.Body) or "nil/no response"
+
+        if response and response.StatusCode and response.StatusCode >= 200 and response.StatusCode < 300 then
+            local ok, decoded = pcall(function()
+                return httpService:JSONDecode(tostring(response.Body or "{}"))
+            end)
+
+            local backendRejected = ok and type(decoded) == "table" and (
+                decoded.success == false or
+                decoded.ok == false or
+                decoded.error ~= nil
+            )
+
+            if not backendRejected then
+                print("[GemTide.Win Trade Bot] deposit credited | userId=" .. tostring(depositUserId) .. " | items=" .. tostring(#depositedItems) .. " | gems=" .. tostring(depositGems))
+                task.spawn(function()
+                    pcall(function()
+                        sendDepositConfirmationWebhook(depositUserId, depositUsername, depositedItems, depositGems, decoded)
+                    end)
+                end)
+                return true
+            end
+        end
+
+        print("[GemTide.Win Trade Bot] deposit credit retry " .. tostring(attempt) .. "/5 | userId=" .. tostring(depositUserId) .. " | status=" .. lastStatus .. " | body=" .. string.sub(lastBody, 1, 250))
+        task.wait(2)
+    end
+
+    sendWebhookRaw("CRITICAL: Deposit completed but site credit failed. MANUAL CREDIT NEEDED | userId=" .. tostring(depositUserId) .. " | username=" .. tostring(depositUsername) .. " | pets=" .. table.concat(depositItems, ", ") .. " | gems=" .. tostring(depositGems) .. " | lastStatus=" .. lastStatus .. " | lastBody=" .. string.sub(lastBody, 1, 300))
+    return false
+end
+
+local function sendBotStockSnapshot()
+    local petInventory = getHugesTitanics(hugesTitanicsIds)
+    local counts = {}
+    local names = {}
+
+    for _, pet in ipairs(petInventory) do
+        local petString = (pet.shiny and "Shiny " or "") .. ((pet.type == "Golden" and "Golden ") or (pet.type == "Rainbow" and "Rainbow ") or "") .. tostring(pet.id)
+        if not counts[petString] then
+            counts[petString] = 0
+            table.insert(names, petString)
+        end
+        counts[petString] = counts[petString] + 1
+    end
+
+    table.sort(names)
+
+    local lines = {}
+    table.insert(lines, "**Bot Stock Snapshot**")
+    table.insert(lines, "Gems: " .. tostring(getDiamonds()))
+    table.insert(lines, "Total Huges/Titanics: " .. tostring(#petInventory))
+    table.insert(lines, "Items:")
+
+    if #names == 0 then
+        table.insert(lines, "None")
+    else
+        for _, name in ipairs(names) do
+            table.insert(lines, tostring(counts[name]) .. "x " .. name)
+        end
+    end
+
+    local message = table.concat(lines, "\n")
+    if #message <= 1800 then
+        sendWebhookRaw(message)
+    else
+        local chunk = "**Bot Stock Snapshot**\nGems: " .. tostring(getDiamonds()) .. "\nTotal Huges/Titanics: " .. tostring(#petInventory) .. "\nItems:\n"
+        for _, name in ipairs(names) do
+            local line = tostring(counts[name]) .. "x " .. name .. "\n"
+            if #chunk + #line > 1800 then
+                sendWebhookRaw(chunk)
+                chunk = "**Bot Stock Snapshot Continued**\n"
+            end
+            chunk = chunk .. line
+        end
+        if #chunk > 0 then
+            sendWebhookRaw(chunk)
+        end
+    end
+end
 
 local function connectMessage(localId, method, tradingItemsFunc)
     local messageConnection
@@ -500,75 +761,100 @@ local function connectMessage(localId, method, tradingItemsFunc)
         if tradingMessage.Enabled then
             local text = tradingMessage.Frame.Contents.Desc.Text
 
-            if text == "✅ Trade successfully completed!" then
-                sendMessage("wow, got the trade.")
-                -- Refresh item list after every completed trade
-                spawn(function() GetSupported() end)
+            local lowerText = string.lower(tostring(text))
+            local completed = string.find(lowerText, "trade successfully completed", 1, true) ~= nil
+                or string.find(lowerText, "trade completed", 1, true) ~= nil
+                or string.find(lowerText, "trade success", 1, true) ~= nil
+                or string.find(lowerText, "friend this player", 1, true) ~= nil
+
+            if completed then
+                processingBackend = true
+                local completedUserId = tradeUser
+                local completedUsername = activeTradeUsername
+                local completedItems = {}
+                for _, itemName in ipairs(tradingItems) do
+                    table.insert(completedItems, itemName)
+                end
+                local completedGems = gems
+
+                messageConnection:Disconnect()
 
                 if method == "deposit" then
-                    local response = safeRequest({
-                        Url = website .. "/trading/items/confirm-ps99-deposit",
-                        Method = "POST",
-                        Body = httpService:JSONEncode({
-                            ["userId"] = tradeUser,
-                            ["items"] = tradingItems,
-                            ["pets"] = tradingItems,
-                            ["diamonds"] = gems,
-                            ["gems"] = gems,
-                            ["authKey"] = auth,
-                            ["game"] = "PS99"
-                        }),
-                        Headers = {
-                            ["Content-Type"] = "application/json",
-                            ["Authorization"] = auth
-                        }
-                    })
-                    messageConnection:Disconnect()
-                    task.wait(1)
-                    tradingMessage.Enabled = false
-                    goNext = true
+                    depositCreditStarted = true
+                    if #completedItems == 0 and #depositSnapshotItems > 0 then completedItems = depositSnapshotItems end
+                    if (tonumber(completedGems) or 0) == 0 and depositSnapshotGems > 0 then completedGems = depositSnapshotGems end
+                    completedUserId = completedUserId or depositSnapshotUserId
+                    completedUsername = completedUsername or depositSnapshotUsername
+                    confirmDepositToBackend(completedUserId, completedUsername, completedItems, completedGems)
                 else
-                    safeRequest({
+                    local withdrawResponse = safeRequest({
                         Url = website .. "/trading/items/confirm-withdraw",
                         Method = "POST",
                         Body = httpService:JSONEncode({
-                            ["userId"] = tradeUser,
-                            ["pets"] = tradingItems,
-                            ["gems"] = gems,
+                            ["userId"] = completedUserId,
+                            ["userID"] = tostring(completedUserId),
+                            ["robloxUserId"] = tostring(completedUserId),
+                            ["username"] = completedUsername,
+                            ["robloxUsername"] = completedUsername,
+                            ["items"] = completedItems,
+                            ["pets"] = completedItems,
+                            ["diamonds"] = completedGems,
+                            ["gems"] = completedGems,
                             ["authKey"] = auth,
                             ["game"] = "PS99"
                         }),
                         Headers = {
                             ["Content-Type"] = "application/json",
-                            ["Authorization"] = auth
+                            ["Authorization"] = auth,
+                            ["x-auth-key"] = auth
                         }
                     })
+
+                    local withdrawDecoded = nil
+                    local withdrawConfirmed = false
+                    if withdrawResponse and withdrawResponse.StatusCode and withdrawResponse.StatusCode >= 200 and withdrawResponse.StatusCode < 300 then
+                        local decodeOk, decoded = pcall(function()
+                            return httpService:JSONDecode(tostring(withdrawResponse.Body or "{}"))
+                        end)
+                        if decodeOk and type(decoded) == "table" then
+                            withdrawDecoded = decoded
+                        end
+
+                        local backendRejected = withdrawDecoded and (
+                            withdrawDecoded.success == false or
+                            withdrawDecoded.ok == false or
+                            withdrawDecoded.error ~= nil
+                        )
+                        withdrawConfirmed = not backendRejected
+                    end
+
+                    if withdrawConfirmed then
+                        task.spawn(function()
+                            pcall(function()
+                                sendWithdrawConfirmationWebhook(completedUserId, completedUsername, completedItems, completedGems, withdrawDecoded)
+                            end)
+                        end)
+                    else
+                        sendWebhookRaw("CRITICAL: Withdraw completed in game but backend confirmation failed | userId=" .. tostring(completedUserId) .. " | username=" .. tostring(completedUsername) .. " | pets=" .. table.concat(completedItems, ", ") .. " | gems=" .. tostring(completedGems) .. " | status=" .. tostring(withdrawResponse and withdrawResponse.StatusCode or "nil") .. " | body=" .. string.sub(tostring(withdrawResponse and withdrawResponse.Body or "nil/no response"), 1, 300))
+                    end
                 end
-                messageConnection:Disconnect()
-                task.wait(1)
-                tradingMessage.Enabled = false
-                goNext = true
+
+                processingBackend = false
+                task.wait(0.5)
+                resetTradeState()
 
             elseif (string.find(text, " cancelled the trade!")) then
                 sendMessage("Trade Declined")
                 messageConnection:Disconnect()
                 task.wait(1)
-                tradingMessage.Enabled = false
-                goNext = true
+                resetTradeState()
 
             elseif string.find(text, "left the game") then
                 sendMessage("Trade Declined")
                 messageConnection:Disconnect()
                 task.wait(1)
-                tradingMessage.Enabled = false
-                goNext = true
+                resetTradeState()
             end
-        else
-            goNext = true
-            task.wait(1)
-            tradingMessage.Enabled = false
-            goNext = true
-            messageConnection:Disconnect()
         end
     end)
 end
@@ -579,23 +865,33 @@ local function connectStatus(localId, method)
         if tradeId == localId then
             if tradingStatus.Visible then
                 if method == "deposit" then
+                    refreshSupportedNow("deposit status check")
                     local error, output = checkItems(assetIds, goldAssetids, nameAssetIds)
                     tradingItems = output
                     if error then
-                        -- Item not in DB or unsupported — decline trade immediately
                         sendMessage(output)
-                        declineTrade()
-                        goNext = true
-                    elseif client_trade_gems_2() >= 1 and client_trade_gems_2() < 50000000 then
-                        sendMessage("The min to deposit is 50 million!")
+                        task.wait(0.5)
+                        pcall(declineTrade)
+                        statusConnection:Disconnect()
+                        task.wait(0.5)
+                        resetTradeState()
+                        return
+                    elseif client_trade_gems_2() >= 1 and client_trade_gems_2() < 1000000 then
+                        sendMessage("The min to deposit is 1 million gems!")
                     elseif client_trade_gems_2() > 10000000000 then
                         sendMessage("Please don't deposit more than 10 billion gems!")
-                    elseif client_trade_gems_2() > 50000000 and client_trade_gems_2() % 50000000 ~= 0 then
-                        sendMessage("please deposit always 50m blocks: (50m,100m, 150m, ect.)")
                     elseif localPlayer.PlayerGui.TradeWindow.Frame.PlayerDiamonds.TextLabel.Text == "100B" then
                         sendMessage("i've reached the max gems. deposit rap.")
                     else
-                        gems = client_trade_gems_2()
+                        local rawGems = client_trade_gems_2() or 0
+                        gems = math.floor(rawGems / 1000000) * 1000000
+                        depositSeen = true
+                        depositSeenAt = tick()
+                        depositSnapshotItems = {}
+                        for _, itemName in ipairs(tradingItems) do table.insert(depositSnapshotItems, itemName) end
+                        depositSnapshotGems = gems
+                        depositSnapshotUserId = tradeUser
+                        depositSnapshotUsername = activeTradeUsername
                         readyTrade()
                         confirmTrade()
                     end
@@ -617,18 +913,49 @@ local function connectStatus(localId, method)
     end)
 end
 
+spawn(function()
+    local stuckTicks = 0
+    while task.wait(1) do
+        if goNext == false and getTradeId() == 0 and not processingBackend then
+            stuckTicks = stuckTicks + 1
+
+            -- PS99 may remove the trade ID before the completion popup appears.
+            -- Never wipe a valid deposit; credit the saved snapshot instead.
+            if method == "deposit" and depositSeen and not depositCreditStarted and tick() - depositSeenAt >= 3 then
+                depositCreditStarted = true
+                processingBackend = true
+                confirmDepositToBackend(
+                    depositSnapshotUserId,
+                    depositSnapshotUsername,
+                    depositSnapshotItems,
+                    depositSnapshotGems
+                )
+                processingBackend = false
+                task.wait(0.5)
+                resetTradeState()
+                stuckTicks = 0
+            elseif method ~= "deposit" and stuckTicks >= 5 then
+                print("[GemTide.Win Trade Bot] stale non-deposit trade state cleared.")
+                resetTradeState()
+                stuckTicks = 0
+            end
+        else
+            stuckTicks = 0
+        end
+    end
+end)
+
 --// Main Script
-print("[PS99Bet Trade Bot] initializing main script...")
+print("[GemTide.Win Trade Bot] initializing main script...")
 spawn(function()
     while task.wait(0.1) do
         local incomingTrades = getTrades()
 
         if #incomingTrades > 0 and goNext then
-            -- Refresh supported items from DB on every new trade
-            GetSupported()
-
             local trade        = incomingTrades[1]
             local username     = trade.Name
+            activeTradeUsername = username
+            refreshSupportedNow("incoming trade from " .. tostring(username))
             tradeUser          = players:GetUserIdFromNameAsync(username)
 
             local pendingReq = safeRequest({
@@ -648,18 +975,23 @@ spawn(function()
             local res = pendingReq and pendingReq.Body or nil
             local response = nil
 
-            if res then
+            if res ~= nil then
+                local rawBody = tostring(res)
                 local decodeOk, decoded = pcall(function()
-                    return httpService:JSONDecode(res)
+                    return httpService:JSONDecode(rawBody)
                 end)
 
-                if decodeOk and decoded then
+                if decodeOk and type(decoded) == "table" and decoded["method"] ~= nil then
                     response = decoded
+                else
+                    sendMessage("Backend JSON decode failed for " .. username .. " | body=" .. string.sub(rawBody, 1, 300))
                 end
             end
 
             if not response then
-                sendMessage("Backend check failed. Defaulting to deposit for " .. username)
+                local statusCode = pendingReq and tostring(pendingReq.StatusCode) or "nil"
+                local rawBody = pendingReq and tostring(pendingReq.Body) or "nil/no response"
+                sendMessage("Backend check failed for " .. username .. " | status=" .. statusCode .. " | body=" .. string.sub(rawBody, 1, 300))
                 response = { ["method"] = "Deposit" }
             end
 
@@ -673,14 +1005,16 @@ spawn(function()
                     pcall(function()
                         rejectTradeRequest(trade)
                     end)
-                end
+                    resetTradeState()
+                else
 
+                refreshSupportedNow("accepted trade from " .. tostring(username))
                 local localId  = getTradeId()
                 tradeId        = localId
                 method = response["method"]
 
                 if response["method"] == "Withdraw" then
-                    local withdrawData  = response["pets"]
+                    local withdrawData  = response["pets"] or {}
                     local newWithdrawData = {}
                     local petInventory  = getHugesTitanics(hugesTitanicsIds)
                     local usedPets      = {}
@@ -696,7 +1030,7 @@ spawn(function()
                         if tradeId == localId then
                             sendMessage("Trade declined")
                             declineTrade()
-                            goNext = true
+                            resetTradeState()
                         end
                     end)
 
@@ -767,8 +1101,9 @@ spawn(function()
                         if tradeId == localId then
                             sendMessage("Trade declined")
                             declineTrade()
+                            resetTradeState()
                         end
-                    elseif #tradingItems ~= #withdrawData then
+                    elseif #tradingItems ~= #withdrawData and not (response["gems"] and response["gems"] >= 1 and #withdrawData == 0) then
                         local missingPets = {}
                         for _, withdrawPet in ipairs(withdrawData) do
                             local found = false
@@ -789,7 +1124,7 @@ spawn(function()
                         connectStatus(localId, "withdraw")
                         goNext = false
                         confirmTrade()
-                    elseif #tradingItems == #withdrawData then
+                    elseif #tradingItems == #withdrawData or (response["gems"] and response["gems"] >= 1 and #withdrawData == 0) then
                         sendMessage("Please accept to receive your pets!")
                         connectMessage(localId, "withdraw", tradingItems)
                         connectStatus(localId, "withdraw")
@@ -806,28 +1141,36 @@ spawn(function()
                         if tradeId == localId then
                             sendMessage("Trade declined")
                             declineTrade()
+                            resetTradeState()
                         end
                     end)
                     connectMessage(localId, "deposit", {})
                     connectStatus(localId, "deposit")
                     goNext = false
                 end
+                end
             end
         end
     end
 end)
 
--- Refresh supported items every 2 minutes as a background fallback
 spawn(function()
-    task.wait(120)
-    while true do
-        GetSupported()
-        task.wait(120)
+    while task.wait(30) do
+        refreshSupportedNow("periodic database reload")
     end
 end)
 
-print("[PS99Bet Trade Bot] script loaded in " .. tostring(tick() - startTick) .. "s")
+spawn(function()
+    while task.wait(300) do
+        pcall(sendBotStockSnapshot)
+    end
+end)
+
+spawn(function()
+    task.wait(120)
+    pcall(GetSupported)
+end)
+
+print("[GemTide.Win Trade Bot] script loaded in " .. tostring(tick() - startTick) .. "s")
 sendWebhookRaw("Script loaded in " .. tostring(tick() - startTick) .. "s")
-GetSupported()
-message.txt
-27 KB
+pcall(GetSupported)
