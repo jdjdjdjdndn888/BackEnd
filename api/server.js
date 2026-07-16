@@ -49,10 +49,11 @@ const io = new Server(server, {
 });
 
 app.set("io", io);
-// Behind exactly one reverse proxy in production (Render/Vercel rewrite),
-// so req.ip reflects the real client IP for rate limiting — required for
+// Behind two reverse proxies in production (Cloudflare → Render), so
+// req.ip reflects the real client IP for rate limiting — required for
 // express-rate-limit / express-slow-down to key on the right address.
-app.set("trust proxy", 1);
+// If Cloudflare is ever removed, drop this back to 1.
+app.set("trust proxy", 2);
 
 // Blocklist first — reject known-bad IPs before spending any more work on them.
 app.use(ipBlocklist);
