@@ -46,7 +46,23 @@ app.set("trust proxy", 1);
 app.use(ipBlocklist);
 
 // Security headers (hides framework fingerprint, sets HSTS, disables sniffing, etc.)
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  // X-XSS-Protection: tell older browsers to block reflected XSS
+  xXssProtection: true,
+  // Content-Security-Policy: API-only service — no HTML served, so lock it down tight
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'none'"],
+      scriptSrc:   ["'none'"],
+      styleSrc:    ["'none'"],
+      imgSrc:      ["'none'"],
+      connectSrc:  ["'self'"],
+      frameAncestors: ["'none'"],
+      formAction:  ["'none'"],
+    },
+  },
+}));
 
 app.use(cors(corsOptions));
 
