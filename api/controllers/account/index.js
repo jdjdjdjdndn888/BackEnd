@@ -688,13 +688,17 @@ exports.unlinkdiscord = asyncHandler(async (req, res) => {
 
 exports.getleaderboard = asyncHandler(async (req, res) => {
   try {
-    const leaders = await users.find({}).sort({ wager: -1 }).limit(10);
-    res.status(200).json({ "message": "OK", "leaders": leaders })
+    const leaders = await users
+      .find({})
+      .sort({ wager: -1 })
+      .limit(10)
+      .select("userid username thumbnail displayname rank level xp wager won lost -_id")
+      .lean();
+    res.status(200).json({ message: "OK", leaders });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error" });
   }
-  catch (error) {
-    return res.status(500).json({ "message": "Internal Server Error"});
-  }
-})
+});
 
 // ── Universal user lookup ──────────────────────────────────────────────────────
 // Accepts: ?userid=, ?username=, ?discordid=, ?discordusername=
