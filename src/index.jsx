@@ -37,7 +37,7 @@ import CasesPage    from "../components/cases/layout.jsx";
 // a 200 handshake response instead of a 101 upgrade, and the WebSocket
 // connection fails. Connect straight to the backend host instead.
 const BACKEND_URL =
-  import.meta.env.VITE_SOCKET_URL || "https://ps99bet-backend.onrender.com";
+  import.meta.env.VITE_SOCKET_URL || "https://api.gemtide.win";
 
 const socket = io(BACKEND_URL, {
   path: "/socket.io",

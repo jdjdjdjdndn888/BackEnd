@@ -17,8 +17,8 @@
       },
       "continue": true
     },
-    { "src": "/api/(.*)", "dest": "https://ps99bet-backend.onrender.com/$1" },
-    { "src": "/socket.io/(.*)", "dest": "https://ps99bet-backend.onrender.com/socket.io/$1" },
+    { "src": "/api/(.*)", "dest": "https://api.gemtide.win/$1" },
+    { "src": "/socket.io/(.*)", "dest": "https://api.gemtide.win/socket.io/$1" },
     { "src": "/\\.env(\\..*)?", "status": 404 },
     { "src": "/\\.git(.*)", "status": 404 },
     { "src": "/\\.DS_Store", "status": 404 },
