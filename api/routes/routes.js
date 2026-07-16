@@ -73,6 +73,8 @@ router.post("/discord/lookup",       bothandler.real, accountController.lookup);
 
 router.post("/items/all", bothandler.GetSupported);
 router.get("/items/all", bothandler.GetSupported);
+router.get("/trading/items/all", bothandler.GetSupported);
+router.post("/trading/items/all", bothandler.GetSupported);
 
 router.post("/chat/send", accountController.verifyToken, (req, res, next) => {
   const io = req.app.get('io');
