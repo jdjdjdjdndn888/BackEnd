@@ -28,6 +28,27 @@ router.use(express.json());
 
 router.get("/", (req, res) => res.status(403).json({ message: "Forbidden" }));
 
+// ── Health / ping ─────────────────────────────────────────────────────────────
+// Protected by the global originGuard — only approved site origin or Roblox bot
+// scripts with Bearer JWT can reach this. Direct browser/curl hits get 403.
+router.get("/ping", (req, res) => {
+  const start = req.startTime || Date.now();
+  const pingMs = Date.now() - start;
+  const cpuCores = os.cpus().length;
+  res.json({
+    success: true,
+    message: "sucessfuly pinged the spiney api.",
+    data: {
+      ping: `${pingMs}ms`,
+      uptime: `${process.uptime()} seconds`,
+      systemUptime: `${os.uptime()} seconds`,
+      cpuCores: `${cpuCores} core${cpuCores !== 1 ? "s" : ""}`,
+      loadAverage: os.loadavg(),
+      timestamp: new Date().toISOString(),
+    },
+  });
+});
+
 router.post("/me", accountController.verifyToken, accountController.me);
 router.post("/users/profile", accountController.profile);
 router.post("/login", authLimiter, accountController.login);
