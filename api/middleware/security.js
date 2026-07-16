@@ -74,8 +74,10 @@ function originGuard(req, res, next) {
 
 const corsOptions = {
   origin(origin, callback) {
-    if (isAllowedOrigin(origin)) return callback(null, true);
-    callback(new Error("Not allowed by CORS"));
+    // Pass false (not an Error) for disallowed origins so Express doesn't
+    // convert it into a 500. The originGuard middleware that runs after CORS
+    // will return a clean 403 for anything that shouldn't be here.
+    callback(null, isAllowedOrigin(origin));
   },
   credentials: true,
 };
