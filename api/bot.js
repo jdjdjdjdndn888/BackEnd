@@ -39,6 +39,15 @@ const users = mongoose.model("users", new Schema({
   won:             { type: Number, default: 0 },
   lost:            { type: Number, default: 0 },
   level:           { type: Number, default: 0 },
+  banned:          { type: Boolean, default: false },
+}));
+
+const items = mongoose.model("items", new Schema({
+  itemid:    Number,
+  itemname:  String,
+  itemvalue: Number,
+  itemimage: String,
+  game:      String,
 }));
 
 const bots = mongoose.model("bots", new Schema({
@@ -194,6 +203,8 @@ const client = new Client({
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const escapeRegex = (s) => { let r=''; for(const c of String(s)) r+=/[.*+?^${}()|[\\\]\\]/.test(c)?'\\'+c:c; return r; };
 
 function isOwner(interaction) {
   if (OWNER_DISCORD_ID && interaction.user.id === OWNER_DISCORD_ID) return true;
@@ -383,6 +394,62 @@ client.once("clientReady", async () => {
         .addSubcommand((s) => s.setName("cancelwithdraws").setDescription("Enable or disable cancel-withdraws site-wide")
           .addStringOption((o) => o.setName("action").setDescription("enable or disable").setRequired(true)
             .addChoices({ name: "enable", value: "enable" }, { name: "disable", value: "disable" }))),
+
+      // ── User commands ───────────────────────────────────────────────────
+      new SlashCommandBuilder()
+        .setName("link").setDescription("Link your Discord account to your GemTide site account"),
+
+      new SlashCommandBuilder()
+        .setName("unlink").setDescription("Unlink your Discord account from GemTide"),
+
+      new SlashCommandBuilder()
+        .setName("inventory").setDescription("View your GemTide inventory")
+        .addIntegerOption((o) => o.setName("page").setDescription("Page number (default 1)").setMinValue(1)),
+
+      new SlashCommandBuilder()
+        .setName("help").setDescription("View all available GemTide bot commands"),
+
+      new SlashCommandBuilder()
+        .setName("ping").setDescription("Check the bot's response time"),
+
+      // ── Admin / owner commands ──────────────────────────────────────────
+      new SlashCommandBuilder()
+        .setName("ban").setDescription("Owner only — ban a user from the site")
+        .addUserOption((o) => o.setName("user").setDescription("Discord user to ban").setRequired(true))
+        .addStringOption((o) => o.setName("reason").setDescription("Ban reason (optional)")),
+
+      new SlashCommandBuilder()
+        .setName("unban").setDescription("Owner only — unban a site user")
+        .addUserOption((o) => o.setName("user").setDescription("Discord user to unban").setRequired(true)),
+
+      new SlashCommandBuilder()
+        .setName("addbalance").setDescription("Owner only — add or subtract balance from a user")
+        .addStringOption((o) => o.setName("roblox_id").setDescription("Roblox user ID").setRequired(true))
+        .addIntegerOption((o) => o.setName("amount").setDescription("Amount to add (negative to subtract)").setRequired(true)),
+
+      new SlashCommandBuilder()
+        .setName("setbalance").setDescription("Owner only — set a user's balance to an exact amount")
+        .addStringOption((o) => o.setName("roblox_id").setDescription("Roblox user ID").setRequired(true))
+        .addIntegerOption((o) => o.setName("amount").setDescription("New balance (0 or higher)").setRequired(true).setMinValue(0)),
+
+      new SlashCommandBuilder()
+        .setName("give").setDescription("Owner only — give an item to a user's inventory")
+        .addStringOption((o) => o.setName("roblox_id").setDescription("Roblox user ID").setRequired(true))
+        .addStringOption((o) => o.setName("item_name").setDescription("Item name exactly as in the database").setRequired(true))
+        .addIntegerOption((o) => o.setName("quantity").setDescription("Quantity (default 1)").setMinValue(1)),
+
+      new SlashCommandBuilder()
+        .setName("userinfo").setDescription("Owner only — view full account info for a linked user")
+        .addUserOption((o) => o.setName("user").setDescription("Discord user to look up").setRequired(true)),
+
+      new SlashCommandBuilder()
+        .setName("clearwithdrawals").setDescription("Owner only — clear all pending withdrawals for a user")
+        .addUserOption((o) => o.setName("user").setDescription("Discord user").setRequired(true)),
+
+      new SlashCommandBuilder()
+        .setName("announce").setDescription("Owner only — send an announcement embed to a channel")
+        .addStringOption((o) => o.setName("message").setDescription("Announcement text").setRequired(true))
+        .addChannelOption((o) => o.setName("channel").setDescription("Channel to post in (defaults to current)")),
     ].map((c) => c.toJSON());
   } catch (e) {
     console.error("Failed to build commands:", e.message);
@@ -668,6 +735,317 @@ client.on("interactionCreate", async (interaction) => {
     logger.logEvent({ type: "⚙️ Tipping Changed", color: settings.tippingLocked ? 0xff6b6b : 0x4ade80,
       description: `**${interaction.user.username}** ${settings.tippingLocked ? "locked" : "unlocked"} tipping.` });
     await interaction.editReply(`Tipping is now **${settings.tippingLocked ? "🔒 Locked" : "🔓 Unlocked"}**.`);
+
+  // /link
+  } else if (commandName === "link") {
+    const already = await users.findOne({ discordid: interaction.user.id }).catch(() => null);
+    if (already) {
+      return interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0x4ade80).setTitle("✅ Already Linked")
+        .setDescription(`Your Discord is already linked to **${already.username}** on GemTide.\nUse \`/unlink\` to disconnect.`)
+        .setFooter({ text: "GemTide" }))] });
+    }
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setLabel("Link on GemTide").setEmoji("🔗").setStyle(ButtonStyle.Link).setURL(`${SITE_URL}/profile`),
+    );
+    await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+      .setColor(0x8b5cf6).setTitle("🔗 Link Your Discord Account")
+      .setDescription(
+        "To link your Discord account to GemTide:\n\n" +
+        "**1.** Log in to [GemTide.Win](" + SITE_URL + ") with Roblox\n" +
+        "**2.** Click your avatar → **Profile**\n" +
+        "**3.** Click **Link Discord** and authorise\n\n" +
+        "Once linked, all bot commands like `/balance`, `/withdraws`, and `/inventory` will work."
+      )
+      .setFooter({ text: "GemTide" })
+    )], components: [row] });
+
+  // /unlink
+  } else if (commandName === "unlink") {
+    try {
+      const user = await users.findOne({ discordid: interaction.user.id });
+      if (!user) return interaction.editReply("❌ Your Discord isn't linked to any GemTide account.");
+      await users.updateOne({ discordid: interaction.user.id }, { $set: { discordid: "", discordusername: "" } });
+      logger.logEvent({ type: "🔓 Discord Unlinked", color: 0xfbbf24,
+        description: `**${user.username}** unlinked their Discord account.`,
+        fields: [{ name: "Discord", value: `@${interaction.user.username} (${interaction.user.id})`, inline: true },
+                 { name: "Roblox ID", value: String(user.userid), inline: true }],
+        thumbnail: user.thumbnail });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0xfbbf24).setTitle("🔓 Discord Unlinked")
+        .setDescription(`Your Discord has been unlinked from **${user.username}**.\nYou can re-link at any time with \`/link\`.`)
+        .setFooter({ text: "GemTide" }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /inventory
+  } else if (commandName === "inventory") {
+    try {
+      const user = await users.findOne({ discordid: interaction.user.id });
+      if (!user) return interaction.editReply("Link your Discord on GemTide first — use `/link` for instructions.");
+      const perPage = 10;
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const total = await inventorys.countDocuments({ owner: user.userid, locked: false });
+      if (!total) return interaction.editReply("🎒 Your inventory is empty.");
+      const totalPages = Math.ceil(total / perPage);
+      const rawItems = await inventorys.find({ owner: user.userid, locked: false })
+        .skip((page - 1) * perPage).limit(perPage).lean();
+      const itemIds = rawItems.map((i) => Number(i.itemid)).filter(Boolean);
+      const itemDocs = itemIds.length ? await items.find({ itemid: { $in: itemIds } }).lean() : [];
+      const itemMap = {};
+      itemDocs.forEach((d) => { itemMap[d.itemid] = d; });
+      const lines = rawItems.map((inv) => {
+        const doc = itemMap[Number(inv.itemid)];
+        return doc ? `• **${doc.itemname}** — R${(doc.itemvalue || 0).toLocaleString()}` : `• Item \`${inv.itemid}\``;
+      });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0x8b5cf6).setTitle(`🎒 ${user.username}'s Inventory`)
+        .setDescription(lines.join("\n"))
+        .addFields({ name: "Total Items", value: String(total), inline: true },
+                   { name: "Page", value: `${page} / ${totalPages}`, inline: true })
+        .setThumbnail(user.thumbnail || null)
+        .setFooter({ text: `GemTide • Page ${page}/${totalPages}` }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /ping
+  } else if (commandName === "ping") {
+    const sent = Date.now();
+    const ws = client.ws.ping;
+    await interaction.editReply({ embeds: [new EmbedBuilder()
+      .setColor(0x8b5cf6).setTitle("🏓 Pong!")
+      .addFields(
+        { name: "⚡ Roundtrip", value: `${Date.now() - sent}ms`, inline: true },
+        { name: "💓 WebSocket", value: `${ws}ms`, inline: true }
+      ).setFooter({ text: "GemTide" })] });
+
+  // /help
+  } else if (commandName === "help") {
+    await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+      .setColor(0x8b5cf6).setTitle("📖 GemTide Bot Commands")
+      .addFields(
+        { name: "👤 Account", value:
+          "`/link` — Link your Discord to GemTide\n" +
+          "`/unlink` — Unlink your Discord\n" +
+          "`/balance` — Your balance & stats\n" +
+          "`/profile @user` — View any linked user's profile\n" +
+          "`/inventory [page]` — Browse your inventory\n" +
+          "`/profit` — Your total profit/loss\n" +
+          "`/withdraws` — Pending withdrawals\n" +
+          "`/cancelallwithdraws` — Return withdrawals to inventory", inline: false },
+        { name: "🏆 Social", value:
+          "`/leaderboard` — Top 10 wagerers\n" +
+          "`/deposit` — Active deposit bots\n" +
+          "`/ping` — Bot latency", inline: false },
+        { name: "🎉 Giveaways", value:
+          "`/giveaway start` — Start a giveaway *(admin)*\n" +
+          "`/giveaway end` — End a giveaway early *(admin)*\n" +
+          "`/giveaway reroll` — Reroll winner *(admin)*", inline: false },
+        { name: "🔧 Admin", value:
+          "`/ban @user` `/unban @user` — Site ban management\n" +
+          "`/addbalance` `/setbalance` — Adjust balance\n" +
+          "`/give` — Give item to user\n" +
+          "`/userinfo @user` — Full account lookup\n" +
+          "`/clearwithdrawals @user` — Wipe pending withdrawals\n" +
+          "`/create` — Register a deposit bot\n" +
+          "`/toggle` — Enable/disable/delete bots\n" +
+          "`/listalllinked` — All linked accounts\n" +
+          "`/locktipping` — Lock/unlock tipping\n" +
+          "`/announce` — Send an announcement", inline: false }
+      ).setFooter({ text: "GemTide • Use /link to get started" }))] });
+
+  // /ban
+  } else if (commandName === "ban") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const target = interaction.options.getUser("user");
+      const reason = interaction.options.getString("reason") || "No reason provided";
+      const user = await users.findOne({ discordid: target.id });
+      if (!user) return interaction.editReply(`❌ No linked GemTide account found for **${target.username}**.`);
+      if (user.banned) return interaction.editReply(`⚠️ **${user.username}** is already banned.`);
+      await users.updateOne({ _id: user._id }, { $set: { banned: true } });
+      logger.logEvent({ type: "🔨 User Banned", color: 0xff0000,
+        description: `**${user.username}** was banned from GemTide.`,
+        fields: [{ name: "Discord", value: `<@${target.id}>`, inline: true },
+                 { name: "Roblox ID", value: String(user.userid), inline: true },
+                 { name: "Reason", value: reason, inline: false },
+                 { name: "By", value: interaction.user.username, inline: true }],
+        thumbnail: user.thumbnail });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0xff0000).setTitle("🔨 User Banned")
+        .addFields({ name: "User", value: `${user.username} (<@${target.id}>)`, inline: true },
+                   { name: "Roblox ID", value: String(user.userid), inline: true },
+                   { name: "Reason", value: reason, inline: false })
+        .setThumbnail(user.thumbnail || null).setFooter({ text: "GemTide" }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /unban
+  } else if (commandName === "unban") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const target = interaction.options.getUser("user");
+      const user = await users.findOne({ discordid: target.id });
+      if (!user) return interaction.editReply(`❌ No linked GemTide account found for **${target.username}**.`);
+      if (!user.banned) return interaction.editReply(`⚠️ **${user.username}** is not currently banned.`);
+      await users.updateOne({ _id: user._id }, { $set: { banned: false } });
+      logger.logEvent({ type: "✅ User Unbanned", color: 0x4ade80,
+        description: `**${user.username}** was unbanned from GemTide.`,
+        fields: [{ name: "Discord", value: `<@${target.id}>`, inline: true },
+                 { name: "Roblox ID", value: String(user.userid), inline: true },
+                 { name: "By", value: interaction.user.username, inline: true }],
+        thumbnail: user.thumbnail });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0x4ade80).setTitle("✅ User Unbanned")
+        .addFields({ name: "User", value: `${user.username} (<@${target.id}>)`, inline: true },
+                   { name: "Roblox ID", value: String(user.userid), inline: true })
+        .setThumbnail(user.thumbnail || null).setFooter({ text: "GemTide" }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /addbalance
+  } else if (commandName === "addbalance") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const robloxId = Number(interaction.options.getString("roblox_id"));
+      const amount   = interaction.options.getInteger("amount");
+      if (!robloxId || isNaN(robloxId)) return interaction.editReply("❌ Invalid Roblox ID.");
+      const user = await users.findOne({ userid: robloxId });
+      if (!user) return interaction.editReply(`❌ No GemTide account found for Roblox ID **${robloxId}**.`);
+      const newBalance = Math.max(0, (user.balance || 0) + amount);
+      await users.updateOne({ userid: robloxId }, { $set: { balance: newBalance } });
+      logger.logEvent({ type: amount >= 0 ? "💸 Balance Added" : "💸 Balance Removed", color: amount >= 0 ? 0x4ade80 : 0xff6b6b,
+        description: `**${user.username}** balance ${amount >= 0 ? "increased" : "decreased"} by **R${Math.abs(amount).toLocaleString()}**.`,
+        fields: [{ name: "Old Balance", value: `R${(user.balance || 0).toLocaleString()}`, inline: true },
+                 { name: "New Balance", value: `R${newBalance.toLocaleString()}`, inline: true },
+                 { name: "By", value: interaction.user.username, inline: true }],
+        thumbnail: user.thumbnail });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(amount >= 0 ? 0x4ade80 : 0xff6b6b)
+        .setTitle(amount >= 0 ? "💸 Balance Added" : "💸 Balance Removed")
+        .addFields({ name: "User", value: user.username, inline: true },
+                   { name: "Change", value: `${amount >= 0 ? "+" : ""}${amount.toLocaleString()}`, inline: true },
+                   { name: "Old Balance", value: `R${(user.balance || 0).toLocaleString()}`, inline: true },
+                   { name: "New Balance", value: `R${newBalance.toLocaleString()}`, inline: true })
+        .setThumbnail(user.thumbnail || null).setFooter({ text: "GemTide" }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /setbalance
+  } else if (commandName === "setbalance") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const robloxId  = Number(interaction.options.getString("roblox_id"));
+      const newAmount = interaction.options.getInteger("amount");
+      if (!robloxId || isNaN(robloxId)) return interaction.editReply("❌ Invalid Roblox ID.");
+      const user = await users.findOne({ userid: robloxId });
+      if (!user) return interaction.editReply(`❌ No GemTide account found for Roblox ID **${robloxId}**.`);
+      const oldBalance = user.balance || 0;
+      await users.updateOne({ userid: robloxId }, { $set: { balance: newAmount } });
+      logger.logEvent({ type: "⚙️ Balance Set", color: 0x8b5cf6,
+        description: `**${user.username}** balance set to **R${newAmount.toLocaleString()}**.`,
+        fields: [{ name: "Old Balance", value: `R${oldBalance.toLocaleString()}`, inline: true },
+                 { name: "New Balance", value: `R${newAmount.toLocaleString()}`, inline: true },
+                 { name: "By", value: interaction.user.username, inline: true }],
+        thumbnail: user.thumbnail });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0x8b5cf6).setTitle("⚙️ Balance Set")
+        .addFields({ name: "User", value: user.username, inline: true },
+                   { name: "Old Balance", value: `R${oldBalance.toLocaleString()}`, inline: true },
+                   { name: "New Balance", value: `R${newAmount.toLocaleString()}`, inline: true })
+        .setThumbnail(user.thumbnail || null).setFooter({ text: "GemTide" }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /give
+  } else if (commandName === "give") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const robloxId = Number(interaction.options.getString("roblox_id"));
+      const itemName = interaction.options.getString("item_name");
+      const qty      = interaction.options.getInteger("quantity") || 1;
+      if (!robloxId || isNaN(robloxId)) return interaction.editReply("❌ Invalid Roblox ID.");
+      const user = await users.findOne({ userid: robloxId });
+      if (!user) return interaction.editReply(`❌ No GemTide account found for Roblox ID **${robloxId}**.`);
+      const item = await items.findOne({ itemname: { $regex: new RegExp("^" + escapeRegex(itemName) + "$", "i") } });
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not found in database. Check spelling exactly.`);
+      const toInsert = Array.from({ length: qty }, () => ({ itemid: item.itemid, owner: robloxId, locked: false }));
+      await inventorys.insertMany(toInsert);
+      logger.logEvent({ type: "🎁 Item Given", color: 0x4ade80,
+        description: `**${user.username}** received **${qty}x ${item.itemname}**.`,
+        fields: [{ name: "Item", value: item.itemname, inline: true },
+                 { name: "Qty", value: String(qty), inline: true },
+                 { name: "Value Each", value: `R${(item.itemvalue || 0).toLocaleString()}`, inline: true },
+                 { name: "By", value: interaction.user.username, inline: true }],
+        thumbnail: user.thumbnail });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0x4ade80).setTitle("🎁 Item Given")
+        .addFields({ name: "User", value: user.username, inline: true },
+                   { name: "Item", value: item.itemname, inline: true },
+                   { name: "Quantity", value: String(qty), inline: true },
+                   { name: "Total Value", value: `R${((item.itemvalue || 0) * qty).toLocaleString()}`, inline: true })
+        .setThumbnail(user.thumbnail || null).setFooter({ text: "GemTide" }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /userinfo
+  } else if (commandName === "userinfo") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const target = interaction.options.getUser("user");
+      const user = await users.findOne({ discordid: target.id });
+      if (!user) return interaction.editReply(`❌ No linked GemTide account found for **${target.username}**.`);
+      const pendingWithdraws = await withdraws.countDocuments({ userid: user.userid });
+      const inventoryCount  = await inventorys.countDocuments({ owner: user.userid, locked: false });
+      const profit = (user.won || 0) - (user.lost || 0);
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(user.banned ? 0xff0000 : 0x8b5cf6)
+        .setTitle(`🔍 ${user.username}${user.banned ? " 🔨 [BANNED]" : ""}`)
+        .setThumbnail(user.thumbnail || null)
+        .addFields(
+          { name: "Roblox ID",    value: String(user.userid), inline: true },
+          { name: "Discord",      value: `<@${target.id}>`, inline: true },
+          { name: "Level",        value: String(user.level || 0), inline: true },
+          { name: "💰 Balance",   value: `R${(user.balance || 0).toLocaleString()}`, inline: true },
+          { name: "📈 Wagered",   value: `R${(user.wager || 0).toLocaleString()}`, inline: true },
+          { name: "📊 Profit",    value: `R${profit.toLocaleString()}`, inline: true },
+          { name: "✅ Won",       value: `R${(user.won || 0).toLocaleString()}`, inline: true },
+          { name: "❌ Lost",      value: `R${(user.lost || 0).toLocaleString()}`, inline: true },
+          { name: "🎒 Inventory", value: String(inventoryCount), inline: true },
+          { name: "📤 Pending Withdrawals", value: String(pendingWithdraws), inline: true },
+          { name: "Status",       value: user.banned ? "🔨 Banned" : "✅ Active", inline: true }
+        ).setFooter({ text: "GemTide Admin" }).setTimestamp())] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /clearwithdrawals
+  } else if (commandName === "clearwithdrawals") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const target = interaction.options.getUser("user");
+      const user = await users.findOne({ discordid: target.id });
+      if (!user) return interaction.editReply(`❌ No linked GemTide account found for **${target.username}**.`);
+      const count = await withdraws.countDocuments({ userid: user.userid });
+      if (!count) return interaction.editReply(`✅ **${user.username}** has no pending withdrawals.`);
+      await withdraws.deleteMany({ userid: user.userid });
+      logger.logEvent({ type: "🗑️ Withdrawals Cleared (Admin)", color: 0xff6b6b,
+        description: `**${interaction.user.username}** cleared **${count}** withdrawal${count !== 1 ? "s" : ""} for **${user.username}**.`,
+        fields: [{ name: "User", value: user.username, inline: true },
+                 { name: "Items Removed", value: String(count), inline: true }],
+        thumbnail: user.thumbnail });
+      await interaction.editReply({ embeds: [applyBanner(new EmbedBuilder()
+        .setColor(0xfbbf24).setTitle("🗑️ Withdrawals Cleared")
+        .addFields({ name: "User", value: `${user.username} (<@${target.id}>)`, inline: true },
+                   { name: "Items Removed", value: String(count), inline: true })
+        .setFooter({ text: "GemTide Admin" }))] });
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong."); }
+
+  // /announce
+  } else if (commandName === "announce") {
+    if (!isOwner(interaction)) return interaction.editReply("❌ You don't have permission.");
+    try {
+      const message = interaction.options.getString("message");
+      const targetChannel = interaction.options.getChannel("channel") || interaction.channel;
+      const embed = applyBanner(new EmbedBuilder()
+        .setColor(0x8b5cf6).setTitle("📢 GemTide Announcement")
+        .setDescription(message)
+        .setFooter({ text: `Announced by ${interaction.user.username} • GemTide` })
+        .setTimestamp());
+      await targetChannel.send({ embeds: [embed] });
+      await interaction.editReply(`✅ Announcement sent to ${targetChannel.toString()}.`);
+    } catch (e) { console.error(e); await interaction.editReply("Something went wrong sending the announcement."); }
   }
 });
 
