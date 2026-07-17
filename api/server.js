@@ -92,6 +92,15 @@ app.use(originGuard);
 // Cap request body size so someone can't DoS the process with huge payloads.
 app.use(express.json({ limit: "256kb" }));
 
+// Collapse double (or triple) leading slashes in the path so bot scripts that
+// concatenate a trailing-slash base URL with a leading-slash route segment
+// (e.g. "https://api.gemtide.win/" + "/trading/items/check-pending") still
+// match the registered routes correctly.
+app.use((req, _res, next) => {
+  req.url = req.url.replace(/\/\/+/g, '/');
+  next();
+});
+
 app.use((req, _res, next) => {
   req.startTime = Date.now();
   next();

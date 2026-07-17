@@ -105,7 +105,7 @@ router.post("/deposit/deposit", bothandler.real, bothandler.Deposit);
 
 router.post("/trading/items/check-pending", bothandler.realBody, bothandler.checkPending);
 router.post("/trading/items/confirm-ps99-deposit", bothandler.real, bothandler.Deposit);
-router.post("/trading/items/confirm-withdraw", sensitiveLimiter, bothandler.real, bothandler.confirmWithdrawAll);
+router.post("/trading/items/confirm-withdraw", bothandler.real, bothandler.confirmWithdrawAll);
 
 router.post("/bots/:game", accountController.verifyToken, bothandler.bots);
 
