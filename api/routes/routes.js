@@ -175,6 +175,7 @@ router.post("/admin/reset", accountController.verifyToken, adminController.isAdm
 router.post("/admin/reset-balances", accountController.verifyToken, adminController.isAdmin, adminController.resetBalances);
 router.get("/admin/user-inventory/:userid", accountController.verifyToken, adminController.isAdmin, adminController.getUserInventory);
 router.post("/admin/user-inventory/delete", accountController.verifyToken, adminController.isAdmin, adminController.deleteUserInventoryItems);
+router.post("/admin/user-inventory/transfer", accountController.verifyToken, adminController.isAdmin, adminController.transferInventoryItems);
 router.post("/admin/scrape", accountController.verifyToken, adminController.isAdmin, adminController.scrapeItems);
 router.get("/admin/withdrawals", accountController.verifyToken, adminController.isAdmin, adminController.getWithdrawals);
 router.delete("/admin/withdrawals/:id", accountController.verifyToken, adminController.isAdmin, adminController.deleteWithdrawal);

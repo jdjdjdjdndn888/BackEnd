@@ -397,6 +397,42 @@ exports.deleteUserInventoryItems = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Deleted ${result.deletedCount} item(s).` });
 });
 
+exports.transferInventoryItems = asyncHandler(async (req, res) => {
+  if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {
+    return res.status(403).json({ message: "Owner tier only." });
+  }
+  const { fromUserId, toUserId, inventoryIds } = req.body;
+  if (!fromUserId || !toUserId) {
+    return res.status(400).json({ message: "fromUserId and toUserId are required." });
+  }
+  if (!Array.isArray(inventoryIds) || !inventoryIds.length) {
+    return res.status(400).json({ message: "No items selected." });
+  }
+
+  const [fromUser, toUser] = await Promise.all([
+    users.findOne({ $or: [{ userid: Number(fromUserId) }, { userid: String(fromUserId) }] }).lean(),
+    users.findOne({ $or: [{ userid: Number(toUserId) }, { userid: String(toUserId) }] }).lean(),
+  ]);
+  if (!fromUser) return res.status(404).json({ message: "Source user not found." });
+  if (!toUser) return res.status(404).json({ message: "Destination user not found." });
+  if (String(fromUser.userid) === String(toUser.userid)) {
+    return res.status(400).json({ message: "Source and destination must be different users." });
+  }
+
+  const result = await inventorys.updateMany(
+    { _id: { $in: inventoryIds }, $or: [{ owner: Number(fromUserId) }, { owner: String(fromUserId) }] },
+    { $set: { owner: toUser.userid } }
+  );
+
+  logAction(
+    req.adminUser,
+    "Transfer Inventory Items",
+    `${fromUser.username} (${fromUser.userid}) → ${toUser.username} (${toUser.userid})`,
+    `Transferred ${result.modifiedCount} item(s)`
+  );
+  res.json({ success: true, message: `Transferred ${result.modifiedCount} item(s) from ${fromUser.username} to ${toUser.username}.` });
+});
+
 // ── Reset all balances ────────────────────────────────────────────────────────
 exports.resetBalances = asyncHandler(async (req, res) => {
   if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {

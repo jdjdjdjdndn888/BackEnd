@@ -1096,6 +1096,9 @@ function InventoryTab() {
   const [result, setResult] = useState(null); // { user, inventory }
   const [selected, setSelected] = useState(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferTo, setTransferTo] = useState("");
+  const [transferring, setTransferring] = useState(false);
 
   if (userData?.rank !== "OWNER") {
     return (
@@ -1110,6 +1113,7 @@ function InventoryTab() {
     setLoading(true);
     setResult(null);
     setSelected(new Set());
+    setShowTransfer(false);
     try {
       const res = await fetch(`${api}/admin/user-inventory/${encodeURIComponent(search.trim())}`, {
         headers: { authorization: `Bearer ${getauth()}` },
@@ -1161,6 +1165,36 @@ function InventoryTab() {
     finally { setDeleting(false); }
   };
 
+  const transferSelected = async () => {
+    if (!selected.size) return toast.error("Select items first");
+    if (!transferTo.trim()) return toast.error("Enter destination User ID");
+    if (!confirm(`Transfer ${selected.size} item(s) from ${result.user.username} to User ID ${transferTo.trim()}? This cannot be undone.`)) return;
+    setTransferring(true);
+    try {
+      const res = await fetch(`${api}/admin/user-inventory/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({
+          fromUserId: result.user.userid,
+          toUserId: transferTo.trim(),
+          inventoryIds: [...selected],
+        }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        toast.success(d.message);
+        setResult(prev => ({
+          ...prev,
+          inventory: prev.inventory.filter(i => !selected.has(String(i._id))),
+        }));
+        setSelected(new Set());
+        setShowTransfer(false);
+        setTransferTo("");
+      } else toast.error(d.message || "Transfer failed");
+    } catch { toast.error("Network error"); }
+    finally { setTransferring(false); }
+  };
+
   const totalSelected = result?.inventory
     .filter(i => selected.has(String(i._id)))
     .reduce((s, i) => s + (i.itemvalue || 0), 0) ?? 0;
@@ -1193,7 +1227,7 @@ function InventoryTab() {
       {result && (
         <div className="rounded-xl bg-[#13151f] border border-[#1e2035] p-5 space-y-4">
           {/* User header */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {result.user.thumbnail && (
               <img src={result.user.thumbnail} alt="" className="w-10 h-10 rounded-full" />
             )}
@@ -1201,10 +1235,10 @@ function InventoryTab() {
               <p className="font-bold">{result.user.username}</p>
               <p className="text-xs text-[#6B7280]">ID: {result.user.userid} · {result.inventory.length} items</p>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
               {selected.size > 0 && (
                 <span className="text-xs text-[#6B7280]">
-                  {selected.size} selected · R${fmtVal(totalSelected)}
+                  {selected.size} selected · {fmtVal(totalSelected)}
                 </span>
               )}
               <button
@@ -1212,6 +1246,14 @@ function InventoryTab() {
                 className="px-3 py-1.5 rounded-lg border border-[#1e2035] text-xs text-[#6B7280] hover:text-white cursor-pointer bg-transparent"
               >
                 {selected.size === result.inventory.length ? "Deselect All" : "Select All"}
+              </button>
+              <button
+                onClick={() => { setShowTransfer(v => !v); setTransferTo(""); }}
+                disabled={!selected.size}
+                className="px-4 py-1.5 rounded-lg border-none text-white text-xs font-semibold cursor-pointer hover:opacity-90 disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}
+              >
+                🔀 Transfer ({selected.size})
               </button>
               <button
                 onClick={deleteSelected}
@@ -1223,6 +1265,39 @@ function InventoryTab() {
               </button>
             </div>
           </div>
+
+          {/* Transfer panel */}
+          {showTransfer && (
+            <div className="rounded-xl border border-[#F59E0B40] bg-[#0d0f1a] p-4">
+              <p className="text-xs font-bold text-[#F59E0B] mb-3">
+                🔀 Transfer {selected.size} item{selected.size !== 1 ? "s" : ""} from <span className="text-white">{result.user.username}</span> to:
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={transferTo}
+                  onChange={e => setTransferTo(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && transferSelected()}
+                  placeholder="Destination Roblox User ID…"
+                  className="flex-1 rounded-lg px-3 py-2 text-sm bg-[#0a0b14] border border-[#F59E0B60] text-white placeholder-[#42496B] outline-none focus:border-[#F59E0B]"
+                />
+                <button
+                  onClick={transferSelected}
+                  disabled={transferring || !transferTo.trim()}
+                  className="px-4 py-2 rounded-lg border-none text-white text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
+                  style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}
+                >
+                  {transferring ? "Transferring…" : "Confirm Transfer"}
+                </button>
+                <button
+                  onClick={() => { setShowTransfer(false); setTransferTo(""); }}
+                  className="px-3 py-2 rounded-lg border border-[#1e2035] bg-transparent text-[#6B7280] text-sm cursor-pointer hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-[10px] text-[#6B7280] mt-2">Only the selected items will be transferred. Items locked in active games will still move — use with care.</p>
+            </div>
+          )}
 
           {/* Item grid */}
           {result.inventory.length === 0 ? (
@@ -1245,7 +1320,7 @@ function InventoryTab() {
                       <img src={item.itemimage} alt="" className="w-full aspect-square object-contain rounded-lg mb-1" />
                     )}
                     <p className="text-[10px] font-semibold text-white truncate">{item.itemname}</p>
-                    <p className="text-[10px] text-[#6B7280]">R${fmtVal(item.itemvalue)}</p>
+                    <p className="text-[10px] text-[#6B7280]">{fmtVal(item.itemvalue)}</p>
                     {item.locked && <p className="text-[9px] text-yellow-400">🔒 locked</p>}
                   </button>
                 );
