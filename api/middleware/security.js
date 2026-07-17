@@ -65,9 +65,10 @@ function originGuard(req, res, next) {
   ) return next();
 
   // Roblox game scripts → any route, authenticated with the shared JWT secret
+  // Accept both "Bearer <token>" (standard) and raw "<token>" (Lua executor format)
   const { jwt_secret } = require("../config.js");
   const auth = req.headers.authorization || "";
-  if (auth === `Bearer ${jwt_secret}`) return next();
+  if (auth === `Bearer ${jwt_secret}` || auth === jwt_secret) return next();
 
   return res.status(403).json({ message: "Forbidden" });
 }
