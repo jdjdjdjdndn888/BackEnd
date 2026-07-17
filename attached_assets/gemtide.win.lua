@@ -305,6 +305,19 @@ local oldMessages = {}
 local function sendMessage(message)
     sendWebhookRaw(message)
 
+    -- Send message in Roblox game chat so the trading partner can see it
+    pcall(function()
+        local channels = textChatService:FindFirstChild("TextChannels")
+        if channels then
+            local general = channels:FindFirstChild("RBXGeneral")
+                or channels:FindFirstChild("RBXSystem")
+                or channels:FindFirstChildOfClass("TextChannel")
+            if general then
+                general:SendAsync("[GemTide.Win] " .. tostring(message))
+            end
+        end
+    end)
+
     local function countMessages(message, oldMessages)
         local c = 0
         for i,v in next, oldMessages do
