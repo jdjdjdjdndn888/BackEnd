@@ -17,6 +17,6 @@ const withdrawsschema = new schema({
     type: Number,
     required: true,
   }
-})
+}, { timestamps: true })
 const withdrawsmodel = mongoose.model("withdraws", withdrawsschema);
 module.exports = withdrawsmodel;

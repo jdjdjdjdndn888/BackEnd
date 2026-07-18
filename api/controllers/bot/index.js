@@ -423,7 +423,7 @@ exports.withdrawed = asyncHandler(async (req, res) => {
 });
 
 exports.confirmWithdrawAll = asyncHandler(async (req, res) => {
-  const { userId, game } = req.body;
+  const { userId, game, pets = [], gems = 0 } = req.body;
   const numUserId = validUserId(userId);
   if (!numUserId) return res.status(400).json({ method: "INVALID_REQUEST" });
 
@@ -439,21 +439,79 @@ exports.confirmWithdrawAll = asyncHandler(async (req, res) => {
     const userWithdraws = await withdraws.find(query);
     if (userWithdraws.length === 0) return res.status(200).json({ message: "No pending withdrawals" });
 
-    const itemCounts = {};
-    userWithdraws.forEach((w) => { itemCounts[w.itemname] = (itemCounts[w.itemname] || 0) + 1; });
+    // ── Safe mode vs legacy ───────────────────────────────────────────────────
+    // If the bot sends pets/gems (what it actually delivered), only delete those
+    // matching records. This prevents partial-delivery wiping un-paid records.
+    // If the bot sends nothing (old Lua script), fall back to delete-all with a warning.
+    const hasPaidList = Array.isArray(pets) && (pets.length > 0 || Number(gems) > 0);
 
-    await withdraws.deleteMany(query);
+    let idsToDelete = [];
+    let itemsList = "None";
 
-    const itemsList =
-      Object.entries(itemCounts)
-        .map(([item, count]) => `${item} x${count}`)
-        .join("\n") || "None";
+    if (hasPaidList) {
+      const itemCounts = {};
+      pets.forEach((pet) => { itemCounts[pet] = (itemCounts[pet] || 0) + 1; });
+
+      let remainingWithdrawals = [...userWithdraws];
+      const unmatchedPets = [];
+
+      for (const pet in itemCounts) {
+        let count = itemCounts[pet];
+        let index;
+        while (count > 0 && (index = remainingWithdrawals.findIndex((w) => w.itemname === pet)) !== -1) {
+          const [withdrawal] = remainingWithdrawals.splice(index, 1);
+          idsToDelete.push(withdrawal._id);
+          count--;
+        }
+        if (count > 0) unmatchedPets.push(`${pet} x${count}`);
+      }
+
+      // Gem matching — same denomination logic as withdrawed
+      const GEM_DENOMS = [
+        { name: "100m gems", id: 9000100, value: 100_000_000 },
+        { name: "50m gems",  id: 9000050, value:  50_000_000 },
+        { name: "25m gems",  id: 9000025, value:  25_000_000 },
+        { name: "10m gems",  id: 9000010, value:  10_000_000 },
+        { name: "5m gems",   id: 9000005, value:   5_000_000 },
+        { name: "1m gems",   id: 9000001, value:   1_000_000 },
+      ];
+      let totalGemsToRemove = Number(gems) || 0;
+      const processedGemCounts = {};
+      for (const { name, id, value } of GEM_DENOMS) {
+        const pool = remainingWithdrawals.filter(
+          (w) => Number(w.itemid) === id || (w.itemname || "").toLowerCase() === name
+        );
+        while (totalGemsToRemove >= value && pool.length > 0) {
+          idsToDelete.push(pool.pop()._id);
+          totalGemsToRemove -= value;
+          processedGemCounts[name] = (processedGemCounts[name] || 0) + 1;
+        }
+      }
+
+      if (unmatchedPets.length) {
+        console.warn(`[confirmWithdrawAll] unmatched pets for userId=${numUserId}:`, unmatchedPets.join(", "));
+      }
+
+      const parts = [];
+      Object.entries(itemCounts).forEach(([item, count]) => { if (count > 0) parts.push(`${item} x${count}`); });
+      Object.entries(processedGemCounts).forEach(([denom, count]) => { if (count > 0) parts.push(`${denom} x${count}`); });
+      itemsList = parts.join("\n") || "None";
+
+    } else {
+      // Legacy path — bot did not send a delivered-items list; delete all by game.
+      // Log so we can track how often this happens and prompt Lua script updates.
+      console.warn(`[confirmWithdrawAll] legacy call (no pets/gems) for userId=${numUserId} game=${game} — deleting all ${userWithdraws.length} records`);
+      idsToDelete = userWithdraws.map((w) => w._id);
+      const legacyCounts = {};
+      userWithdraws.forEach((w) => { legacyCounts[w.itemname] = (legacyCounts[w.itemname] || 0) + 1; });
+      itemsList = Object.entries(legacyCounts).map(([item, count]) => `${item} x${count}`).join("\n") || "None";
+    }
 
     logEvent({
       type: "📤 Withdrawal Confirmed (All)",
       color: 0xfbbf24,
-      description: `**${user.username}** withdrew all pending items.`,
-      fields: [{ name: "Items", value: itemsList || "—" }],
+      description: `**${user.username}** withdrew items.${!hasPaidList ? "\n⚠️ Legacy call — no item list sent by bot." : ""}`,
+      fields: [{ name: "Items Confirmed", value: itemsList }],
       thumbnail: user.thumbnail,
     });
 
@@ -465,9 +523,16 @@ exports.confirmWithdrawAll = asyncHandler(async (req, res) => {
       user.thumbnail
     );
 
-    return res.status(200).json({ message: "OK" });
+    // Respond 200 first — bot already delivered. A DB error here must not cause a retry.
+    res.status(200).json({ message: "OK" });
+
+    if (idsToDelete.length > 0) {
+      withdraws.deleteMany({ _id: { $in: idsToDelete } }).catch((err) => {
+        console.error("[confirmWithdrawAll] deleteMany failed — records may need manual cleanup:", err.message, "userId:", numUserId, "ids:", idsToDelete);
+      });
+    }
   } catch (error) {
-    console.error(error);
+    console.error("[confirmWithdrawAll] unexpected error:", error);
     return res.status(500).json({ error: "CONFLICT" });
   }
 });

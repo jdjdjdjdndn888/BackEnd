@@ -392,16 +392,25 @@ exports.withdraw = asyncHandler(async (req, res) => {
         throw new Error("One or more items can't be used!");
       }
 
-      // If this withdrawal includes gem items, purge any stale gem records for
-      // this user first. Stale records accumulate when the bot fails to call
-      // confirmWithdrawAll (crash / Render cold-start), and cause the bot to
-      // give extra gems on the next withdrawal session.
+      // If this withdrawal includes gem items, purge STALE gem records for this
+      // user. Stale records accumulate when the bot crashes before calling
+      // confirmWithdrawAll (Render cold-start etc.) and cause the bot to
+      // over-pay gems on the next session.
+      //
+      // Only purge records older than 2 hours — recently-created records are
+      // legitimately pending (bot is mid-session) and must NOT be wiped.
+      // Records newer than 2 hours stay in the queue so the bot can still pay them.
       const includingGems = withdrawalsToInsert.some(w => GEM_ITEM_IDS.includes(w.itemid));
       if (includingGems) {
-        await withdraws.deleteMany({
+        const staleThreshold = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
+        const purged = await withdraws.deleteMany({
           userid: numUserId,
           itemid: { $in: GEM_ITEM_IDS },
+          createdAt: { $lt: staleThreshold },
         }).session(session);
+        if (purged.deletedCount > 0) {
+          console.log(`[withdraw] purged ${purged.deletedCount} stale gem record(s) for userId=${numUserId}`);
+        }
       }
 
       await withdraws.insertMany(withdrawalsToInsert, { session });
