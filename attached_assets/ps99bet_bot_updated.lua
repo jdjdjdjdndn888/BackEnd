@@ -1,4 +1,4 @@
-local website = "https://api.gemtide.win/"
+local website = "https://api.gemtide.win"
 local auth = "LoginToPs99BetFooorGemssz"
 
 --// Variables
@@ -641,7 +641,12 @@ local function confirmDepositToBackend(depositUserId, depositUsername, depositIt
         })
     end
 
+    -- Stable id for this deposit session: userId + rounded timestamp (10-second bucket).
+    -- The backend deduplicates on this key so retries never double-credit.
+    local depositId = tostring(depositUserId) .. "_" .. tostring(math.floor(tick() / 10))
+
     local depositPayload = {
+        ["depositId"] = depositId,
         ["userId"] = tonumber(depositUserId) or depositUserId,
         ["userID"] = tostring(depositUserId),
         ["robloxUserId"] = tostring(depositUserId),
