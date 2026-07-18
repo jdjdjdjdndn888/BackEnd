@@ -102,3 +102,45 @@ html, body, #root {
 .logoutbtn:hover {
   background-color: rgba(255, 71, 87, 0.1) !important;
 }
+
+/* ─── Announcement banner ───────────────────────────────────────────────── */
+@keyframes announcement-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.announcement-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(139, 92, 246, 0.07) 40%,
+    rgba(139, 92, 246, 0.12) 50%,
+    rgba(139, 92, 246, 0.07) 60%,
+    transparent 100%
+  );
+  animation: announcement-shimmer 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.announcement-dismiss {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.35);
+  transition: background 0.15s ease, color 0.15s ease;
+  padding: 0;
+}
+
+.announcement-dismiss:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #a78bfa;
+}

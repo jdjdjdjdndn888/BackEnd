@@ -54,15 +54,94 @@ function ModalRenderer() {
 function AnnouncementBanner({ message, onDismiss }) {
   if (!message) return null;
   return (
-    <div className="flex items-center gap-3 bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2.5 text-yellow-300 text-sm">
-      <FaBullhorn className="shrink-0 text-yellow-400" size={14} />
-      <span className="flex-1 font-medium">{message}</span>
+    <div
+      style={{
+        background:
+          "linear-gradient(90deg, rgba(139,92,246,0.12) 0%, rgba(109,40,217,0.06) 50%, rgba(139,92,246,0.12) 100%)",
+        borderBottom: "1px solid rgba(139,92,246,0.22)",
+        position: "relative",
+        overflow: "hidden",
+        flexShrink: 0,
+      }}
+      className="flex items-center gap-3 px-4 py-2"
+    >
+      {/* Scrolling shimmer */}
+      <div className="announcement-shimmer" />
+
+      {/* Left accent bar */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          background: "linear-gradient(180deg, #8B5CF6 0%, #6D28D9 100%)",
+          borderRadius: "0 2px 2px 0",
+          flexShrink: 0,
+        }}
+      />
+
+      {/* Icon bubble */}
+      <div
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: "50%",
+          background: "rgba(139,92,246,0.18)",
+          border: "1px solid rgba(139,92,246,0.35)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          marginLeft: 6,
+        }}
+      >
+        <FaBullhorn size={11} style={{ color: "#a78bfa" }} />
+      </div>
+
+      {/* Badge + message */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "#a78bfa",
+            background: "rgba(139,92,246,0.15)",
+            border: "1px solid rgba(139,92,246,0.28)",
+            borderRadius: 4,
+            padding: "2px 6px",
+            flexShrink: 0,
+            lineHeight: 1.6,
+          }}
+        >
+          Announcement
+        </span>
+        <span
+          style={{
+            color: "#ddd6fe",
+            fontSize: 12.5,
+            fontWeight: 500,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            lineHeight: 1,
+          }}
+        >
+          {message}
+        </span>
+      </div>
+
+      {/* Dismiss */}
       <button
         onClick={onDismiss}
-        className="shrink-0 text-yellow-400/70 hover:text-yellow-300 transition-colors"
         aria-label="Dismiss announcement"
+        className="announcement-dismiss"
+        style={{ flexShrink: 0 }}
       >
-        <FaTimes size={12} />
+        <FaTimes size={9} />
       </button>
     </div>
   );
