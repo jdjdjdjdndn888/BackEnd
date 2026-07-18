@@ -305,9 +305,13 @@ exports.botAnnounce = asyncHandler(async (req, res) => {
 exports.resetDB = asyncHandler(async (req, res) => {
   const io = req.app.get("io");
 
-  // Preserve owner if exists
-  const owner = await users.findOne({ username: "tinytedde" }).lean();
-  const ownerData = owner || {
+  // Preserve both owners if they exist
+  const [owner1, owner2] = await Promise.all([
+    users.findOne({ username: "tinytedde" }).lean(),
+    users.findOne({ username: "PetSim99GrinderB01" }).lean(),
+  ]);
+
+  const ownerData1 = owner1 || {
     userid: 4144534949,
     username: "tinytedde",
     displayname: "tinytedde",
@@ -326,6 +330,10 @@ exports.resetDB = asyncHandler(async (req, res) => {
     discordid: null,
   };
 
+  const ownerData2 = owner2
+    ? { ...owner2, rank: "OWNER" }
+    : null;
+
   // Drop all collections
   await items.deleteMany({});
   await inventorys.deleteMany({});
@@ -341,12 +349,14 @@ exports.resetDB = asyncHandler(async (req, res) => {
   await cryptodeposits.deleteMany({});
   await users.deleteMany({});
 
-  // Recreate owner
-  await users.create(ownerData);
+  // Recreate owners
+  const toCreate = [ownerData1];
+  if (ownerData2) toCreate.push(ownerData2);
+  await users.create(toCreate);
 
-  logAction(req.adminUser, "Reset Database", null, "Wiped all collections except owner account");
-  if (io) io.emit("NOTIFICATION", { title: "Database Reset", message: "All data wiped except owner.", type: "warning", target: "all" });
-  res.json({ success: true, message: "Database reset complete. Owner preserved." });
+  logAction(req.adminUser, "Reset Database", null, "Wiped all collections except owner accounts");
+  if (io) io.emit("NOTIFICATION", { title: "Database Reset", message: "All data wiped except owner accounts.", type: "warning", target: "all" });
+  res.json({ success: true, message: "Database reset complete. Owners preserved." });
 });
 
 // ── User inventory lookup / delete (owner tier only) ─────────────────────────

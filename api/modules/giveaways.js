@@ -31,8 +31,15 @@ const giveawaySchema = new Schema({
         required: false,
         default: null,
     },
+    winnerusername: {
+        type: String,
+        required: false,
+        default: null,
+    },
     complete: { type: Boolean, required: true, default: false },
+    refunded: { type: Boolean, required: true, default: false },
     enddate: { type: Date, required: true, default: Date.now },
+    endeddate: { type: Date, required: false, default: null },
 });
 
 const GiveawayModel = mongoose.model("giveaways", giveawaySchema);

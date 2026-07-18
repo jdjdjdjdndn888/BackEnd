@@ -13,14 +13,69 @@ const moment = require('moment');
 const { httpError } = require("../../utils/httpError.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 
-// `giveawaywebh` was previously referenced but never defined anywhere in this
-// file/module, which threw a ReferenceError every time a giveaway was created
-// or concluded. When that happened INSIDE session.withTransaction() (in the
-// old exports.giveaway) the whole transaction was aborted, so the giveaway
-// silently disappeared for the client despite showing a "created" response.
-// sendwebhook() already no-ops gracefully when passed a falsy webhook URL.
+// sendwebhook already no-ops gracefully when passed a falsy webhook URL.
 const giveawaywebh = process.env.GIVEAWAY_WEBHOOK_URL || null;
 
+// ── Refund a giveaway (no entries → return item to creator) ──────────────────
+const refundGiveaway = async (giveawayid, io) => {
+    if (!giveawayid) return;
+
+    const session = await mongoose.startSession();
+    try {
+        let refunded = false;
+
+        await session.withTransaction(async () => {
+            // Atomically claim the giveaway for refund
+            const giveaway = await giveaways.findOneAndUpdate(
+                { _id: giveawayid, complete: false, entries: 0 },
+                { $set: { complete: true, refunded: true, endeddate: new Date() } },
+                { session, new: false }
+            );
+
+            if (!giveaway) return; // already rolled, has entries, or doesn't exist
+
+            if (!giveaway.item || giveaway.item.length === 0 || !giveaway.item[0]) return;
+
+            const creator = await users.findOne({ userid: giveaway.starterid }).session(session);
+            if (!creator) return;
+
+            // Restore item to creator's inventory
+            await inventorys.create([{
+                _id: giveaway.item[0].id,
+                itemid: giveaway.item[0].itemid,
+                owner: creator.userid,
+                locked: false,
+            }], { session });
+
+            refunded = true;
+        });
+
+        if (refunded && io) {
+            // Re-fetch to get full updated doc for socket emit
+            const updatedGW = await giveaways.findById(giveawayid).lean();
+            if (updatedGW) io.emit("GIVEAWAY_UPDATE", updatedGW);
+
+            setTimeout(async () => {
+                const activegiveaways = await giveaways.find({
+                    $or: [
+                        { complete: false },
+                        { endeddate: { $gte: moment().subtract(1, 'minutes').toDate() } }
+                    ]
+                });
+                io.emit("GIVEAWAY_DONE", { giveaways: activegiveaways });
+            }, 62000);
+        }
+
+        return refunded;
+    } catch (error) {
+        console.error(`gw refund: ${error}`);
+        return false;
+    } finally {
+        session.endSession();
+    }
+};
+
+// ── Roll winner (has entries → pick winner and transfer item) ─────────────────
 const rollwinner = async (giveawayid) => {
     if (!giveawayid) return "Something went wrong";
 
@@ -29,11 +84,10 @@ const rollwinner = async (giveawayid) => {
         let winnerUsername = null;
 
         await session.withTransaction(async () => {
-            // Atomically claim the giveaway — if complete is already true this
-            // returns null and the transaction no-ops, preventing double-roll.
+            // Atomically claim the giveaway — prevents double-roll.
             const giveaway = await giveaways.findOneAndUpdate(
                 { _id: giveawayid, complete: false, winner: null },
-                { $set: { complete: true } },
+                { $set: { complete: true, endeddate: new Date() } },
                 { session, new: false } // get the pre-update doc so we can read its fields
             );
 
@@ -42,7 +96,25 @@ const rollwinner = async (giveawayid) => {
             if (!giveaway.item || giveaway.item.length === 0 || !giveaway.item[0]) return;
 
             const entries = await giveawayjoins.find({ giveawayid }).session(session);
-            if (!entries || entries.length === 0) return;
+            if (!entries || entries.length === 0) {
+                // No entries — mark as refunded and return item to creator
+                await giveaways.updateOne(
+                    { _id: giveawayid },
+                    { $set: { refunded: true } },
+                    { session }
+                );
+
+                const creator = await users.findOne({ userid: giveaway.starterid }).session(session);
+                if (creator) {
+                    await inventorys.create([{
+                        _id: giveaway.item[0].id,
+                        itemid: giveaway.item[0].itemid,
+                        owner: creator.userid,
+                        locked: false,
+                    }], { session });
+                }
+                return;
+            }
 
             const randomIndex = Math.floor(Math.random() * entries.length);
             const winner = entries[randomIndex];
@@ -62,7 +134,7 @@ const rollwinner = async (giveawayid) => {
             await giveaways.updateOne(
                 { _id: giveawayid },
                 { $set: {
-                    winner: winnerUser.userid,
+                    winner: winnerUser.username,
                     winnerid: winnerUser.userid,
                     winnerusername: winnerUser.username,
                 }},
@@ -79,7 +151,7 @@ const rollwinner = async (giveawayid) => {
             ], giveaway.item[0].itemimage);
         });
 
-        return winnerUsername ? `Winner: ${winnerUsername}` : "No participants";
+        return winnerUsername ? `Winner: ${winnerUsername}` : "Refunded";
     } catch (error) {
         console.log(`gw roller: ${error}`);
         return "Something went wrong";
@@ -88,57 +160,75 @@ const rollwinner = async (giveawayid) => {
     }
 };
 
+// ── Schedule a single giveaway's roll + auto-refund timers ───────────────────
+function scheduleGiveaway(giveawayDoc, io) {
+    const giveawayId = giveawayDoc._id;
+    const endDate = new Date(giveawayDoc.enddate);
+    const now = new Date();
+    const timeRemaining = Math.max(endDate - now, 0);
+
+    // Auto-refund after 30 minutes if nobody has joined yet
+    const AUTO_REFUND_MS = 30 * 60 * 1000;
+    if (timeRemaining > AUTO_REFUND_MS) {
+        setTimeout(async () => {
+            // Check again at the 30-min mark — only refund if still no entries
+            const gw = await giveaways.findOne({ _id: giveawayId, complete: false }).lean();
+            if (!gw) return; // already handled
+            if (gw.entries === 0) {
+                console.log(`[giveaway] auto-refunding stale GW ${giveawayId} (0 entries after 30 min)`);
+                await refundGiveaway(giveawayId, io);
+                if (io) await updateuser(gw.starterid, io).catch(() => {});
+            }
+            // If entries > 0 we leave it to run until enddate
+        }, AUTO_REFUND_MS);
+    }
+
+    // Roll winner when the GW timer expires
+    setTimeout(async () => {
+        // Fetch fresh doc — may have already been refunded by the 30-min check
+        const gw = await giveaways.findOne({ _id: giveawayId, complete: false }).lean();
+        if (!gw) return; // already complete (refunded or rolled)
+
+        if (gw.entries === 0) {
+            console.log(`[giveaway] no entries at end — refunding GW ${giveawayId}`);
+            await refundGiveaway(giveawayId, io);
+            if (io) await updateuser(gw.starterid, io).catch(() => {});
+            return;
+        }
+
+        const result = await rollwinner(giveawayId);
+        console.log(`[giveaway] rolled GW ${giveawayId}: ${result}`);
+
+        const updatedGW = await giveaways.findById(giveawayId).lean();
+        if (updatedGW && io) {
+            io.emit("GIVEAWAY_UPDATE", updatedGW);
+            if (updatedGW.winnerid) {
+                await updateuser(updatedGW.winnerid, io).catch(() => {});
+            }
+        }
+
+        setTimeout(async () => {
+            const activegiveaways = await giveaways.find({
+                $or: [
+                    { complete: false },
+                    { endeddate: { $gte: moment().subtract(1, 'minutes').toDate() } }
+                ]
+            });
+            if (io) io.emit("GIVEAWAY_DONE", { giveaways: activegiveaways });
+        }, 62000);
+    }, timeRemaining);
+}
+
+// ── Restore timers on server restart ─────────────────────────────────────────
 async function onstartup(io) {
   try {
       const incompleteGiveaways = await giveaways.find({ complete: false });
 
       for (const giveaway of incompleteGiveaways) {
-          const endDate = new Date(giveaway.enddate);
-          const now = new Date();
-
-          if (endDate <= now) {
-              const winneres = await rollwinner(giveaway._id);
-              giveaway.winner = winneres || "something went wrong...";
-              giveaway.complete = true;
-
-              await giveaway.save();
-              io.emit("GIVEAWAY_UPDATE", giveaway);
-              await updateuser(giveaway.winnerid, io);
-              setTimeout(async () => {
-                const activegiveaways = await giveaways.find({
-                    $or: [
-                        { complete: false },
-                        {
-                            endeddate: { $gte: moment().subtract(1, 'minutes').toDate() }
-                        }
-                    ]
-                });
-                io.emit("GIVEAWAY_DONE", { giveaways: activegiveaways });
-            }, 62000);
-          } else {
-              const timeRemaining = endDate - now;
-              setTimeout(async () => {
-                  const winneres = await rollwinner(giveaway._id);
-                  giveaway.winner = winneres || "something went wrong...";
-                  giveaway.complete = true;
-
-                  await giveaway.save();
-                  io.emit("GIVEAWAY_UPDATE", giveaway);
-                  await updateuser(giveaway.winnerid, io);
-                  setTimeout(async () => {
-                    const activegiveaways = await giveaways.find({
-                        $or: [
-                            { complete: false },
-                            {
-                                endeddate: { $gte: moment().subtract(1, 'minutes').toDate() }
-                            }
-                        ]
-                    });
-                    io.emit("GIVEAWAY_DONE", { giveaways: activegiveaways });
-                }, 62000);
-              }, timeRemaining);
-          }
+          scheduleGiveaway(giveaway, io);
       }
+
+      console.log(`[giveaway] startup: scheduled ${incompleteGiveaways.length} active giveaway(s)`);
   } catch (error) {
       console.error(`Error during onstartup: ${error}`);
   }
@@ -234,7 +324,9 @@ exports.giveaway = asyncHandler(async (req, res) => {
             }],
             winner: null,
             winnerid: null,
+            winnerusername: null,
             complete: false,
+            refunded: false,
             enddate: endDate,
           });
         });
@@ -244,8 +336,10 @@ exports.giveaway = asyncHandler(async (req, res) => {
 
       res.status(200).json({ message: "Successfully started the giveaway!!" });
 
+      const io = req.app.get("io");
+
       giveawaysToSave.forEach((giveaway) => {
-        req.app.get("io").emit("NEW_GIVEAWAY", giveaway);
+        if (io) io.emit("NEW_GIVEAWAY", giveaway);
 
         sendwebhook(
           giveawaywebh,
@@ -276,35 +370,12 @@ exports.giveaway = asyncHandler(async (req, res) => {
           giveaway.item[0].itemimage
         );
 
-        setTimeout(async () => {
-          const giveawayy = await giveaways.findOne({ _id: giveaway._id });
-          if (!giveawayy) return;
-
-          const winneres = await rollwinner(giveaway._id);
-          giveawayy.winner = winneres || "something went wrong...";
-          giveawayy.complete = true;
-
-          await giveawayy.save();
-          req.app.get("io").emit("GIVEAWAY_UPDATE", giveawayy);
-          await updateuser(giveaway.winnerid, req.app.get("io"));
-
-          setTimeout(async () => {
-            const activegiveaways = await giveaways.find({
-              $or: [
-                { complete: false },
-                {
-                  endeddate: { $gte: moment().subtract(1, 'minutes').toDate() }
-                }
-              ]
-            });
-            req.app.get("io").emit("GIVEAWAY_DONE", { giveaways: activegiveaways });
-          }, 62000);
-
-        }, time * 60000);
+        // Schedule roll + auto-refund timers
+        scheduleGiveaway(giveaway, io);
       });
 
       await addHistory(savedUser.userid, "Giveaway", `-${totalItemValue}`);
-      await updateuser(savedUser.userid, req.app.get("io"));
+      await updateuser(savedUser.userid, io);
     } catch (error) {
       if (error.statusCode) {
         return res.status(error.statusCode).json({ message: error.message });
@@ -347,8 +418,7 @@ exports.joingiveaway = asyncHandler(async (req, res) => {
             if (!giveaway || giveaway.complete) throw httpError(400, "Giveaway not found or already completed");
             if (user.level < 2) throw httpError(400, "You must be at least level 2 to do that!");
 
-            // Atomic duplicate-entry guard: insert with a unique compound index;
-            // if the user already joined this throws code 11000 which we catch below.
+            // Atomic duplicate-entry guard: unique compound index throws 11000 on dupe.
             await giveawayjoins.create([{
                 userid: req.user.id,
                 giveawayid,
