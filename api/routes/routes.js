@@ -183,6 +183,8 @@ router.post("/admin/withdrawals/delete-all", accountController.verifyToken, admi
 router.post("/admin/cancel-all-bets", accountController.verifyToken, adminController.isAdmin, adminController.cancelAllBets);
 router.post("/admin/reset-inventories", accountController.verifyToken, adminController.isAdmin, adminController.resetAllInventories);
 router.get("/admin/logs", accountController.verifyToken, adminController.isAdmin, adminController.getAuditLogs);
+router.get("/admin/giveaways", accountController.verifyToken, adminController.isAdmin, adminController.adminGetGiveaways);
+router.post("/admin/giveaways/cancel", accountController.verifyToken, adminController.isAdmin, adminController.adminCancelGiveaway);
 
 // Webhook test endpoint — POST /debug/webhooks with body { authKey: "<jwt_secret>" }
 router.post("/debug/webhooks", bothandler.realBody, async (req, res) => {

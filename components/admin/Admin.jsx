@@ -6,7 +6,7 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
-const TABS = ["Overview", "Users", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Logs", "Danger"];
+const TABS = ["Overview", "Users", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Giveaways", "Logs", "Danger"];
 const GAMES = ["PS99", "MM2"];
 
 // Assignable ranks, lowest to highest. Must match api/utils/rankTiers.js ALL_RANKS.
@@ -79,6 +79,7 @@ export default function Admin() {
         {tab === "Inventory"    && <InventoryTab />}
         {tab === "Withdrawals"  && <WithdrawalsTab />}
         {tab === "Cases"        && <CasesTab />}
+        {tab === "Giveaways"    && <GiveawaysTab />}
         {tab === "Logs"         && <LogsTab />}
         {tab === "Danger"       && <DangerTab />}
       </div>
@@ -1590,6 +1591,175 @@ function CasesTab() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Giveaways ─────────────────────────────────────────────────────────────────
+function GiveawaysTab() {
+  const { userData } = useContext(UserContext);
+  const [gws, setGws] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(null);
+
+  const isOwner = OWNER_TIER.includes(userData?.rank);
+
+  const fetchGiveaways = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${api}/admin/giveaways`, {
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setGws(d.data || []);
+      } else {
+        toast.error("Failed to load giveaways");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchGiveaways(); }, []);
+
+  const cancelGiveaway = async (gw) => {
+    if (!confirm(`Cancel giveaway by ${gw.starterusername} for "${gw.item?.[0]?.itemname}"?\n\nThe item will be refunded to the creator immediately. This cannot be undone.`)) return;
+    setCancelling(gw._id);
+    try {
+      const res = await fetch(`${api}/admin/giveaways/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ giveawayid: gw._id }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        toast.success(d.message);
+        fetchGiveaways();
+      } else {
+        toast.error(d.message || "Cancel failed");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setCancelling(null);
+    }
+  };
+
+  const timeLeft = (enddate) => {
+    const diff = new Date(enddate) - Date.now();
+    if (diff <= 0) return "Expired";
+    const m = Math.floor(diff / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return `${m}m ${s}s`;
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-bold text-white">Active Giveaways</h3>
+          <p className="text-xs text-[#6B7280] mt-0.5">
+            {isOwner ? "Owner tier — cancel & refund any active giveaway to its creator." : "View only — cancel requires Owner tier."}
+          </p>
+        </div>
+        <button
+          onClick={fetchGiveaways}
+          className="px-3 py-1.5 text-xs rounded-lg border border-[#1e2035] text-[#6B7280] hover:text-white bg-transparent cursor-pointer"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-center text-[#6B7280] py-10">Loading…</p>
+      ) : gws.length === 0 ? (
+        <div className="rounded-xl border border-[#1e2035] bg-[#13151f] p-8 text-center">
+          <p className="text-2xl mb-2">🎉</p>
+          <p className="text-sm text-[#6B7280]">No active giveaways right now.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-[#1e2035] overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#13151f] text-[#6B7280] text-left">
+                {["Item", "Host", "Value", "Entries", "Time Left", "Actions"].map(h => (
+                  <th key={h} className="px-4 py-3 font-medium text-xs">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {gws.map((gw, i) => {
+                const item = gw.item?.[0];
+                return (
+                  <tr
+                    key={gw._id}
+                    className={`border-t border-[#1e2035] ${i % 2 === 0 ? "bg-[#0d0f1a]" : "bg-[#0a0b14]"}`}
+                  >
+                    {/* Item */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {item?.itemimage && (
+                          <img
+                            src={item.itemimage}
+                            alt={item.itemname}
+                            className="w-9 h-9 rounded-lg object-contain bg-[#13151f] border border-[#1e2035] flex-shrink-0"
+                          />
+                        )}
+                        <span className="font-medium text-white truncate max-w-[140px]">
+                          {item?.itemname ?? "—"}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Host */}
+                    <td className="px-4 py-3 text-[#6B7280]">
+                      <span className="font-mono text-xs">{gw.starterusername}</span>
+                    </td>
+
+                    {/* Value */}
+                    <td className="px-4 py-3">
+                      <span className="font-bold text-[#8B5CF6]">
+                        {item?.itemvalue != null ? fmtVal(item.itemvalue) : "—"}
+                      </span>
+                    </td>
+
+                    {/* Entries */}
+                    <td className="px-4 py-3 text-white font-semibold">
+                      {gw.entries ?? 0}
+                    </td>
+
+                    {/* Time left */}
+                    <td className="px-4 py-3">
+                      <span className={`font-mono text-xs ${new Date(gw.enddate) <= Date.now() ? "text-red-400" : "text-green-400"}`}>
+                        {timeLeft(gw.enddate)}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3">
+                      {isOwner ? (
+                        <button
+                          onClick={() => cancelGiveaway(gw)}
+                          disabled={cancelling === gw._id}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold border-none text-white cursor-pointer hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}
+                        >
+                          {cancelling === gw._id ? "Cancelling…" : "Cancel & Refund"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[#6B7280]">Owner only</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

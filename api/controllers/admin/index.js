@@ -749,6 +749,80 @@ exports.scrapeItems = asyncHandler(async (req, res) => {
   });
 });
 
+// ── Admin giveaway management ─────────────────────────────────────────────────
+
+/** GET /admin/giveaways — list all active (incomplete) giveaways */
+exports.adminGetGiveaways = asyncHandler(async (req, res) => {
+  const list = await giveaways.find({ complete: false }).sort({ enddate: 1 }).lean();
+  res.json({ success: true, data: list });
+});
+
+/** POST /admin/giveaways/cancel — owner-tier: force-cancel + refund to creator */
+exports.adminCancelGiveaway = asyncHandler(async (req, res) => {
+  if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {
+    return res.status(403).json({ message: "Owner tier only." });
+  }
+
+  const { giveawayid } = req.body;
+  if (!giveawayid) return res.status(400).json({ message: "giveawayid required." });
+
+  const session = await mongoose.startSession();
+  try {
+    let creatorUsername = null;
+
+    await session.withTransaction(async () => {
+      // Atomically claim the giveaway so no concurrent roll fires
+      const gw = await giveaways.findOneAndUpdate(
+        { _id: giveawayid, complete: false },
+        { $set: { complete: true, refunded: true, endeddate: new Date() } },
+        { session, new: false }
+      );
+
+      if (!gw) throw httpError(400, "Giveaway not found or already completed.");
+      if (!gw.item || !gw.item[0]) throw httpError(400, "Giveaway has no item to refund.");
+
+      const creator = await users.findOne({ userid: gw.starterid }).session(session);
+      if (!creator) throw httpError(400, "Creator account not found.");
+
+      creatorUsername = creator.username;
+
+      // Restore the item to the creator's inventory
+      await inventorys.create([{
+        _id: gw.item[0].id,
+        itemid: gw.item[0].itemid,
+        owner: creator.userid,
+        locked: false,
+      }], { session });
+    });
+
+    // Notify connected clients
+    const io = req.app.get("io");
+    if (io) {
+      const updatedGW = await giveaways.findById(giveawayid).lean();
+      if (updatedGW) io.emit("GIVEAWAY_UPDATE", updatedGW);
+      setTimeout(async () => {
+        const moment = require("moment");
+        const active = await giveaways.find({
+          $or: [
+            { complete: false },
+            { endeddate: { $gte: moment().subtract(1, "minutes").toDate() } },
+          ],
+        });
+        io.emit("GIVEAWAY_DONE", { giveaways: active });
+      }, 2000);
+    }
+
+    logAction(req.adminUser, "Cancel Giveaway", creatorUsername, `GW ${giveawayid} force-cancelled & refunded`);
+    res.json({ success: true, message: `Giveaway cancelled and item refunded to ${creatorUsername}.` });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
+    console.error("adminCancelGiveaway:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  } finally {
+    session.endSession();
+  }
+});
+
 // ── Staff action audit log ────────────────────────────────────────────────────
 exports.getAuditLogs = asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
