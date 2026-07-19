@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import { useSpring, animated } from "react-spring";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { getrole, getLevelProgress, getDisplayLevel } from "../../utils/getrole";
-import { BarChart2, History, MonitorPlay, LogOut, Settings } from "lucide-react";
+import { BarChart2, History, MonitorPlay, LogOut, Settings, Link2 } from "lucide-react";
 
 function formatDate(dateStr) {
   if (!dateStr) return "-";
@@ -24,6 +24,7 @@ const TABS = [
   { id: "statistics", label: "Statistics", icon: BarChart2   },
   { id: "history",    label: "History",    icon: History     },
   { id: "sessions",   label: "Sessions",   icon: MonitorPlay },
+  { id: "affiliate",  label: "Affiliate",  icon: Link2       },
 ];
 
 const S = {
@@ -41,6 +42,197 @@ const S = {
   btnPrimary: { fontSize: 12, padding: "7px 14px", border: "none", borderRadius: 6, background: "#fff", color: "#000", fontWeight: 600, cursor: "pointer" },
   btnDanger:  { fontSize: 12, padding: "7px 14px", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 6, background: "rgba(239,68,68,0.06)", color: "#f87171", cursor: "pointer" },
 };
+
+function AffiliateTab() {
+  const { userData } = useContext(UserContext);
+  const [data, setData]         = useState(null);
+  const [fetching, setFetching] = useState(true);
+  const [codeInput, setCodeInput] = useState("");
+  const [useInput, setUseInput]   = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [using, setUsing]       = useState(false);
+  const [claiming, setClaiming] = useState(null);
+
+  const fetchData = () => {
+    setFetching(true);
+    fetch(`${api}/affiliate/mine`, { headers: { authorization: `Bearer ${getauth()}` } })
+      .then((r) => r.json())
+      .then((d) => { setData(d); setCodeInput(d.myCode || ""); })
+      .catch(() => toast.error("Could not load affiliate data"))
+      .finally(() => setFetching(false));
+  };
+  useEffect(fetchData, []);
+
+  const saveCode = async () => {
+    if (!codeInput.trim()) return;
+    setSaving(true);
+    try {
+      const r = await fetch(`${api}/affiliate/setcode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ code: codeInput.trim() }),
+      });
+      const d = await r.json();
+      if (r.ok) { toast.success(d.message); fetchData(); }
+      else toast.error(d.message || "Failed to set code");
+    } catch { toast.error("Network error"); }
+    finally { setSaving(false); }
+  };
+
+  const useCode = async () => {
+    if (!useInput.trim()) return;
+    setUsing(true);
+    try {
+      const r = await fetch(`${api}/affiliate/usecode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ code: useInput.trim() }),
+      });
+      const d = await r.json();
+      if (r.ok) { toast.success(d.message); setUseInput(""); fetchData(); }
+      else toast.error(d.message || "Failed to use code");
+    } catch { toast.error("Network error"); }
+    finally { setUsing(false); }
+  };
+
+  const claim = async (useid, username) => {
+    setClaiming(useid);
+    try {
+      const r = await fetch(`${api}/affiliate/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ useid }),
+      });
+      const d = await r.json();
+      if (r.ok) { toast.success(d.message); fetchData(); }
+      else toast.error(d.message || "Could not claim");
+    } catch { toast.error("Network error"); }
+    finally { setClaiming(null); }
+  };
+
+  const fmtM = (n) => `${(n / 1_000_000).toFixed(1)}M`;
+  const bar  = (val, max) => Math.min(100, Math.round((val / max) * 100));
+
+  if (fetching) return <div style={{ padding: 40, textAlign: "center", color: "#555", fontSize: 13 }}>Loading…</div>;
+
+  const req = data?.requirements || { deposit: 10_000_000, wager: 30_000_000, reward: 100_000_000 };
+
+  return (
+    <div>
+      {/* ── Set your code ── */}
+      <div style={S.card}>
+        <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Your Affiliate Code</div>
+        </div>
+        <div style={{ padding: 20 }}>
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 14, lineHeight: 1.6 }}>
+            Share your code with others. When they deposit <strong style={{ color: "#fff" }}>10M gems</strong> and wager <strong style={{ color: "#fff" }}>30M gems</strong>, you can claim <strong style={{ color: "#8B5CF6" }}>100M gems</strong> per referral.
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value)}
+              placeholder="e.g. TEDDE99"
+              maxLength={20}
+              style={{ ...S.input, flex: 1, color: "#fff" }}
+            />
+            <button onClick={saveCode} disabled={saving || !codeInput.trim()} style={S.btnPrimary}>
+              {saving ? "Saving…" : data?.myCode ? "Update" : "Set Code"}
+            </button>
+          </div>
+          {data?.myCode && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "#555" }}>
+              Current code: <span style={{ color: "#8B5CF6", fontWeight: 700, fontFamily: "monospace" }}>{data.myCode}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Use a code ── */}
+      <div style={S.card}>
+        <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Use Someone's Code</div>
+        </div>
+        <div style={{ padding: 20 }}>
+          {data?.usedCode ? (
+            <div style={{ fontSize: 13, color: "#888" }}>
+              You are using code <span style={{ color: "#8B5CF6", fontWeight: 700, fontFamily: "monospace" }}>{data.usedCode}</span>. Keep depositing and wagering to reward them!
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>Enter a friend's affiliate code to support them.</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input
+                  value={useInput}
+                  onChange={(e) => setUseInput(e.target.value)}
+                  placeholder="Enter code…"
+                  maxLength={20}
+                  style={{ ...S.input, flex: 1, color: "#fff" }}
+                />
+                <button onClick={useCode} disabled={using || !useInput.trim()} style={S.btnPrimary}>
+                  {using ? "Applying…" : "Apply Code"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Referrals ── */}
+      {data?.myCode && (
+        <div style={S.card}>
+          <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Referrals</div>
+            <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+              {[["Claimable", data.totals?.claimable, "#4ade80"], ["Pending", data.totals?.pending, "#f59e0b"], ["Claimed", data.totals?.claimed, "#6B7280"]].map(([l, n, c]) => (
+                <span key={l} style={{ color: c }}>{n} {l}</span>
+              ))}
+            </div>
+          </div>
+          {!data.uses?.length ? (
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "#444", fontSize: 13 }}>Nobody has used your code yet. Share it!</div>
+          ) : (
+            data.uses.map((u) => (
+              <div key={u._id} style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{u.username}</span>
+                  {u.claimed ? (
+                    <span style={{ fontSize: 11, color: "#6B7280", background: "rgba(107,114,128,0.1)", border: "1px solid rgba(107,114,128,0.2)", padding: "3px 10px", borderRadius: 20 }}>Claimed</span>
+                  ) : u.claimable ? (
+                    <button
+                      onClick={() => claim(u._id, u.username)}
+                      disabled={claiming === u._id}
+                      style={{ ...S.btnPrimary, background: "linear-gradient(135deg,#8B5CF6,#7C3AED)", color: "#fff", border: "none" }}
+                    >
+                      {claiming === u._id ? "Claiming…" : `Claim ${fmtM(req.reward)} Gems`}
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", padding: "3px 10px", borderRadius: 20 }}>Pending</span>
+                  )}
+                </div>
+                {/* Progress bars */}
+                {[
+                  { label: "Deposit", value: u.depositProgress, max: req.deposit, met: u.depositMet, color: "#4ade80" },
+                  { label: "Wager",   value: u.wagerProgress,   max: req.wager,   met: u.wagerMet,   color: "#8B5CF6" },
+                ].map(({ label, value, max, met, color }) => (
+                  <div key={label} style={{ marginBottom: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 3 }}>
+                      <span>{label}</span>
+                      <span style={{ color: met ? color : "#555" }}>{fmtM(Math.min(value, max))} / {fmtM(max)} {met ? "✓" : ""}</span>
+                    </div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${bar(value, max)}%`, background: met ? color : "#333", borderRadius: 2, transition: "width 0.5s ease" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Account() {
   const navigate = useNavigate();
@@ -218,6 +410,9 @@ export default function Account() {
             </div>
           </div>
         )}
+
+        {/* ── Affiliate tab ── */}
+        {activeTab === "affiliate" && <AffiliateTab />}
 
         {/* ── History / Sessions tab ── */}
         {(activeTab === "history" || activeTab === "sessions") && (

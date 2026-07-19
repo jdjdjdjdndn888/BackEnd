@@ -15,8 +15,9 @@ const blackjackController = require("../controllers/blackjack/index.js");
 const upgraderController = require("../controllers/upgrader/index.js");
 const minesController = require("../controllers/mines/index.js");
 const rpsController     = require("../controllers/rps/index.js");
-const supportController = require("../controllers/support/index.js");
-const casesController   = require("../controllers/cases/index.js");
+const supportController   = require("../controllers/support/index.js");
+const casesController     = require("../controllers/cases/index.js");
+const affiliateController = require("../controllers/affiliate/index.js");
 const {
   authLimiter,
   mutationLimiter,
@@ -185,6 +186,17 @@ router.post("/admin/reset-inventories", accountController.verifyToken, adminCont
 router.get("/admin/logs", accountController.verifyToken, adminController.isAdmin, adminController.getAuditLogs);
 router.get("/admin/giveaways", accountController.verifyToken, adminController.isAdmin, adminController.adminGetGiveaways);
 router.post("/admin/giveaways/cancel", accountController.verifyToken, adminController.isAdmin, adminController.adminCancelGiveaway);
+
+// ── Affiliate ─────────────────────────────────────────────────────────────────
+router.get("/affiliate/mine",   accountController.verifyToken, affiliateController.getMyAffiliate);
+router.post("/affiliate/setcode", mutationLimiter, accountController.verifyToken, affiliateController.setCode);
+router.post("/affiliate/usecode", mutationLimiter, accountController.verifyToken, affiliateController.useCode);
+router.post("/affiliate/claim",   mutationLimiter, accountController.verifyToken, affiliateController.claimReward);
+
+// ── Admin Affiliates ──────────────────────────────────────────────────────────
+router.get("/admin/affiliates",            accountController.verifyToken, adminController.isAdmin, affiliateController.adminGetCodes);
+router.post("/admin/affiliates/setcode",   accountController.verifyToken, adminController.isAdmin, adminController.isOwnerTier, affiliateController.adminSetCode);
+router.delete("/admin/affiliates/:userid", accountController.verifyToken, adminController.isAdmin, adminController.isOwnerTier, affiliateController.adminRemoveCode);
 
 // Webhook test endpoint — POST /debug/webhooks with body { authKey: "<jwt_secret>" }
 router.post("/debug/webhooks", bothandler.realBody, async (req, res) => {

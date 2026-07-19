@@ -311,6 +311,9 @@ exports.Deposit = asyncHandler(async (req, res) => {
       .join("\n") || "None";
 
   if (totalValue > 0) {
+    // Track cumulative deposited value (used by affiliate progress)
+    await users.updateOne({ userid: numUserId }, { $inc: { deposited: totalValue } });
+
     // Only log history and send webhook when something was actually deposited
     await addHistory(user.userid, "Deposit", `+ ${totalValue}`);
 

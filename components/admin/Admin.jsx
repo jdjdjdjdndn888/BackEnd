@@ -6,7 +6,7 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
-const TABS = ["Overview", "Users", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Giveaways", "Logs", "Danger"];
+const TABS = ["Overview", "Users", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Giveaways", "Affiliates", "Logs", "Danger"];
 const GAMES = ["PS99", "MM2"];
 
 // Assignable ranks, lowest to highest. Must match api/utils/rankTiers.js ALL_RANKS.
@@ -80,6 +80,7 @@ export default function Admin() {
         {tab === "Withdrawals"  && <WithdrawalsTab />}
         {tab === "Cases"        && <CasesTab />}
         {tab === "Giveaways"    && <GiveawaysTab />}
+        {tab === "Affiliates"   && <AffiliatesTab />}
         {tab === "Logs"         && <LogsTab />}
         {tab === "Danger"       && <DangerTab />}
       </div>
@@ -1758,6 +1759,155 @@ function GiveawaysTab() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Affiliates ────────────────────────────────────────────────────────────────
+function AffiliatesTab() {
+  const { userData } = useContext(UserContext);
+  const [codes, setCodes]         = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState("");
+  const [setTarget, setSetTarget] = useState("");
+  const [setCodeVal, setSetCodeVal] = useState("");
+  const [setSaving, setSetSaving] = useState(false);
+  const [removing,  setRemoving]  = useState(null);
+
+  const isOwner = OWNER_TIER.includes(userData?.rank);
+
+  const fetchCodes = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${api}/admin/affiliates`, {
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      if (r.ok) { const d = await r.json(); setCodes(d.data || []); }
+      else toast.error("Failed to load affiliate codes");
+    } catch { toast.error("Network error"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchCodes(); }, []);
+
+  const handleSetCode = async () => {
+    if (!setTarget || !setCodeVal) return toast.error("Enter a user ID and a code.");
+    setSetSaving(true);
+    try {
+      const r = await fetch(`${api}/admin/affiliates/setcode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ userid: setTarget, code: setCodeVal }),
+      });
+      const d = await r.json();
+      if (r.ok) { toast.success(d.message); setSetTarget(""); setSetCodeVal(""); fetchCodes(); }
+      else toast.error(d.message || "Failed");
+    } catch { toast.error("Network error"); }
+    finally { setSetSaving(false); }
+  };
+
+  const handleRemove = async (userid, code) => {
+    if (!confirm(`Remove affiliate code "${code}" from user ${userid}?`)) return;
+    setRemoving(userid);
+    try {
+      const r = await fetch(`${api}/admin/affiliates/${userid}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await r.json();
+      if (r.ok) { toast.success(d.message); fetchCodes(); }
+      else toast.error(d.message || "Failed");
+    } catch { toast.error("Network error"); }
+    finally { setRemoving(null); }
+  };
+
+  const filtered = codes.filter(
+    (c) =>
+      c.code.toLowerCase().includes(search.toLowerCase()) ||
+      c.ownerusername.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-bold text-white">Affiliate Codes</h3>
+          <p className="text-xs text-[#6B7280] mt-0.5">View and manage all user affiliate codes.</p>
+        </div>
+        <button onClick={fetchCodes} className="px-3 py-1.5 text-xs rounded-lg border border-[#1e2035] text-[#6B7280] hover:text-white bg-transparent cursor-pointer">
+          Refresh
+        </button>
+      </div>
+
+      {isOwner && (
+        <div className="rounded-xl border border-[#1e2035] bg-[#13151f] p-4 mb-4">
+          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-widest mb-3">Set Code For User</p>
+          <div className="flex gap-2 flex-wrap">
+            <input value={setTarget} onChange={(e) => setSetTarget(e.target.value)} placeholder="User ID"
+              className="flex-1 min-w-[120px] bg-[#0d0f1a] border border-[#1e2035] rounded-lg px-3 py-2 text-sm text-white outline-none" />
+            <input value={setCodeVal} onChange={(e) => setSetCodeVal(e.target.value)} placeholder="Code (e.g. TEDDE99)" maxLength={20}
+              className="flex-1 min-w-[160px] bg-[#0d0f1a] border border-[#1e2035] rounded-lg px-3 py-2 text-sm text-white outline-none" />
+            <button onClick={handleSetCode} disabled={setSaving || !setTarget || !setCodeVal}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white border-none cursor-pointer hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}>
+              {setSaving ? "Saving..." : "Set Code"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-3">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by code or username..."
+          className="w-full bg-[#13151f] border border-[#1e2035] rounded-lg px-3 py-2 text-sm text-white outline-none" />
+      </div>
+
+      {loading ? (
+        <p className="text-center text-[#6B7280] py-10">Loading...</p>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-[#1e2035] bg-[#13151f] p-8 text-center">
+          <p className="text-2xl mb-2">🔗</p>
+          <p className="text-sm text-[#6B7280]">{search ? "No codes match that search." : "No affiliate codes yet."}</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-[#1e2035] overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#13151f] text-[#6B7280] text-left">
+                {["Code", "Owner", "Uses", "Claimed", "Pending", "Actions"].map((h) => (
+                  <th key={h} className="px-4 py-3 font-medium text-xs">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c, i) => (
+                <tr key={c._id} className={`border-t border-[#1e2035] ${i % 2 === 0 ? "bg-[#0d0f1a]" : "bg-[#0a0b14]"}`}>
+                  <td className="px-4 py-3">
+                    <span className="font-mono font-bold text-[#8B5CF6]">{c.code}</span>
+                  </td>
+                  <td className="px-4 py-3 text-[#6B7280]">
+                    <span className="font-mono text-xs">{c.ownerusername}</span>
+                    <span className="block text-[10px] text-[#444]">ID: {c.ownerid}</span>
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-white">{c.uses}</td>
+                  <td className="px-4 py-3 text-green-400 font-semibold">{c.claimed}</td>
+                  <td className="px-4 py-3 text-yellow-400 font-semibold">{c.unclaimed}</td>
+                  <td className="px-4 py-3">
+                    {isOwner ? (
+                      <button onClick={() => handleRemove(c.ownerid, c.code)} disabled={removing === c.ownerid}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border-none text-white cursor-pointer hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}>
+                        {removing === c.ownerid ? "Removing..." : "Remove"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-[#6B7280]">Owner only</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
