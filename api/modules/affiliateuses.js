@@ -15,9 +15,7 @@ const affiliateUseSchema = new schema({
   createdat:         { type: Date, default: Date.now },
 });
 
-// one user can only use one code
-affiliateUseSchema.index({ userid: 1 }, { unique: true });
-// fast look-up by code owner
+// fast look-up by code owner (userid unique is already set on the field above)
 affiliateUseSchema.index({ codeownerid: 1 });
 
 module.exports = mongoose.model("affiliateuses", affiliateUseSchema);
