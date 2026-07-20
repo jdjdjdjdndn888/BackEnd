@@ -135,6 +135,7 @@ exports.openCase = asyncHandler(async (req, res) => {
         addHistory(savedUser.userid, "Case Open", `-${caseDoc.cost}`),
         updateuser(savedUser.userid, io),
         updatestats(io),
+        users.updateOne({ userid: savedUser.userid }, { $inc: { wager: caseDoc.cost } }),
         sendwebhook(caseswebh,
           `🎁 Case Opened — ${caseDoc.name}`,
           `**${savedUser.username}** opened **${caseDoc.name}** for ${caseDoc.cost.toLocaleString()} gems`,
