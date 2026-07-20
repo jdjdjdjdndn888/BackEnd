@@ -29,10 +29,15 @@ const { Schema } = mongoose;
 
 const users = mongoose.model("users", new Schema({
   userid: Number, username: String, discordid: String, discordusername: String,
-  thumbnail: String, balance: { type: Number, default: 0 }, wager: { type: Number, default: 0 },
-  won: { type: Number, default: 0 }, lost: { type: Number, default: 0 },
-  level: { type: Number, default: 0 }, banned: { type: Boolean, default: false },
-}));
+  thumbnail: String, rank: String,
+  balance:   { type: Number, default: 0 },
+  wager:     { type: Number, default: 0 },
+  deposited: { type: Number, default: 0 },
+  won:       { type: Number, default: 0 },
+  lost:      { type: Number, default: 0 },
+  level:     { type: Number, default: 0 },
+  banned:    { type: Boolean, default: false },
+}, { strict: false }));
 
 const items = mongoose.model("items", new Schema({
   itemid: Number, itemname: String, itemvalue: Number, itemimage: String, game: String,
@@ -70,6 +75,16 @@ const Jackpot = mongoose.model("Jackpot", new Schema({
   value: Number, winnerusername: String, winnerid: Number,
   state: String, game: String, inactive: Boolean, endsAt: Date,
 }, { strict: false }));
+
+const affiliatecodes = mongoose.model("affiliatecodes", new Schema({
+  ownerid: Number, ownerusername: String, code: String, uses: { type: Number, default: 0 },
+}));
+
+const affiliateuses = mongoose.model("affiliateuses", new Schema({
+  codeownerid: Number, code: String, userid: Number, username: String,
+  depositatuse: { type: Number, default: 0 }, wageratuse: { type: Number, default: 0 },
+  claimed: { type: Boolean, default: false }, createdat: { type: Date, default: Date.now },
+}));
 
 // ─── In-memory state ─────────────────────────────────────────────────────────
 const settings       = { cancelWithdrawsEnabled: true, tippingLocked: false };
@@ -263,6 +278,7 @@ client.once("clientReady", async () => {
       new SlashCommandBuilder().setName("profit").setDescription("Your net profit/loss"),
       new SlashCommandBuilder().setName("stats").setDescription("Your full GemTide statistics"),
       new SlashCommandBuilder().setName("wager").setDescription("Your wager amount & rank"),
+      new SlashCommandBuilder().setName("affiliate").setDescription("Your affiliate code & referral link"),
       new SlashCommandBuilder().setName("daily").setDescription("Daily bonus reminder link"),
       new SlashCommandBuilder().setName("withdraws").setDescription("Your pending withdrawals"),
       new SlashCommandBuilder().setName("cancelallwithdraws").setDescription("Cancel all your pending withdrawals"),
@@ -607,6 +623,61 @@ client.on("interactionCreate", async (interaction) => {
       .setDescription(`Visit GemTide to claim your daily bonus!\n\n[Click here to claim](${SITE_URL}/daily)`)
       .setFooter({ text: "GemTide • Daily resets every 24 hours" }))], components: [row] });
 
+  // ── /affiliate ───────────────────────────────────────────────────────────────
+  } else if (commandName === "affiliate") {
+    try {
+      const user = await users.findOne({ discordid: interaction.user.id });
+      if (!user) return interaction.editReply("❌ Link your Discord first — use `/link`.");
+
+      const codeDoc  = await affiliatecodes.findOne({ ownerid: user.userid }).lean();
+      const usedDoc  = await affiliateuses.findOne({ userid: user.userid }).lean();
+
+      const embed = applyBanner(new EmbedBuilder().setColor(0x8b5cf6)
+        .setTitle(`🔗 ${user.username}'s Affiliate`)
+        .setThumbnail(user.thumbnail || null));
+
+      if (codeDoc) {
+        const refLink = `${SITE_URL}/refferal/${codeDoc.code}`;
+        const uses    = await affiliateuses.countDocuments({ codeownerid: user.userid });
+        const claimed = await affiliateuses.countDocuments({ codeownerid: user.userid, claimed: true });
+
+        embed.setDescription(
+          `**Your referral link — share this with friends!**\n` +
+          `\`\`\`${refLink}\`\`\``
+        ).addFields(
+          { name: "📎 Code",      value: `\`${codeDoc.code}\``,          inline: true },
+          { name: "👥 Uses",      value: String(uses),                   inline: true },
+          { name: "✅ Claimed",   value: String(claimed),                inline: true },
+          { name: "⏳ Pending",   value: String(uses - claimed),         inline: true },
+          { name: "💎 Reward",    value: "100M gems per referral",       inline: true },
+          { name: "📋 Requirements", value: "Referee must deposit **10M** gems\nand wager **30M** gems", inline: false }
+        );
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setLabel("Share Link").setEmoji("🔗").setStyle(ButtonStyle.Link).setURL(refLink)
+        );
+
+        if (usedDoc) {
+          embed.addFields({ name: "📥 Using Code", value: `\`${usedDoc.code}\``, inline: true });
+        }
+
+        await interaction.editReply({ embeds: [embed], components: [row] });
+      } else {
+        embed.setDescription(
+          "You don't have an affiliate code yet!\n\n" +
+          `Set one at [gemtide.win/profile](${SITE_URL}/profile) → **Affiliate** tab.\n` +
+          "Once set, share your link and earn **100M gems** per referral."
+        );
+        if (usedDoc) {
+          embed.addFields({ name: "📥 Currently Using", value: `\`${usedDoc.code}\``, inline: true });
+        }
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setLabel("Set Affiliate Code").setEmoji("⚙️").setStyle(ButtonStyle.Link).setURL(`${SITE_URL}/profile`)
+        );
+        await interaction.editReply({ embeds: [embed], components: [row] });
+      }
+    } catch (e) { console.error(e); interaction.editReply("Something went wrong."); }
+
   // ── /withdraws ───────────────────────────────────────────────────────────────
   } else if (commandName === "withdraws") {
     try {
@@ -940,7 +1011,7 @@ client.on("interactionCreate", async (interaction) => {
       .addFields(
         { name: "👤 Account", value:
             "`/link` `/unlink` — Link or unlink Discord\n`/balance` `/stats` `/profit` `/wager`\n" +
-            "`/inventory [page]` `/history [page]`\n`/withdraws` `/cancelallwithdraws`\n`/daily` `/profile @user`", inline: false },
+            "`/inventory [page]` `/history [page]`\n`/withdraws` `/cancelallwithdraws`\n`/daily` `/profile @user`\n`/affiliate` — Your referral link & earnings", inline: false },
         { name: "🏆 Leaderboards", value:
             "`/leaderboard` `/richest` `/topprofit` `/toplosers` `/toplevel`", inline: false },
         { name: "🎮 Games & Site", value:
