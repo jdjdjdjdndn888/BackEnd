@@ -6,6 +6,7 @@ const affiliateCodes = require("../../modules/affiliatecodes.js");
 const affiliateUses  = require("../../modules/affiliateuses.js");
 const { OWNER_TIER } = require("../../utils/rankTiers.js");
 const { logAction }  = require("../../utils/logaction.js");
+const { checkVpnOrProxy, getClientIp } = require("../../utils/ipcheck.js");
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const DEPOSIT_REQUIREMENT = 10_000_000;   // referee must deposit ≥ 10 M gems
@@ -87,19 +88,45 @@ exports.useCode = asyncHandler(async (req, res) => {
 
   if (!code) return res.status(400).json({ message: "Code is required." });
 
-  // Can't already have used a code
+  // ── 1. Get real client IP ──────────────────────────────────────────────────
+  const clientIp = getClientIp(req);
+
+  // ── 2. VPN / proxy check ──────────────────────────────────────────────────
+  const vpnResult = await checkVpnOrProxy(clientIp);
+  if (vpnResult.isVpn) {
+    return res.status(403).json({
+      message: `VPN and proxy connections are not allowed when using affiliate codes. Please disable your VPN/proxy and try again.`,
+    });
+  }
+
+  // ── 3. Alt-account check (same IP already used a code) ───────────────────
+  // If this IP has been used by a *different* account to enter a code, block it.
+  if (clientIp && clientIp !== "unknown") {
+    const ipConflict = await affiliateUses.findOne({
+      ipaddress: clientIp,
+      userid: { $ne: userid },
+    }).lean();
+
+    if (ipConflict) {
+      return res.status(403).json({
+        message: "This IP address has already been used to enter an affiliate code on another account. Alt accounts are not allowed.",
+      });
+    }
+  }
+
+  // ── 4. Can't already have used a code ─────────────────────────────────────
   const alreadyUsed = await affiliateUses.findOne({ userid });
   if (alreadyUsed) {
     return res.status(409).json({ message: `You have already used code "${alreadyUsed.code}".` });
   }
 
-  // Find the code
+  // ── 5. Find the code ──────────────────────────────────────────────────────
   const codeDoc = await affiliateCodes.findOne({
     code: { $regex: new RegExp(`^${code.trim()}$`, "i") },
   });
   if (!codeDoc) return res.status(404).json({ message: "Code not found." });
 
-  // Can't use your own code
+  // ── 6. Can't use your own code ────────────────────────────────────────────
   if (codeDoc.ownerid === userid) {
     return res.status(400).json({ message: "You cannot use your own affiliate code." });
   }
@@ -107,7 +134,7 @@ exports.useCode = asyncHandler(async (req, res) => {
   const user = await users.findOne({ userid });
   if (!user) return res.status(404).json({ message: "User not found." });
 
-  // Record the use with progress snapshots
+  // ── 7. Record the use with progress snapshots + IP ───────────────────────
   await affiliateUses.create({
     codeownerid:       codeDoc.ownerid,
     codeownerusername: codeDoc.ownerusername,
@@ -116,6 +143,7 @@ exports.useCode = asyncHandler(async (req, res) => {
     username:          user.username,
     depositatuse:      user.deposited || 0,
     wageratuse:        user.wager     || 0,
+    ipaddress:         clientIp,
   });
 
   // Bump use counter

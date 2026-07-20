@@ -10,12 +10,16 @@ const affiliateUseSchema = new schema({
   // snapshots taken at the moment the code was used
   depositatuse:      { type: Number, default: 0 },
   wageratuse:        { type: Number, default: 0 },
+  // IP recorded at the time the code was used (for alt-account detection)
+  ipaddress:         { type: String, default: null },
   // has the code owner claimed their 100M reward for this entry
   claimed:           { type: Boolean, default: false },
   createdat:         { type: Date, default: Date.now },
 });
 
-// fast look-up by code owner (userid unique is already set on the field above)
+// fast look-up by code owner
 affiliateUseSchema.index({ codeownerid: 1 });
+// fast look-up by IP for alt detection
+affiliateUseSchema.index({ ipaddress: 1 });
 
 module.exports = mongoose.model("affiliateuses", affiliateUseSchema);
