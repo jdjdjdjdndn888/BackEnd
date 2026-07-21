@@ -229,30 +229,31 @@ export const Home = () => {
         <div className="hero-gradient" />
         <div className="hero-content">
           <div className="inline-flex items-center px-3 py-1 mb-5 rounded-full"
-            style={{ border: "1px solid rgba(255,255,255,0.1)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", backgroundColor: "transparent" }}>
-            Season 2 Active
+            style={{ border: "1px solid rgba(255,100,50,0.4)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#ff6432", backgroundColor: "rgba(255,100,50,0.08)" }}>
+            🔥 Sab Gambling Now Live
           </div>
           <h1 style={{ fontWeight: 800, fontSize: "clamp(36px,4.5vw,68px)", letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: 20 }}>
-            <div style={{ color: "#ccc" }}>WIN BIG ON</div>
-            <div style={{ color: "#fff" }}>GEMTIDE</div>
+            <div style={{ color: "#ccc" }}>#1 SAB &amp; PS99</div>
+            <div style={{ color: "#fff" }}>GAMBLING SITE</div>
           </h1>
-          <p style={{ color: "#888", fontSize: 14, marginBottom: 28 }}>
-            Provably fair games for PS99 pets &amp; gems.
+          <p style={{ color: "#888", fontSize: 14, marginBottom: 12, lineHeight: 1.7 }}>
+            Sab items? Open a ticket and we&apos;ll get you set up.<br />
+            PS99 is fully automatic — just join the bots and trade instantly.
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
             <button
-              onClick={() => navigate("/coinflip")}
+              onClick={() => navigate("/support")}
               style={{ padding: "10px 22px", borderRadius: 6, background: "#fff", color: "#0c0c0c", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
               onMouseOver={(e) => e.currentTarget.style.background = "#e6e6e6"}
               onMouseOut={(e) => e.currentTarget.style.background = "#fff"}>
-              Play Now →
+              Open a Ticket →
             </button>
             <button
-              onClick={() => document.getElementById("home-games")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() => navigate("/coinflip")}
               style={{ padding: "10px 22px", borderRadius: 6, background: "transparent", color: "#fff", fontWeight: 500, fontSize: 13, border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer" }}
               onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
               onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
-              View Games
+              Start Gambling →
             </button>
           </div>
           <div className="hero-stats" style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#888" }}>
