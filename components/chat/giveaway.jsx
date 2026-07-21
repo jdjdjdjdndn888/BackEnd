@@ -157,9 +157,20 @@ export default function Giveaways() {
                   >
                     {giveaway.starterusername}
                   </button>
-                  <span className={GiveawayStyles.entries}>
-                    {giveaway.entries} Entries
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {(giveaway.minLevel ?? 0) > 0 && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "2px 7px",
+                        borderRadius: 999, background: "rgba(139,92,246,0.18)",
+                        color: "#a78bfa", whiteSpace: "nowrap"
+                      }}>
+                        Lv {giveaway.minLevel}+
+                      </span>
+                    )}
+                    <span className={GiveawayStyles.entries}>
+                      {giveaway.entries} Entries
+                    </span>
+                  </div>
                 </div>
 
                 {/* Item display */}

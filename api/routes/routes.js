@@ -186,6 +186,7 @@ router.post("/admin/reset-inventories", accountController.verifyToken, adminCont
 router.get("/admin/logs", accountController.verifyToken, adminController.isAdmin, adminController.getAuditLogs);
 router.get("/admin/giveaways", accountController.verifyToken, adminController.isAdmin, adminController.adminGetGiveaways);
 router.post("/admin/giveaways/cancel", accountController.verifyToken, adminController.isAdmin, adminController.adminCancelGiveaway);
+router.post("/admin/giveaways/create", accountController.verifyToken, adminController.isAdmin, adminController.adminCreateGiveaway);
 
 // ── Affiliate ─────────────────────────────────────────────────────────────────
 router.get("/affiliate/mine",   accountController.verifyToken, affiliateController.getMyAffiliate);

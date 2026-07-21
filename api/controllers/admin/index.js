@@ -757,6 +757,52 @@ exports.adminGetGiveaways = asyncHandler(async (req, res) => {
   res.json({ success: true, data: list });
 });
 
+/** POST /admin/giveaways/create — admin creates a giveaway using any item (no inventory required) */
+exports.adminCreateGiveaway = asyncHandler(async (req, res) => {
+  const { itemid, duration, minLevel = 0 } = req.body;
+
+  if (!itemid || !duration) return res.status(400).json({ message: "itemid and duration are required." });
+  if (typeof duration !== "number" || duration < 1 || duration > 1440)
+    return res.status(400).json({ message: "Duration must be between 1 and 1440 minutes." });
+  if (typeof minLevel !== "number" || minLevel < 0 || minLevel > 100)
+    return res.status(400).json({ message: "minLevel must be between 0 and 100." });
+
+  const item = await items.findOne({ itemid: Number(itemid) }).lean();
+  if (!item) return res.status(404).json({ message: "Item not found." });
+
+  const endDate = new Date(Date.now() + duration * 60 * 1000);
+  const fakeInventoryId = new (require("mongoose").Types.ObjectId)().toString();
+
+  const gw = await giveaways.create({
+    starterid: req.adminUser.userid,
+    starterusername: req.adminUser.username,
+    entries: 0,
+    minLevel,
+    item: [{
+      id: fakeInventoryId,
+      itemname: item.itemname,
+      itemimage: item.itemimage || "",
+      itemid: item.itemid,
+      itemvalue: item.itemvalue,
+    }],
+    winner: null,
+    winnerid: null,
+    winnerusername: null,
+    complete: false,
+    refunded: false,
+    enddate: endDate,
+  });
+
+  const io = req.app.get("io");
+  if (io) io.emit("NEW_GIVEAWAY", gw);
+
+  const { scheduleGiveaway } = require("../giveaway/index.js");
+  scheduleGiveaway(gw, io);
+
+  logAction(req.adminUser, "Create Giveaway", item.itemname, `Level ${minLevel}+, ${duration}min`);
+  res.json({ success: true, message: `Giveaway for "${item.itemname}" started!`, data: gw });
+});
+
 /** POST /admin/giveaways/cancel — owner-tier: force-cancel + refund to creator */
 exports.adminCancelGiveaway = asyncHandler(async (req, res) => {
   if (!req.adminUser || !OWNER_TIER.includes(req.adminUser.rank)) {

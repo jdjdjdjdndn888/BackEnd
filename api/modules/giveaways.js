@@ -36,6 +36,7 @@ const giveawaySchema = new Schema({
         required: false,
         default: null,
     },
+    minLevel: { type: Number, required: false, default: 0 },
     complete: { type: Boolean, required: true, default: false },
     refunded: { type: Boolean, required: true, default: false },
     enddate: { type: Date, required: true, default: Date.now },

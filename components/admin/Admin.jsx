@@ -1605,6 +1605,15 @@ function GiveawaysTab() {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(null);
 
+  // Create form state
+  const [createItemId, setCreateItemId] = useState("");
+  const [createItemSearch, setCreateItemSearch] = useState("");
+  const [createItemResults, setCreateItemResults] = useState([]);
+  const [createItemSelected, setCreateItemSelected] = useState(null);
+  const [createDuration, setCreateDuration] = useState(30);
+  const [createMinLevel, setCreateMinLevel] = useState(0);
+  const [creating, setCreating] = useState(false);
+
   const isOwner = OWNER_TIER.includes(userData?.rank);
 
   const fetchGiveaways = async () => {
@@ -1659,8 +1668,106 @@ function GiveawaysTab() {
     return `${m}m ${s}s`;
   };
 
+  const searchItems = async (q) => {
+    if (!q || q.length < 2) { setCreateItemResults([]); return; }
+    try {
+      const r = await fetch(`${api}/admin/items?search=${encodeURIComponent(q)}&limit=8`, {
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      if (r.ok) { const d = await r.json(); setCreateItemResults(d.data?.slice(0, 8) || []); }
+    } catch {}
+  };
+
+  const handleCreateGiveaway = async () => {
+    if (!createItemSelected) return toast.error("Select an item first.");
+    setCreating(true);
+    try {
+      const res = await fetch(`${api}/admin/giveaways/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ itemid: createItemSelected.itemid, duration: Number(createDuration), minLevel: Number(createMinLevel) }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        toast.success(d.message);
+        setCreateItemSelected(null); setCreateItemSearch(""); setCreateItemResults([]);
+        setCreateDuration(30); setCreateMinLevel(0);
+        fetchGiveaways();
+      } else {
+        toast.error(d.message || "Failed to create giveaway");
+      }
+    } catch { toast.error("Network error"); }
+    finally { setCreating(false); }
+  };
+
   return (
     <div>
+      {/* ── Create Giveaway ── */}
+      <div className="rounded-xl border border-[#1e2035] bg-[#13151f] p-4 mb-5">
+        <h3 className="text-sm font-bold text-white mb-3">🎁 Create Admin Giveaway</h3>
+        <div className="flex flex-col gap-3">
+          {/* Item search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search item name…"
+              value={createItemSearch}
+              onChange={(e) => { setCreateItemSearch(e.target.value); setCreateItemSelected(null); searchItems(e.target.value); }}
+              className="w-full px-3 py-2 rounded-lg bg-[#0d0f1a] border border-[#1e2035] text-white text-xs placeholder-[#6B7280] outline-none"
+            />
+            {createItemResults.length > 0 && !createItemSelected && (
+              <div className="absolute z-10 top-full left-0 right-0 mt-1 rounded-lg border border-[#1e2035] bg-[#0d0f1a] overflow-hidden shadow-xl">
+                {createItemResults.map((it) => (
+                  <button
+                    key={it.itemid}
+                    onClick={() => { setCreateItemSelected(it); setCreateItemSearch(it.itemname); setCreateItemResults([]); setCreateItemId(String(it.itemid)); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-white hover:bg-[#1e2035] cursor-pointer border-none bg-transparent"
+                  >
+                    {it.itemimage && <img src={it.itemimage} alt="" className="w-6 h-6 object-contain rounded" />}
+                    <span className="flex-1 truncate">{it.itemname}</span>
+                    <span className="text-[#6B7280]">{it.game} · {fmtVal(it.itemvalue)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {createItemSelected && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0d0f1a] border border-[#8B5CF6]">
+              {createItemSelected.itemimage && <img src={createItemSelected.itemimage} alt="" className="w-8 h-8 object-contain rounded" />}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{createItemSelected.itemname}</p>
+                <p className="text-[10px] text-[#8B5CF6]">{fmtVal(createItemSelected.itemvalue)}</p>
+              </div>
+              <button onClick={() => { setCreateItemSelected(null); setCreateItemSearch(""); }} className="text-[#6B7280] hover:text-white text-lg leading-none bg-transparent border-none cursor-pointer">×</button>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-[10px] text-[#6B7280] uppercase tracking-wider mb-1 block">Duration (mins)</label>
+              <input type="number" min="1" max="1440" value={createDuration} onChange={(e) => setCreateDuration(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-[#0d0f1a] border border-[#1e2035] text-white text-xs outline-none" />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] text-[#6B7280] uppercase tracking-wider mb-1 block">Min Level to Join</label>
+              <select value={createMinLevel} onChange={(e) => setCreateMinLevel(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg bg-[#0d0f1a] border border-[#1e2035] text-white text-xs outline-none cursor-pointer">
+                {[0,1,2,3,4,5,10,15,20,25,50,100].map(l => (
+                  <option key={l} value={l}>Level {l}+</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={handleCreateGiveaway}
+            disabled={creating || !createItemSelected}
+            className="px-4 py-2 rounded-lg text-xs font-semibold text-white border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "linear-gradient(135deg,#8B5CF6,#6366F1)" }}
+          >
+            {creating ? "Creating…" : "🎁 Start Giveaway"}
+          </button>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-white">Active Giveaways</h3>
@@ -1688,7 +1795,7 @@ function GiveawaysTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#13151f] text-[#6B7280] text-left">
-                {["Item", "Host", "Value", "Entries", "Time Left", "Actions"].map(h => (
+                {["Item", "Host", "Value", "Min Level", "Entries", "Time Left", "Actions"].map(h => (
                   <th key={h} className="px-4 py-3 font-medium text-xs">{h}</th>
                 ))}
               </tr>
@@ -1726,6 +1833,13 @@ function GiveawaysTab() {
                     <td className="px-4 py-3">
                       <span className="font-bold text-[#8B5CF6]">
                         {item?.itemvalue != null ? fmtVal(item.itemvalue) : "—"}
+                      </span>
+                    </td>
+
+                    {/* Min Level */}
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>
+                        Lv {gw.minLevel ?? 0}+
                       </span>
                     </td>
 

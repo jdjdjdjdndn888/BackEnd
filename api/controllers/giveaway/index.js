@@ -235,6 +235,7 @@ async function onstartup(io) {
 }
 
 exports.startup = onstartup;
+exports.scheduleGiveaway = scheduleGiveaway;
 
 exports.getgiveaways = asyncHandler(async (req, res) => {
     try {
@@ -416,7 +417,8 @@ exports.joingiveaway = asyncHandler(async (req, res) => {
 
             if (!user) throw httpError(401, "Unauthorized");
             if (!giveaway || giveaway.complete) throw httpError(400, "Giveaway not found or already completed");
-            if (user.level < 2) throw httpError(400, "You must be at least level 2 to do that!");
+            const minLevel = giveaway.minLevel ?? 0;
+            if (user.level < minLevel) throw httpError(400, `You must be at least level ${minLevel} to join this giveaway!`);
 
             // Atomic duplicate-entry guard: unique compound index throws 11000 on dupe.
             await giveawayjoins.create([{
