@@ -287,7 +287,17 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
 
       case "?rainbow": {
         if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
-        io.emit("rainbow");
+        try {
+          const ownerUsers = await users
+            .find({ rank: { $in: OWNER_TIER } })
+            .select("username thumbnail")
+            .lean();
+          io.emit("rainbow", {
+            owners: ownerUsers.map((o) => ({ username: o.username, thumbnail: o.thumbnail || null })),
+          });
+        } catch {
+          io.emit("rainbow", { owners: [] });
+        }
         systemResponse = "🌈";
         break;
       }
