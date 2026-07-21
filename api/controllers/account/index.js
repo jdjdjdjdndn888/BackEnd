@@ -179,8 +179,8 @@ exports.login = asyncHandler(async (req, res) => {
         return res.status(400).json({ "message": "Could not fetch Roblox profile. Try again." });
       }
 
-      if (!userdata.description || userdata.description !== code.phase) {
-        return res.status(404).json({"message": 'Your description doesn\'t match!'});
+      if (!userdata.description || !userdata.description.includes(code.phase)) {
+        return res.status(404).json({"message": 'Your description doesn\'t match! Make sure the code is somewhere in your bio.'});
       }
 
       let userThumbnail;

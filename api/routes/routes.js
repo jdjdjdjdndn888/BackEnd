@@ -185,8 +185,8 @@ router.post("/admin/cancel-all-bets", accountController.verifyToken, adminContro
 router.post("/admin/reset-inventories", accountController.verifyToken, adminController.isAdmin, adminController.resetAllInventories);
 router.get("/admin/logs", accountController.verifyToken, adminController.isAdmin, adminController.getAuditLogs);
 router.get("/admin/giveaways", accountController.verifyToken, adminController.isAdmin, adminController.adminGetGiveaways);
-router.post("/admin/giveaways/cancel", accountController.verifyToken, adminController.isOwnerTier, adminController.adminCancelGiveaway);
-router.post("/admin/giveaways/create", accountController.verifyToken, adminController.isOwnerTier, adminController.adminCreateGiveaway);
+router.post("/admin/giveaways/cancel", accountController.verifyToken, adminController.isAdmin, adminController.isOwnerTier, adminController.adminCancelGiveaway);
+router.post("/admin/giveaways/create", accountController.verifyToken, adminController.isAdmin, adminController.isOwnerTier, adminController.adminCreateGiveaway);
 
 // ── Affiliate ─────────────────────────────────────────────────────────────────
 router.get("/affiliate/mine",   accountController.verifyToken, affiliateController.getMyAffiliate);

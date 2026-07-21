@@ -34,7 +34,7 @@ const EXTRA_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
 const ALLOWED_ORIGINS = [...DEFAULT_ORIGINS, ...EXTRA_ORIGINS];
 
 function isAllowedOrigin(origin) {
-  if (!origin) return false; // block all server-to-server / curl requests by default
+  if (!origin) return false;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   // Replit dev domain for local preview
   if (process.env.REPLIT_DEV_DOMAIN && origin.includes(process.env.REPLIT_DEV_DOMAIN)) return true;
@@ -43,18 +43,39 @@ function isAllowedOrigin(origin) {
 }
 
 /**
+ * Extract the trusted origin from available headers.
+ * Same-origin browser requests through Vercel's proxy often arrive without an
+ * Origin header (the browser considers them same-origin so CORS rules don't
+ * apply). In that case we fall back to the Referer header.
+ */
+function resolveRequestOrigin(req) {
+  const origin = req.headers.origin;
+  if (origin) return origin;
+
+  // Referer fallback — Vercel proxies typically forward this even when
+  // Origin is absent on same-origin requests.
+  const referer = req.headers.referer || req.headers.referrer;
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {}
+  }
+  return null;
+}
+
+/**
  * Origin guard — runs before all routes.
  * Allows a request if:
- *   1. Browser request from an approved origin, OR
+ *   1. Browser request from an approved origin (checked via Origin or Referer), OR
  *   2. Roblox / internal bot request carrying the shared JWT secret as Bearer token, OR
  *   3. Discord-bot announce request carrying the correct x-announce-secret header.
  * Everything else gets a hard 403.
  */
 function originGuard(req, res, next) {
-  const origin = req.headers.origin;
+  const effectiveOrigin = resolveRequestOrigin(req);
 
-  // Approved browser origin
-  if (origin && isAllowedOrigin(origin)) return next();
+  // Approved browser origin (direct or via Vercel proxy with Referer)
+  if (effectiveOrigin && isAllowedOrigin(effectiveOrigin)) return next();
 
   // Discord bot → /bot-announce with the announce secret
   const announceSecret = process.env.ANNOUNCE_SECRET;
@@ -78,6 +99,9 @@ const corsOptions = {
     // Pass false (not an Error) for disallowed origins so Express doesn't
     // convert it into a 500. The originGuard middleware that runs after CORS
     // will return a clean 403 for anything that shouldn't be here.
+    // When origin is absent (same-origin Vercel proxy) treat it as the
+    // allowed gemtide.win origin so CORS headers are still emitted correctly.
+    if (!origin) return callback(null, true);
     callback(null, isAllowedOrigin(origin));
   },
   credentials: true,
