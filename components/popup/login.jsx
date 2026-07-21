@@ -25,12 +25,24 @@ export default function LoginModal() {
     if (!agreed) { toast.error("Please agree to the terms of service."); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${api}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim() }),
-      });
-      const data = await res.json();
+      let res;
+      try {
+        res = await fetch(`${api}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username.trim() }),
+        });
+      } catch {
+        toast.error("Could not reach the server. Check your connection and try again.");
+        return;
+      }
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        toast.error("Server returned an unexpected response. Please try again.");
+        return;
+      }
       if (!res.ok || !data.code) {
         toast.error(data.message || "Could not find that username.");
         return;
@@ -39,7 +51,7 @@ export default function LoginModal() {
       setPhase(data.phase);
       setStep(STEPS.VERIFY);
     } catch {
-      toast.error("Network error. Try again.");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -56,12 +68,26 @@ export default function LoginModal() {
     setStep(STEPS.CHECKING);
     setLoading(true);
     try {
-      const res = await fetch(`${api}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), code }),
-      });
-      const data = await res.json();
+      let res;
+      try {
+        res = await fetch(`${api}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username.trim(), code }),
+        });
+      } catch {
+        toast.error("Could not reach the server. Check your connection and try again.");
+        setStep(STEPS.VERIFY);
+        return;
+      }
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        toast.error("Server returned an unexpected response. Please try again.");
+        setStep(STEPS.VERIFY);
+        return;
+      }
       if (!res.ok || !data.hash) {
         toast.error(data.message || "Verification failed. Make sure the code is in your bio.");
         setStep(STEPS.VERIFY);
@@ -70,17 +96,21 @@ export default function LoginModal() {
       Cookies.set("token", data.hash, { expires: 30 });
       localStorage.setItem("token", data.hash);
 
-      const meRes = await fetch(`${api}/me`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${data.hash}` },
-      });
-      const meData = await meRes.json();
-      if (meData?.data) setUserData(meData.data);
+      try {
+        const meRes = await fetch(`${api}/me`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${data.hash}` },
+        });
+        const meData = await meRes.json();
+        if (meData?.data) setUserData(meData.data);
+      } catch {
+        // Non-fatal — token is saved, user is logged in
+      }
 
       toast.success(`Welcome, ${username}!`);
       setModalState(null);
     } catch {
-      toast.error("Network error. Try again.");
+      toast.error("Something went wrong. Please try again.");
       setStep(STEPS.VERIFY);
     } finally {
       setLoading(false);

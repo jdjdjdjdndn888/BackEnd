@@ -28,20 +28,21 @@ function cacheSet(ip, v) {
   cache.set(ip, { v, exp: Date.now() + CACHE_TTL });
 }
 
-// ── Known VPN / hosting keywords (matched against ISP and ORG strings) ────────
+// ── Known VPN provider keywords (matched against ISP and ORG strings) ────────
+// Only include actual VPN service names — generic datacenter/hosting terms
+// produce too many false positives because many residential ISPs route through
+// or resell from hosting networks. Real VPN exit nodes advertise their own
+// brand name, which proxycheck.io also catches via its proxy flag.
 const VPN_KEYWORDS = [
-  "vpn", "proxy", "tor exit", "anonymous", "anonymizer",
+  "vpn", "tor exit", "anonymous", "anonymizer",
   "nordvpn", "expressvpn", "mullvad", "protonvpn", "surfshark",
   "cyberghost", "privateinternetaccess", "pia vpn", "ipvanish",
   "windscribe", "hotspot shield", "hide.me", "purevpn", "hidemyass",
   "vypr", "torguard", "airvpn", "perfect-privacy", "perfect privacy",
   "zenmate", "tunnelbear", "avast vpn", "avira phantom",
-  // generic datacenter / hosting flags
-  "hosting", "datacenter", "data center", "colocation", "colo ", "lease web",
-  "vultr", "digital ocean", "digitalocean", "linode", "akamai", "cloudflare",
-  "ovhcloud", "ovh sas", "hetzner", "serverius", "leaseweb",
-  "m247", "privacyfoundation", "quadranet", "choopa", "choopa llc",
-  "servermania", "frantech",
+  "privado vpn", "astrill", "vyprvpn", "strongvpn", "cactusvpn",
+  "privatevpn", "ovpn", "anonvpn", "vpnsecure", "vpnunlimited",
+  "vpn unlimited", "namecheap vpn", "zenvpn",
 ];
 
 function containsVpnKeyword(str) {
@@ -75,14 +76,16 @@ async function checkIpApi(ip) {
     );
     if (!data || data.status === "fail") return { isVpn: false, reason: null, error: true };
 
-    // Pro fields — may or may not be present on free tier
-    if (data.proxy === true)   return { isVpn: true, reason: "ip-api: proxy flag", error: false };
-    if (data.hosting === true) return { isVpn: true, reason: "ip-api: hosting/datacenter flag", error: false };
+    // proxy flag — reliable indicator of an active proxy/VPN tunnel
+    // Note: we intentionally skip the `hosting` field because ip-api.com's free
+    // tier marks many residential ISPs that resell datacenter transit as
+    // "hosting", causing false positives for real users.
+    if (data.proxy === true) return { isVpn: true, reason: "ip-api: proxy flag", error: false };
 
-    // Keyword match on ISP / org / AS description (free tier)
+    // Keyword match on ISP / org / AS description — only actual VPN brand names
     for (const field of [data.isp, data.org, data.as]) {
       if (containsVpnKeyword(field)) {
-        return { isVpn: true, reason: `ip-api: ISP/org keyword match (${field})`, error: false };
+        return { isVpn: true, reason: `ip-api: VPN provider match (${field})`, error: false };
       }
     }
     return { isVpn: false, reason: null, error: false };

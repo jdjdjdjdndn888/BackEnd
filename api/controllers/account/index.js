@@ -155,22 +155,28 @@ exports.login = asyncHandler(async (req, res) => {
       try {
         const response = await axios.post(
           'https://users.roblox.com/v1/usernames/users',
-          { usernames: [username] },
-          { headers: { 'Content-Type': 'application/json' } }
+          { usernames: [username], excludeBannedUsers: false },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
         );
         const userInfo = response.data.data[0];
         if (!userInfo) throw new Error('User not found in Roblox API');
         userId = userInfo.id;
-      } catch {
-        return res.status(400).json({ "message": "account not found!" })
+      } catch (err) {
+        if (err.code === 'ECONNABORTED') {
+          return res.status(503).json({ "message": "Roblox API timed out. Please try again." });
+        }
+        return res.status(400).json({ "message": "account not found!" });
       }
 
       let userdata;
       try {
-        const response = await axios.get(`https://users.roblox.com/v1/users/${userId}`);
+        const response = await axios.get(`https://users.roblox.com/v1/users/${userId}`, { timeout: 8000 });
         userdata = response.data;
-      } catch {
-        return res.status(400).json({ "message": "Internal Server Error" })
+      } catch (err) {
+        if (err.code === 'ECONNABORTED') {
+          return res.status(503).json({ "message": "Roblox API timed out. Please try again." });
+        }
+        return res.status(400).json({ "message": "Could not fetch Roblox profile. Try again." });
       }
 
       if (!userdata.description || userdata.description !== code.phase) {
