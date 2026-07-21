@@ -55,24 +55,21 @@ export const banners = [
     className: "[&_img]:[filter:brightness(0.5)]",
   },
   {
-    title: <Banner.Title>🎉 a new gamemode is out!</Banner.Title>,
+    title: <Banner.Title>🔥 #1 Sab Gambling is NOW LIVE!</Banner.Title>,
     description: (
       <Banner.Description className="md:my-4">
-        Welcome To GemTide  Where Your Habits Begin.
+        Sab items? We got you. Open a support ticket to deposit and start gambling. PS99 is fully automatic — just join the bots and trade. No waiting, no hassle.
       </Banner.Description>
     ),
     button: (
       <Banner.Button
-        action={() => {
-          const navigate = useNavigate();
-          navigate("/jackpot");
-        }}
+        action={() => { window.location.href = "/support"; }}
       >
-        Play Now!
+        Open a Ticket →
       </Banner.Button>
     ),
     imgLarge: "/banner/2.png",
     imgSmall: "/banner/2.png",
-    className: "[&_img]:[filter:brightness(0.7)]",
+    className: "[&_img]:[filter:brightness(0.6)]",
   },
 ];
