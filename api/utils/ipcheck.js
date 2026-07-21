@@ -97,10 +97,17 @@ async function checkIpApi(ip) {
 // ── Public API ────────────────────────────────────────────────────────────────
 /**
  * Returns { isVpn, reason, error }.
- * Runs both checks in parallel; a positive from EITHER check → isVpn = true.
- * Only sets error = true when BOTH checks failed (network outage).
- * On total outage we fail-open (return isVpn: false) so legit users aren't
- * blocked — change this to fail-closed if you prefer stricter security.
+ * Runs both checks in parallel.
+ *
+ * Blocking policy — BOTH services must agree it is a VPN/proxy:
+ *   - proxycheck.io says proxy=yes  AND  ip-api.com says proxy=true or keyword match
+ *
+ * Requiring consensus from two independent sources eliminates false positives
+ * caused by either service mis-classifying a residential IP. Real VPN exit
+ * nodes are consistently flagged by both services; home connections are not.
+ *
+ * If either service errored (network outage / rate limit), we fail-open
+ * (return isVpn: false) so legitimate users are never blocked by an API blip.
  */
 async function checkVpnOrProxy(ip) {
   // Skip local / private ranges entirely (dev environment)
@@ -122,13 +129,20 @@ async function checkVpnOrProxy(ip) {
   const [pc, ia] = await Promise.all([checkProxycheck(ip), checkIpApi(ip)]);
 
   let result;
-  if (pc.isVpn) {
+  const bothErrored = pc.error && ia.error;
+
+  if (bothErrored) {
+    // Can't determine — fail open so real users aren't blocked by an outage
+    result = { isVpn: false, reason: null, error: true };
+  } else if (pc.isVpn && ia.isVpn) {
+    // Consensus: both services agree — definitely a VPN/proxy
+    result = { isVpn: true, reason: `${pc.reason} + ${ia.reason}`, error: false };
+  } else if (pc.isVpn && ia.error) {
+    // proxycheck flagged it but ip-api errored — trust the dedicated service
     result = { isVpn: true, reason: pc.reason, error: false };
-  } else if (ia.isVpn) {
-    result = { isVpn: true, reason: ia.reason, error: false };
   } else {
-    // Both returned "not vpn" — only mark error if BOTH errored
-    result = { isVpn: false, reason: null, error: pc.error && ia.error };
+    // Either both say "not vpn", or only ip-api says vpn (too unreliable alone)
+    result = { isVpn: false, reason: null, error: false };
   }
 
   cacheSet(ip, result);
