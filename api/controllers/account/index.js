@@ -16,21 +16,26 @@ const settings = require("../../settings.js");
 
 const codesCache = {};
 
-exports.verifyToken = asyncHandler((req, res, next) => {
+exports.verifyToken = asyncHandler(async (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
   if (!token) {
-    return res.status(401).json({ "message": "Unauthorized" })
+    return res.status(401).json({ "message": "Unauthorized" });
   }
 
-  jwt.verify(token, jwt_secret, (err, user) => {
-    if (err) {
-      return res.status(401).json({ "message": "Unauthorized" })
-    }
-    req.user = user;
+  let decoded;
+  try {
+    decoded = jwt.verify(token, jwt_secret);
+  } catch {
+    return res.status(401).json({ "message": "Unauthorized" });
+  }
 
-    next();
+  // Check ban status on every authenticated request so bans take effect immediately
+  const dbUser = await users.findOne({ userid: decoded.id }, { banned: 1 }).lean();
+  if (!dbUser) return res.status(401).json({ message: "Unauthorized" });
+  if (dbUser.banned) return res.status(403).json({ message: "Your account has been banned." });
 
-  });
+  req.user = decoded;
+  next();
 });
 
 
@@ -205,6 +210,10 @@ exports.login = asyncHandler(async (req, res) => {
         });
         await newUser.save();
       } else {
+        // Block banned users from logging in at all
+        if (dbUser.banned) {
+          return res.status(403).json({ message: "Your account has been banned." });
+        }
         dbUser.thumbnail = userThumbnail[0].imageUrl;
         await dbUser.save();
       }
