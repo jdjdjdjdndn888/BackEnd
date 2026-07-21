@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
 const TABS = ["Overview", "Users", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Giveaways", "Affiliates", "Logs", "Danger"];
-const GAMES = ["PS99", "MM2"];
+const GAMES = ["PS99", "Sab"];
 
 // Assignable ranks, lowest to highest. Must match api/utils/rankTiers.js ALL_RANKS.
 const RANKS = ["USER", "TRIAL_STAFF", "MIDDLEMAN", "MODERATOR", "TRUSTED_STAFF", "ADMIN", "CO_OWNER", "OWNER"];

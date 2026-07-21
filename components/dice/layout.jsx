@@ -152,7 +152,7 @@ export default function DiceLayout() {
       {/* Filters */}
       <div style={S.filters}>
         <div style={{ display: "flex", gap: 6 }}>
-          {["all", "PS99", "MM2"].map((f) => (
+          {["all", "PS99", "Sab"].map((f) => (
             <button key={f} style={S.pill(gameFilter === f)} onClick={() => setGameFilter(f)}>
               {f === "all" ? "All" : f}
             </button>

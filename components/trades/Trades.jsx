@@ -138,7 +138,7 @@ export default function Trades() {
       {/* Filter bar */}
       <div style={S.controls}>
         <div style={{ display: "flex", gap: 6 }}>
-          {["all", "PS99", "MM2"].map((f) => (
+          {["all", "PS99", "Sab"].map((f) => (
             <button key={f} onClick={() => setGameFilter(f)} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", background: gameFilter === f ? "rgba(255,255,255,0.1)" : "transparent", color: gameFilter === f ? "#fff" : "#666", cursor: "pointer" }}>
               {f === "all" ? "All" : f}
             </button>

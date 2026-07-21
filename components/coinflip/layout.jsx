@@ -145,7 +145,7 @@ export default function Coinflip() {
     ));
   };
 
-  const FILTERS = ["all", "PS99", "MM2"];
+  const FILTERS = ["all", "PS99", "Sab"];
 
   return (
     <div style={S.page}>

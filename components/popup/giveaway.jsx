@@ -166,7 +166,7 @@ export default function Giveaway() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 min-w-[140px] rounded-lg bg-[#1C1F2E] border border-[#252839] px-3 py-2 text-sm text-white placeholder:text-[#6B7280] outline-none focus:border-[#8B5CF6]"
           />
-          {["all", "MM2", "PS99"].map((g) => (
+          {["all", "Sab", "PS99"].map((g) => (
             <button
               key={g}
               onClick={() => setSelectedGame(g)}

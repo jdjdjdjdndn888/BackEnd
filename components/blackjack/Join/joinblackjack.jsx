@@ -160,7 +160,7 @@ export default function JoinBlackjack({ game, onJoin, onClose }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-[#1C1F2D] border border-[#252839] rounded-lg p-1 mt-1">
-              {["all", "MM2", "PS99"].map((g) => (
+              {["all", "Sab", "PS99"].map((g) => (
                 <SelectItem key={g} className="text-white px-3 py-2 cursor-pointer" value={g}>{g === "all" ? "All" : g}</SelectItem>
               ))}
             </SelectContent>

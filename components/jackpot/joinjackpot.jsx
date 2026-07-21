@@ -252,7 +252,7 @@ export default function JoinJackpot() {
                 <SelectValue placeholder="Filter" />
               </SelectTrigger>
               <SelectContent className={inventorystyles.selectContent}>
-                {["all", "MM2", "PS99"].map((game) => (
+                {["all", "Sab", "PS99"].map((game) => (
                   <SelectItem
                     className={inventorystyles.selectItem}
                     value={game}
