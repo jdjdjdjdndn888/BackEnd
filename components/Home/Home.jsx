@@ -229,14 +229,14 @@ export const Home = () => {
         <div className="hero-gradient" />
         <div className="hero-content">
           <div className="inline-flex items-center px-3 py-1 mb-5 rounded-full"
-            style={{ border: "1px solid rgba(255,100,50,0.4)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#ff6432", backgroundColor: "rgba(255,100,50,0.08)" }}>
+            style={{ border: "1px solid rgba(139,92,246,0.5)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#a78bfa", backgroundColor: "rgba(99,102,241,0.1)", background: "linear-gradient(90deg, rgba(99,102,241,0.12), rgba(139,92,246,0.12))" }}>
             🔥 Sab Gambling Now Live
           </div>
           <h1 style={{ fontWeight: 800, fontSize: "clamp(36px,4.5vw,68px)", letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: 20 }}>
             <div style={{ color: "#ccc" }}>#1 SAB &amp; PS99</div>
             <div style={{ color: "#fff" }}>GAMBLING SITE</div>
           </h1>
-          <p style={{ color: "#888", fontSize: 14, marginBottom: 12, lineHeight: 1.7 }}>
+          <p style={{ color: "#fff", fontSize: 14, marginBottom: 12, lineHeight: 1.7 }}>
             Sab items? Open a ticket and we&apos;ll get you set up.<br />
             PS99 is fully automatic — just join the bots and trade instantly.
           </p>
