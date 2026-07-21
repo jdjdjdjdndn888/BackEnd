@@ -1703,6 +1703,11 @@ function GiveawaysTab() {
   return (
     <div>
       {/* ── Create Giveaway ── */}
+      {!isOwner ? (
+        <div className="rounded-xl border border-[#1e2035] bg-[#13151f] p-4 mb-5 text-center">
+          <p className="text-xs text-[#6B7280]">🔒 Creating admin giveaways is restricted to Owner tier.</p>
+        </div>
+      ) : (
       <div className="rounded-xl border border-[#1e2035] bg-[#13151f] p-4 mb-5">
         <h3 className="text-sm font-bold text-white mb-3">🎁 Create Admin Giveaway</h3>
         <div className="flex flex-col gap-3">
@@ -1767,6 +1772,7 @@ function GiveawaysTab() {
           </button>
         </div>
       </div>
+      )}
 
       <div className="flex items-center justify-between mb-4">
         <div>
