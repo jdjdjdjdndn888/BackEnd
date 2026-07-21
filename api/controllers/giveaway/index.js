@@ -340,7 +340,7 @@ exports.giveaway = asyncHandler(async (req, res) => {
       const io = req.app.get("io");
 
       giveawaysToSave.forEach((giveaway) => {
-        if (io) io.emit("NEW_GIVEAWAY", giveaway);
+        if (io) io.emit("NEW_GIVEAWAY", giveaway.toObject());
 
         sendwebhook(
           giveawaywebh,
