@@ -351,19 +351,23 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           }))];
 
           const sortedItems = allItems.sort((a, b) => a.itemvalue - b.itemvalue);
-          // Value-based tax: pick cheapest items until their accumulated value covers taxes% of the total pot.
           const totalPotValue = allItems.reduce((sum, item) => sum + (item.itemvalue || 0), 0);
-          const targetTaxValue = totalPotValue * taxes;
           let taxAccum = 0;
           taxedItems = [];
           winnerItems = [];
-          for (const item of sortedItems) {
-              if (taxAccum < targetTaxValue) {
-                  taxedItems.push(item);
-                  taxAccum += (item.itemvalue || 0);
-              } else {
-                  winnerItems.push(item);
+          // Only tax pots with 5 or more items total
+          if (allItems.length >= 5) {
+              const targetTaxValue = totalPotValue * taxes;
+              for (const item of sortedItems) {
+                  if (taxAccum < targetTaxValue) {
+                      taxedItems.push(item);
+                      taxAccum += (item.itemvalue || 0);
+                  } else {
+                      winnerItems.push(item);
+                  }
               }
+          } else {
+              winnerItems = [...sortedItems];
           }
 
           if (taxedItems.length > 0) {

@@ -560,21 +560,23 @@ exports.payflip = asyncHandler(async (req, res, next) => {
     const allItems = jackpotEntries.flatMap((entry) => entry.items);
     const sortedItems = allItems.sort((a, b) => a.itemvalue - b.itemvalue);
 
-    // Always tax the pot (value-based slice, consistent regardless of item
-    // count) — previously this was gated behind `sortedItems.length >= 5`,
-    // which meant small pots paid no tax at all.
     const totalPotValue = sortedItems.reduce((sum, item) => sum + item.itemvalue, 0);
-    const taxTarget = totalPotValue * taxes;
     let taxedValue = 0;
     let taxedItems = [];
     let winnerItems = [];
-    for (const item of sortedItems) {
-      if (taxedValue < taxTarget) {
-        taxedItems.push(item);
-        taxedValue += item.itemvalue;
-      } else {
-        winnerItems.push(item);
+    // Only tax pots with 5 or more items total
+    if (sortedItems.length >= 5) {
+      const taxTarget = totalPotValue * taxes;
+      for (const item of sortedItems) {
+        if (taxedValue < taxTarget) {
+          taxedItems.push(item);
+          taxedValue += item.itemvalue;
+        } else {
+          winnerItems.push(item);
+        }
       }
+    } else {
+      winnerItems = [...sortedItems];
     }
 
     if (winnerItems.length > 0) {
