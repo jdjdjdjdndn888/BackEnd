@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useRef } from "react";
+import { useState, useEffect, useContext, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import SocketContext from "../../utils/socket";
 import { getauth } from "../../utils/getauth";
@@ -15,6 +15,7 @@ import NotifyModal from "../notifications/NotifyModal.jsx";
 import Tip from "../tip/tip.jsx";
 import { useModal } from "../../utils/ModalContext.jsx";
 import { DropSound } from "@/assets/exports.jsx";
+import RainbowAnimation from "./RainbowAnimation.jsx";
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
@@ -22,6 +23,7 @@ export default function Chat() {
   const [onlineCount, setOnlineCount] = useState(0);
   const [canSend, setCanSend] = useState(true);
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [rainbowData, setRainbowData] = useState(null); // { owners: [] } when active
   const socket = useContext(SocketContext);
   const { userData } = useContext(UserContext);
   const { setModalState } = useModal();
@@ -81,17 +83,21 @@ export default function Chat() {
       );
     };
 
+    const handleRainbow = (data) => setRainbowData({ owners: data?.owners || [] });
+
     socket.on("MESSAGE", handleSocketMessage);
     socket.on("MESSAGE", handleDropMessage);
     socket.on("ONLINE_UPDATE", setOnlineCount);
     socket.on("CHAT_PURGED", handlePurge);
     socket.on("DROP_CLAIMED", handleDropClaimed);
+    socket.on("rainbow", handleRainbow);
     return () => {
       socket.off("MESSAGE", handleSocketMessage);
       socket.off("MESSAGE", handleDropMessage);
       socket.off("ONLINE_UPDATE");
       socket.off("CHAT_PURGED", handlePurge);
       socket.off("DROP_CLAIMED", handleDropClaimed);
+      socket.off("rainbow", handleRainbow);
     };
   }, [socket]);
 
@@ -146,6 +152,12 @@ export default function Chat() {
       className="lg:py-0 py-4"
     >
       {showNotifyModal && <NotifyModal onClose={() => setShowNotifyModal(false)} />}
+      {rainbowData && (
+        <RainbowAnimation
+          owners={rainbowData.owners}
+          onDone={() => setRainbowData(null)}
+        />
+      )}
 
       <Giveaways />
       <Messages messages={messages} messagesEndRef={messagesEndRef} />

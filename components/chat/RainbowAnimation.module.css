@@ -1,0 +1,170 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+  animation: overlayFade 5.2s ease forwards;
+}
+
+@keyframes overlayFade {
+  0%   { opacity: 0; }
+  4%   { opacity: 1; }
+  82%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Scene: rainbow + avatars slide L→R ──────────────────────────── */
+.scene {
+  position: absolute;
+  bottom: 36%;
+  animation: ride 4.4s cubic-bezier(0.3, 0, 0.7, 1) forwards;
+  transform: translateX(-800px);
+  will-change: transform;
+}
+
+@keyframes ride {
+  0%   { transform: translateX(-800px); }
+  100% { transform: translateX(115vw);  }
+}
+
+/* ── Rainbow band ─────────────────────────────────────────────────── */
+.rainbow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 660px;
+  border-radius: 40px;
+  overflow: hidden;
+  box-shadow:
+    0 0 60px rgba(255, 255, 255, 0.35),
+    0 0 120px rgba(139, 92, 246, 0.3),
+    0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+.band {
+  height: 13px;
+  width: 100%;
+}
+
+.rainbowShine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.25) 0%,
+    transparent 50%
+  );
+  pointer-events: none;
+}
+
+/* ── Avatar row sitting on top of rainbow ─────────────────────────── */
+.avatarRow {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+.avatarWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  animation: bounce 0.45s ease-in-out infinite alternate;
+}
+
+@keyframes bounce {
+  from { transform: translateY(0px);  }
+  to   { transform: translateY(-14px); }
+}
+
+.crown {
+  font-size: 15px;
+  margin-bottom: 2px;
+  filter: drop-shadow(0 0 4px rgba(255, 200, 0, 0.9));
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  object-fit: cover;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+}
+
+.avatarFallback {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Bag of items on the right ────────────────────────────────────── */
+.bagScene {
+  position: absolute;
+  right: 90px;
+  bottom: 30%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: bagEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+@keyframes bagEntrance {
+  from { transform: scale(0) rotate(-15deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+
+.bagEmoji {
+  font-size: 86px;
+  display: block;
+  filter:
+    drop-shadow(0 0 20px rgba(255, 200, 0, 0.7))
+    drop-shadow(0 0 40px rgba(255, 150, 0, 0.4));
+  animation: bagPulse 0.7s ease-in-out 3.2s infinite alternate;
+}
+
+@keyframes bagPulse {
+  from { transform: scale(1)    rotate(-3deg); }
+  to   { transform: scale(1.12) rotate(3deg);  }
+}
+
+/* ── Items bursting out of bag ────────────────────────────────────── */
+.itemsBurst {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+}
+
+.burstItem {
+  position: absolute;
+  font-size: 22px;
+  opacity: 0;
+  animation: burst 1s ease-out calc(3.4s + var(--i, 0) * 0.12s) forwards;
+}
+
+/* fan 5 items outward in an arc above the bag */
+.burstItem:nth-child(1) { --angle: -80deg; }
+.burstItem:nth-child(2) { --angle: -40deg; }
+.burstItem:nth-child(3) { --angle:   0deg; }
+.burstItem:nth-child(4) { --angle:  40deg; }
+.burstItem:nth-child(5) { --angle:  80deg; }
+
+@keyframes burst {
+  0%   { opacity: 0; transform: translate(0, 0)   scale(0.3); }
+  50%  { opacity: 1; transform: translate(calc(sin(var(--angle)) * 55px), -65px) scale(1.2); }
+  100% { opacity: 0; transform: translate(calc(sin(var(--angle)) * 70px), -90px) scale(0.6); }
+}

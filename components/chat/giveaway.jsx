@@ -71,17 +71,19 @@ export default function Giveaways() {
       ),
     );
 
+    // Also catch the winner announcement in case countdown already fired
     if (
       updatedGiveaway.winner &&
       currentGiveawayIdRef.current === updatedGiveaway._id
     ) {
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 5000);
     }
   }, []);
 
   const handleGiveawayDone = useCallback((data) => {
     data?.giveaways && setGiveaways(data.giveaways);
+    // GW fully removed from board — stop confetti
+    setShowConfetti(false);
   }, []);
 
   useEffect(() => {
@@ -210,6 +212,11 @@ export default function Giveaways() {
                 {/* Countdown + Join */}
                 <Countdown
                   date={new Date(giveaway.enddate).getTime()}
+                  onComplete={() => {
+                    if (currentGiveawayIdRef.current === giveaway._id) {
+                      setShowConfetti(true);
+                    }
+                  }}
                   renderer={({ hours, minutes, seconds, completed }) => (
                     <div className={GiveawayStyles.timerContainer}>
                       {completed ? (
