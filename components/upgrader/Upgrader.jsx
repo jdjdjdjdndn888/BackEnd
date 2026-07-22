@@ -1,7 +1,9 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useSeo } from "@/utils/useSeo";
 
 export default function Upgrader() {
+  const navigate = useNavigate();
   useSeo({
     title: "Upgrader — Maintenance | GemTide",
     description: "Upgrader is temporarily offline.",
@@ -9,13 +11,14 @@ export default function Upgrader() {
   });
 
   return (
-    <div style={{
+    <div onClick={() => navigate("/")} style={{
       position: "fixed", inset: 0, zIndex: 9999,
       background: "#020008",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
       overflow: "hidden",
       userSelect: "none",
+      cursor: "pointer",
     }}>
 
       {/* ── Keyframes ── */}
