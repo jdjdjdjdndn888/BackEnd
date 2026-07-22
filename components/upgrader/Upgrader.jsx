@@ -1,389 +1,203 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
-import toast from "react-hot-toast";
-import UserContext from "../../utils/user.js";
-import { getauth } from "../../utils/getauth.js";
-import { api } from "../../config.js";
-import { formatLargeNumber } from "@/utils/value";
+import React from "react";
 import { useSeo } from "@/utils/useSeo";
-import { Search, RefreshCw } from "lucide-react";
-
-const MAX_WIN_CHANCE = 90;
-
-function WinChanceArc({ chance }) {
-  const r = 58;
-  const circ = 2 * Math.PI * r;
-  const pct = Math.min(100, Math.max(0, chance));
-  const dashoffset = circ * (1 - pct / 100);
-  const color = pct >= 70 ? "#4ade80" : pct >= 40 ? "#facc15" : "#f87171";
-  return (
-    <svg width="150" height="150" viewBox="0 0 150 150">
-      <circle cx="75" cy="75" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="10" />
-      <circle cx="75" cy="75" r={r} fill="none" stroke={color} strokeWidth="10"
-        strokeDasharray={circ} strokeDashoffset={dashoffset} strokeLinecap="round"
-        transform="rotate(-90 75 75)"
-        style={{ transition: "stroke-dashoffset 0.4s ease, stroke 0.4s ease" }} />
-      <text x="75" y="70" textAnchor="middle" fill="white" fontSize="22" fontWeight="800" fontFamily="system-ui">{pct.toFixed(1)}%</text>
-      <text x="75" y="88" textAnchor="middle" fill="#555" fontSize="10" fontFamily="system-ui" letterSpacing="1">WIN CHANCE</text>
-    </svg>
-  );
-}
-
-const S = {
-  page:   { boxSizing: "border-box", background: "linear-gradient(180deg, rgba(4,4,16,0.45) 0%, rgba(4,4,16,0.82) 55%, #040410 100%), url(/bg-upgrader.jpg) center/cover no-repeat fixed", minHeight: "100%", color: "#fff", fontFamily: "system-ui,-apple-system,sans-serif", display: "flex", flexDirection: "column" },
-  header: { borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 },
-  divider:{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" },
-  panel:  { display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.07)", background: "#111" },
-  input:  { width: "100%", background: "#0c0c0c", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "7px 10px 7px 32px", fontSize: 12, color: "#fff", outline: "none", boxSizing: "border-box" },
-};
 
 export default function Upgrader() {
   useSeo({
-    title: "PS99 Upgrader | Risk Pets by PS99 Values - GemTide",
-    description:
-      "Use GemTide's Pet Simulator 99 Upgrader to risk your pets for a shot at a higher-tier item, priced against real PS99 values for a fair, transparent trade.",
+    title: "Upgrader — Maintenance | GemTide",
+    description: "Upgrader is temporarily offline.",
     path: "/upgrader",
   });
-  const { userData } = useContext(UserContext);
-  const [myInventory, setMyInventory] = useState([]);
-  const [targetItems, setTargetItems] = useState([]);
-  const [selectedBetItems, setSelectedBetItems] = useState([]);
-  const [selectedTargets, setSelectedTargets] = useState([]);
-  const [rolling, setRolling] = useState(false);
-  const [result, setResult] = useState(null);
-  const [loadingInv, setLoadingInv] = useState(false);
-  const [loadingTargets, setLoadingTargets] = useState(true);
-  const [betSearch, setBetSearch] = useState("");
-  const [targetSearch, setTargetSearch] = useState("");
-  const [sliderChance, setSliderChance] = useState(50);
-  const resultTimeout = useRef(null);
-
-  const betValue = selectedBetItems.reduce((s, i) => s + (i.itemvalue || 0), 0);
-  // Target value is the sum of every selected target — picking more targets raises the
-  // total value at stake (lowering win chance for the same bet), but winning pays out all of them.
-  const targetValue = selectedTargets.reduce((s, i) => s + (i.itemvalue || 0), 0);
-  const winChance = targetValue > 0 ? Math.min(MAX_WIN_CHANCE, (betValue / targetValue) * 100) : 0;
-
-  // Auto-select items from inventory to reach the desired win chance against the selected target(s)
-  const autoSelectForChance = (desiredChance) => {
-    if (selectedTargets.length === 0 || targetValue <= 0 || myInventory.length === 0) return;
-    const neededBetValue = (Math.min(desiredChance, MAX_WIN_CHANCE) / 100) * targetValue;
-    // Sort by value descending for greedy selection
-    const sorted = [...myInventory].sort((a, b) => (b.itemvalue || 0) - (a.itemvalue || 0));
-    const picked = [];
-    let accumulated = 0;
-    for (const item of sorted) {
-      if (accumulated >= neededBetValue) break;
-      picked.push(item);
-      accumulated += item.itemvalue || 0;
-    }
-    setSelectedBetItems(picked);
-    setResult(null);
-  };
-
-  useEffect(() => { fetchTargetItems(); if (userData) fetchInventory(); }, [userData]);
-
-  const fetchTargetItems = async () => {
-    setLoadingTargets(true);
-    try {
-      const r = await fetch(`${api}/upgrader/items`);
-      const d = await r.json();
-      setTargetItems(d.items || []);
-    } catch { toast.error("Failed to load upgrade targets."); }
-    finally { setLoadingTargets(false); }
-  };
-
-  const fetchInventory = async () => {
-    setLoadingInv(true);
-    try {
-      const r = await fetch(`${api}/me/inventory`, { method: "POST", headers: { authorization: `Bearer ${getauth()}` } });
-      const d = await r.json();
-      if (r.ok) setMyInventory(d.data || []);
-      else toast.error(d.message);
-    } catch { toast.error("Failed to load inventory."); }
-    finally { setLoadingInv(false); }
-  };
-
-  const toggleBetItem = (item) => {
-    setResult(null);
-    const exists = selectedBetItems.some((i) => i.inventoryid === item.inventoryid);
-    setSelectedBetItems((p) => exists ? p.filter((i) => i.inventoryid !== item.inventoryid) : [...p, item]);
-  };
-
-  // Selecting more targets raises the total target value (and thus lowers your win
-  // chance for the same bet), but winning pays out every selected target item.
-  const toggleTarget = (item) => {
-    setResult(null);
-    const exists = selectedTargets.some((t) => t.inventoryid === item.inventoryid);
-    setSelectedTargets((p) => exists ? p.filter((t) => t.inventoryid !== item.inventoryid) : [...p, item]);
-  };
-
-  const doUpgrade = async () => {
-    if (!userData) return toast.error("You must be logged in.");
-    if (selectedBetItems.length === 0) return toast.error("Select items to bet.");
-    if (selectedTargets.length === 0) return toast.error("Select at least one upgrade target.");
-    if (winChance <= 0) return toast.error("Win chance too low.");
-    setRolling(true); setResult(null); clearTimeout(resultTimeout.current);
-    try {
-      const r = await fetch(`${api}/upgrader/upgrade`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
-        body: JSON.stringify({ inventoryIds: selectedBetItems.map((i) => i.inventoryid), targetInventoryIds: selectedTargets.map((t) => t.inventoryid) }),
-      });
-      const d = await r.json();
-      if (r.ok) {
-        setResult(d.result);
-        if (d.result === "win") {
-          toast.success(`You won! 🎉 +${targetValue.toLocaleString()} value (${selectedTargets.length} item${selectedTargets.length !== 1 ? "s" : ""})`);
-          const wonIds = new Set(selectedTargets.map((t) => t.inventoryid));
-          setTargetItems((p) => p.filter((i) => !wonIds.has(i.inventoryid)));
-          setSelectedTargets([]);
-        } else {
-          toast.error("Better luck next time! 💀");
-        }
-        setMyInventory((p) => p.filter((i) => !selectedBetItems.some((b) => b.inventoryid === i.inventoryid)));
-        setSelectedBetItems([]);
-        resultTimeout.current = setTimeout(() => setResult(null), 4000);
-      } else { toast.error(d.message || "Something went wrong."); }
-    } catch { toast.error("Request failed."); }
-    finally { setRolling(false); }
-  };
-
-  const filteredBet = myInventory.filter((i) => i.itemname?.toLowerCase().includes(betSearch.toLowerCase()));
-  const filteredTargets = targetItems.filter((i) => i.itemname?.toLowerCase().includes(targetSearch.toLowerCase()));
-
-  const canUpgrade = !rolling && selectedBetItems.length > 0 && selectedTargets.length > 0 && winChance > 0;
 
   return (
-    <div style={S.page}>
-      {/* ── UPGRADER DOWN BANNER ── */}
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "#020008",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+      overflow: "hidden",
+      userSelect: "none",
+    }}>
+
+      {/* ── Keyframes ── */}
+      <style>{`
+        @keyframes gridMove   { from { background-position: 0 0; } to { background-position: 60px 60px; } }
+        @keyframes pulseGlow  { 0%,100%{opacity:.55} 50%{opacity:1} }
+        @keyframes scanline   { from{transform:translateY(-100%)} to{transform:translateY(100vh)} }
+        @keyframes glitch1    { 0%,95%,100%{clip-path:none;transform:none} 96%{clip-path:inset(20% 0 60% 0);transform:translateX(-6px)} 97%{clip-path:inset(60% 0 10% 0);transform:translateX(6px)} 98%{clip-path:inset(40% 0 40% 0);transform:translateX(-3px)} }
+        @keyframes glitch2    { 0%,95%,100%{opacity:0} 96%,98%{opacity:1} 97%,99%{opacity:0} }
+        @keyframes floatUp    { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-12px)} }
+        @keyframes shimmer    { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes borderPulse{ 0%,100%{box-shadow:0 0 0 1px rgba(180,80,255,.4),0 0 30px rgba(180,80,255,.15)} 50%{box-shadow:0 0 0 1px rgba(255,80,200,.7),0 0 60px rgba(255,80,200,.3)} }
+        @keyframes warnFlash  { 0%,100%{background:rgba(255,30,30,.12);border-color:rgba(255,70,70,.4)} 50%{background:rgba(255,30,30,.22);border-color:rgba(255,100,100,.7)} }
+        @keyframes orbit      { from{transform:rotate(0deg) translateX(220px) rotate(0deg)} to{transform:rotate(360deg) translateX(220px) rotate(-360deg)} }
+        @keyframes orbit2     { from{transform:rotate(180deg) translateX(300px) rotate(-180deg)} to{transform:rotate(540deg) translateX(300px) rotate(-540deg)} }
+        @keyframes spin       { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      `}</style>
+
+      {/* ── Moving grid background ── */}
       <div style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        background: "radial-gradient(ellipse at 50% 40%, rgba(10,0,30,0.98) 0%, rgba(2,0,12,0.99) 100%)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        gap: 32, padding: "40px 20px", overflow: "hidden",
-      }}>
-        {/* Animated orbs behind text */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: "15%", left: "10%", width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,0,255,0.18) 0%, transparent 70%)", filter: "blur(40px)", animation: "orbFloat1 8s ease-in-out infinite" }} />
-          <div style={{ position: "absolute", bottom: "10%", right: "8%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,0,128,0.15) 0%, transparent 70%)", filter: "blur(40px)", animation: "orbFloat2 10s ease-in-out infinite" }} />
-          <div style={{ position: "absolute", top: "55%", left: "45%", width: 280, height: 280, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,200,255,0.1) 0%, transparent 70%)", filter: "blur(30px)", animation: "orbFloat3 7s ease-in-out infinite" }} />
-        </div>
+        position:"absolute", inset:0, zIndex:0,
+        backgroundImage:
+          "linear-gradient(rgba(130,50,255,.07) 1px, transparent 1px)," +
+          "linear-gradient(90deg, rgba(130,50,255,.07) 1px, transparent 1px)",
+        backgroundSize:"60px 60px",
+        animation:"gridMove 4s linear infinite",
+      }} />
 
-        {/* ── Glitch icon ── */}
-        <div style={{ fontSize: 72, lineHeight: 1, filter: "drop-shadow(0 0 24px rgba(139,0,255,0.9))", animation: "iconPulse 2.4s ease-in-out infinite" }}>⚙️</div>
+      {/* ── Deep radial vignette ── */}
+      <div style={{
+        position:"absolute", inset:0, zIndex:1,
+        background:"radial-gradient(ellipse 80% 70% at 50% 50%, transparent 20%, #020008 100%)",
+      }} />
 
-        {/* ── Main heading ── */}
-        <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
-          <h1 style={{
-            margin: 0, fontSize: "clamp(26px, 5vw, 54px)", fontWeight: 900,
-            fontFamily: "'Segoe UI', system-ui, sans-serif",
-            letterSpacing: "-0.02em", lineHeight: 1.15,
-            background: "linear-gradient(135deg, #ffffff 0%, #bf80ff 40%, #ff4dac 70%, #ff8c42 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            filter: "drop-shadow(0 2px 32px rgba(191,128,255,0.45))",
-          }}>
-            Sorry, Upgrader
-          </h1>
-          <h2 style={{
-            margin: "4px 0 0", fontSize: "clamp(22px, 4vw, 46px)", fontWeight: 900,
-            fontFamily: "'Segoe UI', system-ui, sans-serif",
-            letterSpacing: "-0.02em",
-            background: "linear-gradient(135deg, #bf80ff 0%, #ff4dac 60%, #ff8c42 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}>
-            Will Be Back Soon
-          </h2>
-        </div>
-
-        {/* ── Divider ── */}
-        <div style={{ width: "min(480px, 90%)", height: 1, background: "linear-gradient(90deg, transparent, rgba(191,128,255,0.6), rgba(255,77,172,0.6), transparent)" }} />
-
-        {/* ── Sub message ── */}
-        <div style={{ textAlign: "center", maxWidth: 560, position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
-          <p style={{
-            margin: 0, fontSize: "clamp(15px, 2.5vw, 21px)", fontWeight: 700,
-            color: "#e8d5ff", lineHeight: 1.5,
-            textShadow: "0 0 20px rgba(191,128,255,0.5)",
-          }}>
-            Please Spam Ping{" "}
-            <span style={{
-              background: "linear-gradient(90deg, #ff4dac, #bf80ff)",
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-              backgroundClip: "text", fontWeight: 900,
-            }}>Flipper</span>
-            {" "}if you wanna complain
-          </p>
+      {/* ── Orbiting blobs ── */}
+      <div style={{ position:"absolute", inset:0, zIndex:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ position:"relative", width:0, height:0 }}>
           <div style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
-            padding: "10px 22px", borderRadius: 12,
-            background: "rgba(255,30,30,0.12)", border: "1px solid rgba(255,80,80,0.35)",
-            boxShadow: "0 0 20px rgba(255,0,0,0.15)",
+            position:"absolute", width:24, height:24, borderRadius:"50%",
+            background:"radial-gradient(circle, #c050ff 0%, transparent 70%)",
+            filter:"blur(8px)", boxShadow:"0 0 30px 10px rgba(180,50,255,.5)",
+            animation:"orbit 9s linear infinite",
+          }} />
+          <div style={{
+            position:"absolute", width:16, height:16, borderRadius:"50%",
+            background:"radial-gradient(circle, #ff40b0 0%, transparent 70%)",
+            filter:"blur(6px)", boxShadow:"0 0 20px 8px rgba(255,60,160,.45)",
+            animation:"orbit2 14s linear infinite",
+          }} />
+        </div>
+      </div>
+
+      {/* ── Slow scanline sweep ── */}
+      <div style={{
+        position:"absolute", inset:0, zIndex:2, pointerEvents:"none",
+        background:"linear-gradient(to bottom, transparent 0%, rgba(160,80,255,.04) 50%, transparent 100%)",
+        height:"200px", width:"100%",
+        animation:"scanline 8s linear infinite",
+      }} />
+
+      {/* ── Main card ── */}
+      <div style={{
+        position:"relative", zIndex:10,
+        display:"flex", flexDirection:"column", alignItems:"center",
+        gap:28, padding:"52px 48px 44px",
+        maxWidth:660, width:"90%",
+        border:"1px solid rgba(160,60,255,.25)",
+        borderRadius:24,
+        background:"linear-gradient(160deg, rgba(30,10,60,.85) 0%, rgba(10,2,22,.9) 100%)",
+        backdropFilter:"blur(18px)",
+        animation:"borderPulse 3s ease-in-out infinite",
+      }}>
+
+        {/* gear icon */}
+        <div style={{ fontSize:64, lineHeight:1, animation:"floatUp 3.5s ease-in-out infinite, pulseGlow 3s ease-in-out infinite" }}>
+          ⚙️
+        </div>
+
+        {/* UPGRADER heading with glitch */}
+        <div style={{ position:"relative", textAlign:"center" }}>
+          {/* ghost copy for glitch */}
+          <h1 aria-hidden="true" style={{
+            position:"absolute", inset:0,
+            margin:0, fontSize:"clamp(36px,7vw,72px)", fontWeight:900,
+            letterSpacing:"-0.03em", lineHeight:1,
+            background:"linear-gradient(135deg,#ff40b0,#c050ff)",
+            WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text",
+            animation:"glitch1 5s infinite, glitch2 5s infinite",
+            pointerEvents:"none",
+          }}>UPGRADER</h1>
+
+          <h1 style={{
+            margin:0, fontSize:"clamp(36px,7vw,72px)", fontWeight:900,
+            letterSpacing:"-0.03em", lineHeight:1,
+            background:"linear-gradient(135deg,#ffffff 0%,#d090ff 45%,#ff50b8 100%)",
+            WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text",
+            filter:"drop-shadow(0 0 40px rgba(180,80,255,.7))",
+          }}>UPGRADER</h1>
+
+          <p style={{
+            margin:"8px 0 0", fontSize:"clamp(13px,2vw,16px)", fontWeight:700,
+            letterSpacing:"0.35em", textTransform:"uppercase",
+            color:"rgba(200,150,255,.55)",
+          }}>— DOWN FOR MAINTENANCE —</p>
+        </div>
+
+        {/* shimmer divider */}
+        <div style={{
+          width:"100%", height:1,
+          background:"linear-gradient(90deg,transparent,rgba(180,80,255,.7),rgba(255,80,180,.7),transparent)",
+          animation:"pulseGlow 2.5s ease-in-out infinite",
+        }} />
+
+        {/* Sorry message */}
+        <div style={{ textAlign:"center" }}>
+          <p style={{
+            margin:0, fontSize:"clamp(18px,3.5vw,28px)", fontWeight:800,
+            color:"#f0e0ff", lineHeight:1.4,
+            textShadow:"0 0 30px rgba(180,80,255,.6)",
           }}>
-            <span style={{ fontSize: 20 }}>⚠️</span>
-            <p style={{
-              margin: 0, fontSize: "clamp(13px, 2vw, 17px)", fontWeight: 800,
-              color: "#ff6b6b", letterSpacing: "0.01em",
-              textShadow: "0 0 14px rgba(255,80,80,0.7)",
-            }}>
-              Ping{" "}
-              <span style={{ textDecoration: "line-through", opacity: 0.7 }}>Knowni1</span>
-              {" "}and you will get{" "}
-              <span style={{
-                background: "linear-gradient(90deg, #ff3030, #ff8c42)",
-                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}>BANNED</span>
-            </p>
-            <span style={{ fontSize: 20 }}>⚠️</span>
-          </div>
+            Sorry, Upgrader will be{" "}
+            <span style={{
+              background:"linear-gradient(90deg,#d090ff,#ff50b8)",
+              WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text",
+              backgroundSize:"200% auto",
+              animation:"shimmer 2.5s linear infinite",
+            }}>back soon</span>
+          </p>
         </div>
 
-        {/* ── Keyframes injected via style tag ── */}
-        <style>{`
-          @keyframes orbFloat1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(30px,-40px) scale(1.08)} }
-          @keyframes orbFloat2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-25px,35px) scale(1.05)} }
-          @keyframes orbFloat3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(20px,-20px)} }
-          @keyframes iconPulse { 0%,100%{filter:drop-shadow(0 0 24px rgba(139,0,255,0.9))} 50%{filter:drop-shadow(0 0 48px rgba(255,77,172,0.95))} }
-        `}</style>
-      </div>
-
-      {/* Header */}
-      <div style={S.header}>
-        <span style={{ fontSize: 11, letterSpacing: "0.15em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Upgrader</span>
-        <div style={S.divider} />
-        {[
-          { label: "Your Items",       value: selectedBetItems.length },
-          { label: "Bet Value",        value: betValue > 0 ? formatLargeNumber(betValue) : "—" },
-          { label: "Targets",          value: filteredTargets.length },
-        ].map(({ label, value }, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && <div style={S.divider} />}
-            <span style={{ fontSize: 13, color: "#888" }}>
-              <span style={{ color: "#fff", fontWeight: 600 }}>{value}</span> {label}
-            </span>
-          </React.Fragment>
-        ))}
-      </div>
-
-      {/* Three-column body */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 190px 1fr", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-
-        {/* LEFT — Inventory */}
-        <div style={{ borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 8 }}>Your Items</div>
-            <div style={{ position: "relative" }}>
-              <Search size={13} color="#555" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
-              <input style={S.input} placeholder="Search..." value={betSearch} onChange={(e) => setBetSearch(e.target.value)} />
-            </div>
-          </div>
-          <div style={{ flex: 1, padding: "10px 12px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, alignContent: "start", overflowY: "auto", maxHeight: "55vh" }}>
-            {loadingInv && <p style={{ gridColumn: "1/-1", textAlign: "center", color: "#555", padding: "32px 0" }}>Loading...</p>}
-            {!loadingInv && !userData && <p style={{ gridColumn: "1/-1", textAlign: "center", color: "#555", padding: "32px 0", fontSize: 12 }}>Log in to see your inventory</p>}
-            {!loadingInv && userData && filteredBet.length === 0 && <p style={{ gridColumn: "1/-1", textAlign: "center", color: "#555", padding: "32px 0", fontSize: 12 }}>No items found</p>}
-            {filteredBet.map((item) => {
-              const sel = selectedBetItems.some((s) => s.inventoryid === item.inventoryid);
-              return (
-                <div key={item.inventoryid} onClick={() => toggleBetItem(item)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 6px", borderRadius: 8, border: `1px solid ${sel ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(255,255,255,0.05)" : "#0c0c0c", cursor: "pointer", transition: "border-color 0.15s", textAlign: "center" }}>
-                  <img src={item.itemimage} alt={item.itemname} style={{ width: 44, height: 44, objectFit: "contain" }} />
-                  <p style={{ fontSize: 10, color: "#ccc", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.itemname}</p>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>{formatLargeNumber(item.itemvalue)}</p>
-                </div>
-              );
-            })}
-          </div>
+        {/* Ping Flipper pill */}
+        <div style={{
+          display:"flex", alignItems:"center", gap:12,
+          padding:"14px 24px", borderRadius:50,
+          background:"rgba(180,80,255,.12)",
+          border:"1px solid rgba(180,80,255,.35)",
+          boxShadow:"0 0 24px rgba(180,80,255,.2)",
+        }}>
+          <span style={{ fontSize:22 }}>🏓</span>
+          <p style={{
+            margin:0, fontSize:"clamp(13px,2.2vw,17px)", fontWeight:700,
+            color:"#e0c0ff",
+          }}>
+            Wanna complain?{" "}
+            <span style={{
+              background:"linear-gradient(90deg,#c050ff,#ff40b0)",
+              WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text",
+              fontWeight:900, fontSize:"1.1em",
+            }}>Spam ping Flipper</span>
+          </p>
+          <span style={{ fontSize:22 }}>🏓</span>
         </div>
 
-        {/* CENTER — Arc + slider + button */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 14px", gap: 14, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
-          <div style={{ filter: result === "win" ? "drop-shadow(0 0 20px rgba(74,222,128,0.5))" : result === "lose" ? "drop-shadow(0 0 20px rgba(248,113,113,0.4))" : "none", transition: "filter 0.4s ease" }}>
-            <WinChanceArc chance={winChance} />
-          </div>
-
-          {result && (
-            <div style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${result === "win" ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.3)"}`, background: result === "win" ? "rgba(74,222,128,0.08)" : "rgba(248,113,113,0.08)", textAlign: "center", fontSize: 15, fontWeight: 800, color: result === "win" ? "#4ade80" : "#f87171" }}>
-              {result === "win" ? "🎉 YOU WON!" : "💀 YOU LOST"}
-            </div>
-          )}
-
-          {/* ── Win-Chance Slider ── */}
-          <div style={{ width: "100%", background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 12px 10px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 10, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase" }}>Target Win %</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: (() => { const c = sliderChance; return c >= 70 ? "#4ade80" : c >= 40 ? "#facc15" : "#f87171"; })() }}>{sliderChance}%</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={MAX_WIN_CHANCE}
-              value={sliderChance}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setSliderChance(v);
-                autoSelectForChance(v);
-              }}
-              style={{ width: "100%", accentColor: sliderChance >= 70 ? "#4ade80" : sliderChance >= 40 ? "#facc15" : "#f87171", cursor: "pointer", height: 4 }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#333", marginTop: 4 }}>
-              <span>1%</span><span>{MAX_WIN_CHANCE}%</span>
-            </div>
-            <button
-              onClick={() => autoSelectForChance(sliderChance)}
-              disabled={selectedTargets.length === 0 || myInventory.length === 0}
-              style={{ marginTop: 8, width: "100%", padding: "5px 0", fontSize: 11, fontWeight: 600, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: selectedTargets.length > 0 ? "rgba(255,255,255,0.06)" : "transparent", color: selectedTargets.length > 0 ? "#ccc" : "#333", cursor: selectedTargets.length > 0 ? "pointer" : "not-allowed" }}
-            >
-              Auto-select items
-            </button>
-          </div>
-
-          {selectedBetItems.length > 0 && selectedTargets.length > 0 && (
-            <div style={{ width: "100%", background: "#0c0c0c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 6 }}>
-                <span>Bet</span><span style={{ color: "#fff", fontWeight: 600 }}>{formatLargeNumber(betValue)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555" }}>
-                <span>Target ({selectedTargets.length} item{selectedTargets.length !== 1 ? "s" : ""})</span><span style={{ color: "#fff", fontWeight: 600 }}>{formatLargeNumber(targetValue)}</span>
-              </div>
-            </div>
-          )}
-
-          <button onClick={doUpgrade} disabled={!canUpgrade}
-            style={{ width: "100%", height: 44, background: canUpgrade ? "#fff" : "rgba(255,255,255,0.06)", color: canUpgrade ? "#000" : "#333", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: canUpgrade ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.2s" }}>
-            {rolling ? <><span style={{ width: 14, height: 14, border: "2px solid #000", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /> Rolling...</> : <><RefreshCw size={14} /> Upgrade!</>}
-          </button>
-          <p style={{ fontSize: 11, color: "#444", textAlign: "center" }}>Provably fair · Max {MAX_WIN_CHANCE}%</p>
-        </div>
-
-        {/* RIGHT — Targets */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 8 }}>Upgrade Targets</div>
-            <div style={{ position: "relative" }}>
-              <Search size={13} color="#555" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
-              <input style={S.input} placeholder="Search targets..." value={targetSearch} onChange={(e) => setTargetSearch(e.target.value)} />
-            </div>
-          </div>
-          <div style={{ flex: 1, padding: "10px 12px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, alignContent: "start", overflowY: "auto", maxHeight: "55vh" }}>
-            {loadingTargets && <p style={{ gridColumn: "1/-1", textAlign: "center", color: "#555", padding: "32px 0" }}>Loading...</p>}
-            {!loadingTargets && filteredTargets.length === 0 && <p style={{ gridColumn: "1/-1", textAlign: "center", color: "#555", padding: "32px 0", fontSize: 12 }}>No targets available</p>}
-            {filteredTargets.map((item) => {
-              const sel = selectedTargets.some((t) => t.inventoryid === item.inventoryid);
-              // Preview chance as if this item were added to (or is part of) the current selection.
-              const previewValue = targetValue + (sel ? 0 : item.itemvalue || 0);
-              const chance = betValue > 0 && previewValue > 0 ? Math.min(MAX_WIN_CHANCE, (betValue / previewValue) * 100) : 0;
-              const cc = chance >= 70 ? "#4ade80" : chance >= 40 ? "#facc15" : "#f87171";
-              return (
-                <div key={item.inventoryid} onClick={() => toggleTarget(item)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 6px", borderRadius: 8, border: `1px solid ${sel ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(255,255,255,0.05)" : "#0c0c0c", cursor: "pointer", transition: "border-color 0.15s", textAlign: "center" }}>
-                  <img src={item.itemimage} alt={item.itemname} style={{ width: 44, height: 44, objectFit: "contain" }} />
-                  <p style={{ fontSize: 10, color: "#ccc", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.itemname}</p>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>{formatLargeNumber(item.itemvalue)}</p>
-                  {betValue > 0 && <p style={{ fontSize: 10, fontWeight: 700, color: cc }}>{chance.toFixed(1)}%</p>}
-                </div>
-              );
-            })}
-          </div>
+        {/* Ban warning box */}
+        <div style={{
+          width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:12,
+          padding:"14px 20px", borderRadius:14,
+          animation:"warnFlash 2s ease-in-out infinite",
+          border:"1px solid rgba(255,70,70,.4)",
+        }}>
+          <span style={{ fontSize:26, flexShrink:0 }}>🚫</span>
+          <p style={{
+            margin:0, textAlign:"center",
+            fontSize:"clamp(12px,2vw,15px)", fontWeight:800,
+            color:"#ff8080", lineHeight:1.5,
+            textShadow:"0 0 16px rgba(255,50,50,.6)",
+            letterSpacing:"0.01em",
+          }}>
+            Ping{" "}
+            <span style={{
+              textDecoration:"line-through",
+              textDecorationColor:"rgba(255,100,100,.7)",
+              opacity:.65, fontStyle:"italic",
+            }}>Knowni1</span>
+            {" "}and you{" "}
+            <span style={{
+              color:"#ff3030",
+              textShadow:"0 0 20px rgba(255,0,0,.9)",
+              fontSize:"1.15em",
+            }}>WILL GET BANNED</span>
+          </p>
+          <span style={{ fontSize:26, flexShrink:0 }}>🚫</span>
         </div>
 
       </div>
