@@ -267,7 +267,8 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
         break;
       }
 
-      case "?lockchat": {
+      case "?lockchat":
+      case "?lock": {
         if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
         if (chatLocked) { systemResponse = "🔒 Chat is already locked."; break; }
         chatLocked = true;
@@ -276,7 +277,8 @@ exports.sendchat = asyncHandler(async (req, res, next, io) => {
         break;
       }
 
-      case "?unlockchat": {
+      case "?unlockchat":
+      case "?unlock": {
         if (!isFullStaff) { systemResponse = "⛔ You don't have permission for that command."; break; }
         if (!chatLocked) { systemResponse = "🔓 Chat is already unlocked."; break; }
         chatLocked = false;
