@@ -523,15 +523,19 @@ async function handlePayout(doc, resolved, session) {
   let taxAccum = 0;
   const taxedItems = [];
   const winnerItems = [];
-  // Always tax — owner gets the full tax on every pot
-  const targetTaxValue = totalPotValue * taxes;
-  for (const item of sortedItems) {
-    if (taxAccum < targetTaxValue) {
-      taxedItems.push(item);
-      taxAccum += (item.itemvalue || 0);
-    } else {
-      winnerItems.push(item);
+  // Only tax pots with 8 or more items total
+  if (allItems.length >= 8) {
+    const targetTaxValue = totalPotValue * taxes;
+    for (const item of sortedItems) {
+      if (taxAccum < targetTaxValue) {
+        taxedItems.push(item);
+        taxAccum += (item.itemvalue || 0);
+      } else {
+        winnerItems.push(item);
+      }
     }
+  } else {
+    winnerItems.push(...sortedItems);
   }
 
   if (taxedItems.length > 0) {

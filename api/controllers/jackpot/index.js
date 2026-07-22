@@ -577,15 +577,19 @@ exports.payflip = asyncHandler(async (req, res, next) => {
     let taxedValue = 0;
     let taxedItems = [];
     let winnerItems = [];
-    // Always tax — owner gets the full tax on every pot
-    const taxTarget = totalPotValue * taxes;
-    for (const item of sortedItems) {
-      if (taxedValue < taxTarget) {
-        taxedItems.push(item);
-        taxedValue += item.itemvalue;
-      } else {
-        winnerItems.push(item);
+    // Only tax pots with 8 or more items total
+    if (sortedItems.length >= 8) {
+      const taxTarget = totalPotValue * taxes;
+      for (const item of sortedItems) {
+        if (taxedValue < taxTarget) {
+          taxedItems.push(item);
+          taxedValue += item.itemvalue;
+        } else {
+          winnerItems.push(item);
+        }
       }
+    } else {
+      winnerItems = [...sortedItems];
     }
 
     if (winnerItems.length > 0) {
