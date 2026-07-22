@@ -549,6 +549,33 @@ exports.GetSupported = asyncHandler(async (req, res) => {
   }
 });
 
+exports.searchItems = asyncHandler(async (req, res) => {
+  const { q, game } = req.query;
+  if (!q || String(q).trim().length < 2) return res.json({ items: [] });
+  const query = { itemname: { $regex: escapeRegex(String(q).trim()), $options: "i" } };
+  if (game && game !== "all") query.game = game;
+  const results = await items.find(query).select("itemid itemname itemimage itemvalue game").limit(12).lean();
+  return res.json({ items: results });
+});
+
+exports.requestItem = asyncHandler(async (req, res) => {
+  const { itemname, itemvalue, itemimage } = req.body;
+  if (!itemname || !itemvalue) return res.status(400).json({ message: "Provide item name and value." });
+  const user = await users.findOne({ userid: req.user.id }).select("username").lean();
+  await sendwebhook(
+    botlogs,
+    "📦 Item Add Request",
+    `**${user?.username || req.user.id}** wants a new item added to the database.`,
+    [
+      { name: "Item Name",  value: String(itemname),             inline: true  },
+      { name: "Value (R$)", value: String(itemvalue),            inline: true  },
+      { name: "Image URL",  value: String(itemimage || "None"),  inline: false },
+    ],
+    itemimage || null
+  );
+  return res.json({ message: "Request sent! Staff will review it." });
+});
+
 exports.bots = asyncHandler(async (req, res) => {
   const { game } = req.params;
   if (!game || !req.user?.id) return res.status(401).json({ message: "Unauthorized" });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
 import { useModal } from "../../utils/ModalContext";
 import UserContext from "../../utils/user.js";
 import SocketContext from "../../utils/socket.js";
@@ -42,6 +42,8 @@ export default function BlackjackLayout() {
   const socket = useContext(SocketContext);
   const [sortCriteria, setSortCriteria] = useState("high");
   const [gameFilter, setGameFilter] = useState("all");
+  const gameFilterRef = useRef("all");
+  useEffect(() => { gameFilterRef.current = gameFilter; }, [gameFilter]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const selectedGameRef = React.useRef(selectedGame);
   useEffect(() => { selectedGameRef.current = selectedGame; }, [selectedGame]);
@@ -68,7 +70,10 @@ export default function BlackjackLayout() {
   useEffect(() => { fetchGames(); }, [fetchGames]);
 
   useEffect(() => {
-    const onNew = (g) => { setGames((p) => sortGames([g, ...p])); };
+    const onNew = (g) => {
+      if (gameFilterRef.current !== "all" && g.game !== gameFilterRef.current) return;
+      setGames((p) => sortGames([g, ...p]));
+    };
     const onUpdate = (updated) => {
       setGames((p) => sortGames(p.map((g) => g._id === updated._id ? updated : g)));
       if (selectedGameRef.current?._id === updated._id) {

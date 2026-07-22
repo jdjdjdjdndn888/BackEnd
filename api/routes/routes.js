@@ -109,6 +109,8 @@ router.post("/trading/items/confirm-ps99-deposit", bothandler.real, bothandler.D
 router.post("/trading/items/confirm-withdraw", bothandler.real, bothandler.confirmWithdrawAll);
 
 router.post("/bots/:game", accountController.verifyToken, bothandler.bots);
+router.get("/items/search", accountController.verifyToken, bothandler.searchItems);
+router.post("/items/request", accountController.verifyToken, bothandler.requestItem);
 
 router.get("/giveaways/latest", giveawayController.getgiveaways);
 router.post("/giveaways/create", mutationLimiter, accountController.verifyToken, giveawayController.giveaway);

@@ -4,6 +4,7 @@ import React, {
   useContext,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import { useModal } from "../../utils/ModalContext";
 import UserContext from "../../utils/user.js";
@@ -55,6 +56,8 @@ export default function Coinflip() {
   const socket = useContext(SocketContext);
   const [sortCriteria, setSortCriteria] = useState("high");
   const [gameFilter, setGameFilter] = useState("all");
+  const gameFilterRef = useRef("all");
+  useEffect(() => { gameFilterRef.current = gameFilter; }, [gameFilter]);
   const [countdowns, setCountdowns] = useState({});
   const [currentTime, setCurrentTime] = useState(new Date());
   const [recentResults, setRecentResults] = useState([]);
@@ -103,6 +106,7 @@ export default function Coinflip() {
 
   useEffect(() => {
     const onNew = (newCoinflip) => {
+      if (gameFilterRef.current !== "all" && newCoinflip.game !== gameFilterRef.current) return;
       setCoinflips((prev) => sortCoinflips([newCoinflip, ...prev]));
     };
     const onUpdate = (updatedFlip) => {

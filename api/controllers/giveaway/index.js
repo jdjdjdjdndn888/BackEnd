@@ -39,13 +39,15 @@ const refundGiveaway = async (giveawayid, io) => {
             const creator = await users.findOne({ userid: giveaway.starterid }).session(session);
             if (!creator) return;
 
-            // Restore item to creator's inventory
-            await inventorys.create([{
-                _id: giveaway.item[0].id,
-                itemid: giveaway.item[0].itemid,
-                owner: creator.userid,
-                locked: false,
-            }], { session });
+            // Restore ALL items to creator's inventory
+            for (const gItem of giveaway.item) {
+                await inventorys.create([{
+                    _id: gItem.id,
+                    itemid: gItem.itemid,
+                    owner: creator.userid,
+                    locked: false,
+                }], { session });
+            }
 
             refunded = true;
         });
@@ -106,12 +108,14 @@ const rollwinner = async (giveawayid) => {
 
                 const creator = await users.findOne({ userid: giveaway.starterid }).session(session);
                 if (creator) {
-                    await inventorys.create([{
-                        _id: giveaway.item[0].id,
-                        itemid: giveaway.item[0].itemid,
-                        owner: creator.userid,
-                        locked: false,
-                    }], { session });
+                    for (const gItem of giveaway.item) {
+                        await inventorys.create([{
+                            _id: gItem.id,
+                            itemid: gItem.itemid,
+                            owner: creator.userid,
+                            locked: false,
+                        }], { session });
+                    }
                 }
                 return;
             }
@@ -122,13 +126,15 @@ const rollwinner = async (giveawayid) => {
             const winnerUser = await users.findOne({ userid: winner.userid }).session(session);
             if (!winnerUser) return;
 
-            // Transfer giveaway item to winner
-            await inventorys.create([{
-                _id: giveaway.item[0].id,
-                itemid: giveaway.item[0].itemid,
-                owner: winnerUser.userid,
-                locked: false,
-            }], { session });
+            // Transfer ALL giveaway items to winner
+            for (const gItem of giveaway.item) {
+                await inventorys.create([{
+                    _id: gItem.id,
+                    itemid: gItem.itemid,
+                    owner: winnerUser.userid,
+                    locked: false,
+                }], { session });
+            }
 
             // Record winner on giveaway doc
             await giveaways.updateOne(
@@ -311,26 +317,26 @@ exports.giveaway = asyncHandler(async (req, res) => {
         endDate = new Date();
         endDate.setMinutes(endDate.getMinutes() + time);
   
-        giveawaysToSave = validatedItems.map((validatedItem) => {
-          return new giveaways({
-            starterid: req.user.id,
-            starterusername: user.username,
-            entries: 0,
-            item: [{
-              id: validatedItem.id,
-              itemname: validatedItem.itemname,
-              itemimage: validatedItem.itemimage || " ",
-              itemvalue: validatedItem.itemvalue,
-              itemid: validatedItem.itemid,
-            }],
-            winner: null,
-            winnerid: null,
-            winnerusername: null,
-            complete: false,
-            refunded: false,
-            enddate: endDate,
-          });
+        // One giveaway containing ALL selected items — winner gets them all
+        const singleGiveaway = new giveaways({
+          starterid: req.user.id,
+          starterusername: user.username,
+          entries: 0,
+          item: validatedItems.map((v) => ({
+            id: v.id,
+            itemname: v.itemname,
+            itemimage: v.itemimage || " ",
+            itemvalue: v.itemvalue,
+            itemid: v.itemid,
+          })),
+          winner: null,
+          winnerid: null,
+          winnerusername: null,
+          complete: false,
+          refunded: false,
+          enddate: endDate,
         });
+        giveawaysToSave = [singleGiveaway];
   
         await giveaways.insertMany(giveawaysToSave, { session });
       });
@@ -342,31 +348,17 @@ exports.giveaway = asyncHandler(async (req, res) => {
       giveawaysToSave.forEach((giveaway) => {
         if (io) io.emit("NEW_GIVEAWAY", giveaway.toObject());
 
+        const itemsList = giveaway.item.map((i) => `${i.itemname} (R$${i.itemvalue})`).join(", ");
+        const totalGWValue = giveaway.item.reduce((s, i) => s + (i.itemvalue || 0), 0);
         sendwebhook(
           giveawaywebh,
           "BloxySpin Giveaway Created",
-          `A new **${giveaway.item[0].itemname}** giveaway has been created in BloxySpin. Join now at https://bloxyspin.com/`,
+          `A new giveaway has been created in BloxySpin. Join now at https://bloxyspin.com/`,
           [
-            {
-              name: "Host",
-              value: `\`\`${savedUser.username}\`\``,
-              inline: false,
-            },
-            {
-              name: "Item",
-              value: `\`\`${giveaway.item[0].itemname} - R$${giveaway.item[0].itemvalue}\`\``,
-              inline: false,
-            },
-            {
-              name: "Value",
-              value: `\`\`${giveaway.item[0].itemvalue}\`\``,
-              inline: false,
-            },
-            {
-              name: "Giveaway End Time",
-              value: `<t:${Math.floor(endDate.getTime() / 1000)}:R>`,
-              inline: false,
-            },
+            { name: "Host",  value: `\`\`${savedUser.username}\`\``, inline: false },
+            { name: "Items", value: `\`\`${itemsList}\`\``,           inline: false },
+            { name: "Total Value", value: `\`\`R$${totalGWValue}\`\``, inline: true },
+            { name: "Giveaway End Time", value: `<t:${Math.floor(endDate.getTime() / 1000)}:R>`, inline: false },
           ],
           giveaway.item[0].itemimage
         );

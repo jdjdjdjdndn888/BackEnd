@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
 import { useModal } from "../../utils/ModalContext";
 import UserContext from "../../utils/user.js";
 import SocketContext from "../../utils/socket.js";
@@ -42,6 +42,8 @@ export default function DiceLayout() {
   const socket = useContext(SocketContext);
   const [sortCriteria, setSortCriteria] = useState("high");
   const [gameFilter, setGameFilter] = useState("all");
+  const gameFilterRef = useRef("all");
+  useEffect(() => { gameFilterRef.current = gameFilter; }, [gameFilter]);
   const [countdowns, setCountdowns] = useState({});
   const [currentTime, setCurrentTime] = useState(new Date());
   const selectedGameRef = React.useRef(selectedGame);
@@ -80,7 +82,10 @@ export default function DiceLayout() {
   useEffect(() => { fetchGames(); }, [fetchGames]);
 
   useEffect(() => {
-    const onNew = (g) => { setGames((prev) => sortGames([g, ...prev])); };
+    const onNew = (g) => {
+      if (gameFilterRef.current !== "all" && g.game !== gameFilterRef.current) return;
+      setGames((prev) => sortGames([g, ...prev]));
+    };
     const onUpdate = (updated) => {
       setGames((prev) => {
         if (!prev.find((g) => g._id === updated._id)?.winner && updated.PlayerTwo)
