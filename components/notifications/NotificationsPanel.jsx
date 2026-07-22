@@ -8,7 +8,7 @@ export default function NotificationsPanel({ onClose }) {
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
       <div
-        className="absolute right-4 top-[4.5rem] w-80 rounded-2xl border border-[#1e2035] bg-[#0d0f1a] shadow-2xl overflow-hidden"
+        className="absolute right-2 sm:right-4 top-[4.5rem] w-[calc(100vw-1rem)] sm:w-80 max-w-sm rounded-2xl border border-[#1e2035] bg-[#0d0f1a] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2035]">

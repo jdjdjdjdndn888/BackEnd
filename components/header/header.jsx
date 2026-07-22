@@ -200,7 +200,7 @@ export default function Header({ onOpenMobileNav = () => {} }) {
             href="https://discord.gg/wSVTpC7VWh"
             target="_blank"
             rel="noreferrer"
-            className="cursor-pointer items-center gap-2 rounded-xl border-none text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 inline-flex px-4 py-2.5 no-underline"
+            className="hidden sm:inline-flex cursor-pointer items-center gap-2 rounded-xl border-none text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 px-4 py-2.5 no-underline"
             style={{ background: "linear-gradient(135deg, #5865F2, #4752C4)", boxShadow: "0 0 18px rgba(88,101,242,0.45)" }}
           >
             <DiscordIcon style={{ width: 18, height: 18, flexShrink: 0 }} />

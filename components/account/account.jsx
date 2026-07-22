@@ -19,6 +19,16 @@ function formatDate(dateStr) {
   } catch { return String(dateStr); }
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return mobile;
+}
+
 const TABS = [
   { id: "general",    label: "General",    icon: Settings    },
   { id: "statistics", label: "Statistics", icon: BarChart2   },
@@ -277,6 +287,8 @@ export default function Account() {
     finally { setLoading(false); }
   };
 
+  const isMobile = useIsMobile();
+
   const handleLogout = () => {
     localStorage.removeItem("bloxyspin");
     localStorage.removeItem("token");
@@ -286,72 +298,111 @@ export default function Account() {
   };
 
   return (
-    <div style={S.page}>
-      {/* ── Sidebar ── */}
-      <nav style={S.sidebar}>
-        <div style={S.sideLabel}>Account</div>
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} style={S.sideBtn(activeTab === id)} onClick={() => setActiveTab(id)}>
-            <Icon size={14} style={{ flexShrink: 0 }} />
-            {label}
+    <div style={{ ...S.page, flexDirection: isMobile ? "column" : "row" }}>
+
+      {/* ── Sidebar — vertical on desktop, horizontal pill tabs on mobile ── */}
+      {isMobile ? (
+        <nav style={{
+          display: "flex", flexDirection: "row", overflowX: "auto", gap: 6,
+          padding: "10px 14px 0", borderBottom: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0, scrollbarWidth: "none",
+        }}>
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button key={id} onClick={() => setActiveTab(id)} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 14px 8px", fontSize: 12, fontWeight: active ? 700 : 500,
+                color: active ? "#8B5CF6" : "#555", background: "transparent",
+                border: "none", borderBottom: active ? "2px solid #8B5CF6" : "2px solid transparent",
+                cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                transition: "color 0.15s, border-color 0.15s",
+              }}>
+                <Icon size={13} style={{ flexShrink: 0 }} />
+                {label}
+              </button>
+            );
+          })}
+          <button onClick={handleLogout} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 14px 8px", fontSize: 12, fontWeight: 500,
+            color: "#f87171", background: "transparent",
+            border: "none", borderBottom: "2px solid transparent",
+            cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+            marginLeft: "auto",
+          }}>
+            <LogOut size={13} style={{ flexShrink: 0 }} />
+            Logout
           </button>
-        ))}
-        <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "8px 0" }} />
-        <button style={{ ...S.sideBtn(false), color: "#f87171" }} onClick={handleLogout}>
-          <LogOut size={14} style={{ flexShrink: 0 }} />
-          Log out
-        </button>
-      </nav>
+        </nav>
+      ) : (
+        <nav style={S.sidebar}>
+          <div style={S.sideLabel}>Account</div>
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button key={id} style={S.sideBtn(activeTab === id)} onClick={() => setActiveTab(id)}>
+              <Icon size={14} style={{ flexShrink: 0 }} />
+              {label}
+            </button>
+          ))}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "8px 0" }} />
+          <button style={{ ...S.sideBtn(false), color: "#f87171" }} onClick={handleLogout}>
+            <LogOut size={14} style={{ flexShrink: 0 }} />
+            Log out
+          </button>
+        </nav>
+      )}
 
       {/* ── Main content ── */}
-      <div style={S.main}>
+      <div style={{ ...S.main, padding: isMobile ? "14px" : "28px 28px" }}>
         {/* Profile card */}
         <div style={S.card}>
-          <div style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 18 }}>
-            {/* Avatar */}
-            <div style={{ position: "relative", flexShrink: 0 }}>
-              <div style={{ width: 72, height: 72, borderRadius: "50%", border: `2px solid ${role.color}55`, padding: 2 }}>
-                <img src={userData?.thumbnail} alt={userData?.username}
-                  style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: `2px solid ${role.color}`, display: "block" }} />
-              </div>
-            </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>{userData?.username}</span>
-                <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: role.bg, border: `1px solid ${role.border}`, color: role.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>{role.name}</span>
-              </div>
-              {/* Level bar */}
-              <div style={{ marginBottom: 6 }}>
-                <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden", maxWidth: 200 }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: role.color, borderRadius: 2, transition: "width 0.8s ease", boxShadow: `0 0 6px ${role.color}66` }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", maxWidth: 200, marginTop: 4, fontSize: 10, color: "#555" }}>
-                  <span>Lv {level}</span>
-                  <span>{pct}% → Lv {role.nextLevel ?? "Max"}</span>
+          <div style={{ padding: isMobile ? "14px" : "20px 22px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 12 : 18 }}>
+            {/* Avatar row on mobile */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, width: "100%" }}>
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div style={{ width: isMobile ? 56 : 72, height: isMobile ? 56 : 72, borderRadius: "50%", border: `2px solid ${role.color}55`, padding: 2 }}>
+                  <img src={userData?.thumbnail} alt={userData?.username}
+                    style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: `2px solid ${role.color}`, display: "block" }} />
                 </div>
               </div>
-              {userData?.discordid && (
-                <span style={{ fontSize: 12, color: "#888" }}>🎮 {userData.discordusername || "Linked"}</span>
-              )}
-            </div>
 
-            {/* Discord button */}
-            <button
-              onClick={() => userData?.discordid ? unlinkDiscord() : (location.href = discordOAuthURL)}
-              disabled={loading}
-              style={userData?.discordid ? S.btnDanger : S.btnOutline}
-            >
-              {loading ? "..." : userData?.discordid ? "Unlink Discord" : "Link Discord"}
-            </button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: isMobile ? 15 : 18, fontWeight: 700, color: "#fff" }}>{userData?.username}</span>
+                  <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: role.bg, border: `1px solid ${role.border}`, color: role.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>{role.name}</span>
+                </div>
+                {/* Level bar */}
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden", maxWidth: isMobile ? "100%" : 200 }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: role.color, borderRadius: 2, transition: "width 0.8s ease", boxShadow: `0 0 6px ${role.color}66` }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", maxWidth: isMobile ? "100%" : 200, marginTop: 3, fontSize: 10, color: "#555" }}>
+                    <span>Lv {level}</span>
+                    <span>{pct}% → Lv {role.nextLevel ?? "Max"}</span>
+                  </div>
+                </div>
+                {userData?.discordid && (
+                  <span style={{ fontSize: 11, color: "#888" }}>🎮 {userData.discordusername || "Linked"}</span>
+                )}
+              </div>
+
+              {/* Discord button — right of avatar row */}
+              <button
+                onClick={() => userData?.discordid ? unlinkDiscord() : (location.href = discordOAuthURL)}
+                disabled={loading}
+                style={{ ...(userData?.discordid ? S.btnDanger : S.btnOutline), flexShrink: 0, fontSize: isMobile ? 11 : 12 }}
+              >
+                {loading ? "..." : userData?.discordid ? "Unlink" : "Link Discord"}
+              </button>
+            </div>
           </div>
 
           {/* Game levels strip */}
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex" }}>
             {[{ tag: "PS99", name: `Lv ${level} · ${role.name}` }, { tag: "BB", name: "Lv 0 · User" }, { tag: "TS", name: "Lv 0 · User" }].map(({ tag, name }, i) => (
-              <div key={tag} style={{ flex: 1, padding: "12px 16px", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 4 }}>{tag}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{name}</div>
+              <div key={tag} style={{ flex: 1, padding: isMobile ? "10px 12px" : "12px 16px", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                <div style={{ fontSize: 9, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase", marginBottom: 3 }}>{tag}</div>
+                <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: "#fff" }}>{name}</div>
               </div>
             ))}
           </div>
@@ -363,8 +414,8 @@ export default function Account() {
             <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Account Settings</div>
             </div>
-            <div style={{ padding: "20px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+            <div style={{ padding: isMobile ? "14px" : "20px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 20 }}>
                 {[{ label: "User Identity", desc: "Your unique platform identifier.", val: userData?.userid || "—" },
                   { label: "Referred By",   desc: "The user who invited you.",       val: "Coming soon..." }].map(({ label, desc, val }) => (
                   <div key={label}>
@@ -375,13 +426,13 @@ export default function Account() {
                 ))}
               </div>
               <div style={S.divider} />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20 }}>
+              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Discord Account</div>
                   <div style={{ fontSize: 12, color: "#555" }}>{userData?.discordid ? `Connected as ${userData.discordusername || "Unknown"}` : "Link your Discord to unlock perks."}</div>
                 </div>
                 <button onClick={() => userData?.discordid ? unlinkDiscord() : (location.href = discordOAuthURL)} disabled={loading}
-                  style={userData?.discordid ? S.btnDanger : S.btnPrimary}>
+                  style={{ ...(userData?.discordid ? S.btnDanger : S.btnPrimary), alignSelf: isMobile ? "flex-start" : "auto" }}>
                   {loading ? "..." : userData?.discordid ? "Unlink Discord" : "Link Discord"}
                 </button>
               </div>
@@ -395,16 +446,16 @@ export default function Account() {
             <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Statistics</div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)" }}>
               {[{ label: "Wagered", anim: wagerAnim, color: "#fff" }, { label: "Won", anim: wonAnim, color: "#4ade80" }, { label: "Lost", anim: lostAnim, color: "#f87171" }].map(({ label, anim, color }, i) => (
-                <div key={label} style={{ padding: "22px 20px", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none", textAlign: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 6 }}>
-                    <img src={Bobux} alt="Bobux" style={{ width: 18, height: 18, objectFit: "contain" }} />
-                    <animated.span style={{ fontSize: 22, fontWeight: 800, color, fontVariantNumeric: "tabular-nums" }}>
+                <div key={label} style={{ padding: isMobile ? "16px 14px" : "22px 20px", borderRight: !isMobile && i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none", borderBottom: isMobile && i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none", display: "flex", alignItems: "center", justifyContent: isMobile ? "space-between" : "center", flexDirection: isMobile ? "row" : "column", textAlign: isMobile ? "left" : "center" }}>
+                  <div style={{ fontSize: 12, letterSpacing: "0.08em", color: "#555", textTransform: "uppercase" }}>{label}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <img src={Bobux} alt="Bobux" style={{ width: 16, height: 16, objectFit: "contain" }} />
+                    <animated.span style={{ fontSize: isMobile ? 16 : 22, fontWeight: 800, color, fontVariantNumeric: "tabular-nums" }}>
                       {anim.number.interpolate((v) => Math.floor(v).toLocaleString())}
                     </animated.span>
                   </div>
-                  <div style={{ fontSize: 10, letterSpacing: "0.1em", color: "#555", textTransform: "uppercase" }}>{label}</div>
                 </div>
               ))}
             </div>
