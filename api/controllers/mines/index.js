@@ -372,19 +372,15 @@ exports.revealtile = asyncHandler(async (req, res) => {
         let taxAccum = 0;
         const taxedItems = [];
         const winnerItems = [];
-        // Only tax pots with 5 or more items total
-        if (allItems.length >= 5) {
-          const targetTaxValue = totalPotValue * taxes;
-          for (const item of sortedItems) {
-            if (taxAccum < targetTaxValue) {
-              taxedItems.push(item);
-              taxAccum += (item.itemvalue || 0);
-            } else {
-              winnerItems.push(item);
-            }
+        // Always tax — owner gets the full tax on every pot
+        const targetTaxValue = totalPotValue * taxes;
+        for (const item of sortedItems) {
+          if (taxAccum < targetTaxValue) {
+            taxedItems.push(item);
+            taxAccum += (item.itemvalue || 0);
+          } else {
+            winnerItems.push(item);
           }
-        } else {
-          winnerItems.push(...sortedItems);
         }
 
         if (taxedItems.length > 0) {

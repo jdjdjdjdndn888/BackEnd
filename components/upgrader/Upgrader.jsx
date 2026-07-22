@@ -155,6 +155,100 @@ export default function Upgrader() {
 
   return (
     <div style={S.page}>
+      {/* ── UPGRADER DOWN BANNER ── */}
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "radial-gradient(ellipse at 50% 40%, rgba(10,0,30,0.98) 0%, rgba(2,0,12,0.99) 100%)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: 32, padding: "40px 20px", overflow: "hidden",
+      }}>
+        {/* Animated orbs behind text */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: "15%", left: "10%", width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,0,255,0.18) 0%, transparent 70%)", filter: "blur(40px)", animation: "orbFloat1 8s ease-in-out infinite" }} />
+          <div style={{ position: "absolute", bottom: "10%", right: "8%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,0,128,0.15) 0%, transparent 70%)", filter: "blur(40px)", animation: "orbFloat2 10s ease-in-out infinite" }} />
+          <div style={{ position: "absolute", top: "55%", left: "45%", width: 280, height: 280, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,200,255,0.1) 0%, transparent 70%)", filter: "blur(30px)", animation: "orbFloat3 7s ease-in-out infinite" }} />
+        </div>
+
+        {/* ── Glitch icon ── */}
+        <div style={{ fontSize: 72, lineHeight: 1, filter: "drop-shadow(0 0 24px rgba(139,0,255,0.9))", animation: "iconPulse 2.4s ease-in-out infinite" }}>⚙️</div>
+
+        {/* ── Main heading ── */}
+        <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
+          <h1 style={{
+            margin: 0, fontSize: "clamp(26px, 5vw, 54px)", fontWeight: 900,
+            fontFamily: "'Segoe UI', system-ui, sans-serif",
+            letterSpacing: "-0.02em", lineHeight: 1.15,
+            background: "linear-gradient(135deg, #ffffff 0%, #bf80ff 40%, #ff4dac 70%, #ff8c42 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            filter: "drop-shadow(0 2px 32px rgba(191,128,255,0.45))",
+          }}>
+            Sorry, Upgrader
+          </h1>
+          <h2 style={{
+            margin: "4px 0 0", fontSize: "clamp(22px, 4vw, 46px)", fontWeight: 900,
+            fontFamily: "'Segoe UI', system-ui, sans-serif",
+            letterSpacing: "-0.02em",
+            background: "linear-gradient(135deg, #bf80ff 0%, #ff4dac 60%, #ff8c42 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}>
+            Will Be Back Soon
+          </h2>
+        </div>
+
+        {/* ── Divider ── */}
+        <div style={{ width: "min(480px, 90%)", height: 1, background: "linear-gradient(90deg, transparent, rgba(191,128,255,0.6), rgba(255,77,172,0.6), transparent)" }} />
+
+        {/* ── Sub message ── */}
+        <div style={{ textAlign: "center", maxWidth: 560, position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
+          <p style={{
+            margin: 0, fontSize: "clamp(15px, 2.5vw, 21px)", fontWeight: 700,
+            color: "#e8d5ff", lineHeight: 1.5,
+            textShadow: "0 0 20px rgba(191,128,255,0.5)",
+          }}>
+            Please Spam Ping{" "}
+            <span style={{
+              background: "linear-gradient(90deg, #ff4dac, #bf80ff)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              backgroundClip: "text", fontWeight: 900,
+            }}>Flipper</span>
+            {" "}if you wanna complain
+          </p>
+          <div style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
+            padding: "10px 22px", borderRadius: 12,
+            background: "rgba(255,30,30,0.12)", border: "1px solid rgba(255,80,80,0.35)",
+            boxShadow: "0 0 20px rgba(255,0,0,0.15)",
+          }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <p style={{
+              margin: 0, fontSize: "clamp(13px, 2vw, 17px)", fontWeight: 800,
+              color: "#ff6b6b", letterSpacing: "0.01em",
+              textShadow: "0 0 14px rgba(255,80,80,0.7)",
+            }}>
+              Ping{" "}
+              <span style={{ textDecoration: "line-through", opacity: 0.7 }}>Knowni1</span>
+              {" "}and you will get{" "}
+              <span style={{
+                background: "linear-gradient(90deg, #ff3030, #ff8c42)",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}>BANNED</span>
+            </p>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+          </div>
+        </div>
+
+        {/* ── Keyframes injected via style tag ── */}
+        <style>{`
+          @keyframes orbFloat1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(30px,-40px) scale(1.08)} }
+          @keyframes orbFloat2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-25px,35px) scale(1.05)} }
+          @keyframes orbFloat3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(20px,-20px)} }
+          @keyframes iconPulse { 0%,100%{filter:drop-shadow(0 0 24px rgba(139,0,255,0.9))} 50%{filter:drop-shadow(0 0 48px rgba(255,77,172,0.95))} }
+        `}</style>
+      </div>
+
       {/* Header */}
       <div style={S.header}>
         <span style={{ fontSize: 11, letterSpacing: "0.15em", color: "#555", textTransform: "uppercase", fontWeight: 600 }}>Upgrader</span>

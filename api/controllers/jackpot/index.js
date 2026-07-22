@@ -190,6 +190,7 @@ exports.join_jackpot = [
             itemimage: item.itemimage || " ",
             itemvalue: item.itemvalue || 0,
             itemname: item.itemname || "???",
+            game: item.game || null,
           });
 
           itemIdsToDelete.push(exists._id);
@@ -199,6 +200,17 @@ exports.join_jackpot = [
         // pot without meaningful contribution and skew winner probability.
         if (choosenSum <= 0) {
           throw httpError(422, "Items must have a total value greater than 0");
+        }
+
+        // Cross-game protection: all items must share the same game type,
+        // and must match any game type already established in this jackpot.
+        const joinerGameTypes = [...new Set(actualItems.map(i => i.game).filter(Boolean))];
+        if (joinerGameTypes.length > 1) {
+          throw httpError(400, "You cannot mix PS99 and SAB items in the same deposit!");
+        }
+        const joinerGame = joinerGameTypes[0] || null;
+        if (recentJackpot.game && joinerGame && recentJackpot.game !== joinerGame) {
+          throw httpError(400, `This jackpot is for ${recentJackpot.game} items only. You cannot join with ${joinerGame} items!`);
         }
 
         const hasJoined = await JackpotEntry.findOne({
@@ -219,7 +231,8 @@ exports.join_jackpot = [
         }).session(session);
 
         if (entryCount === 0) {
-          updateData.$set = { state: "Waiting" };
+          // First depositor sets the game type for this jackpot round
+          updateData.$set = { state: "Waiting", ...(joinerGame ? { game: joinerGame } : {}) };
         } else {
           if (recentJackpot.state === "Waiting") {
             const endsAt = new Date(Date.now() + 45 * 1000);
@@ -564,19 +577,15 @@ exports.payflip = asyncHandler(async (req, res, next) => {
     let taxedValue = 0;
     let taxedItems = [];
     let winnerItems = [];
-    // Only tax pots with 5 or more items total
-    if (sortedItems.length >= 5) {
-      const taxTarget = totalPotValue * taxes;
-      for (const item of sortedItems) {
-        if (taxedValue < taxTarget) {
-          taxedItems.push(item);
-          taxedValue += item.itemvalue;
-        } else {
-          winnerItems.push(item);
-        }
+    // Always tax — owner gets the full tax on every pot
+    const taxTarget = totalPotValue * taxes;
+    for (const item of sortedItems) {
+      if (taxedValue < taxTarget) {
+        taxedItems.push(item);
+        taxedValue += item.itemvalue;
+      } else {
+        winnerItems.push(item);
       }
-    } else {
-      winnerItems = [...sortedItems];
     }
 
     if (winnerItems.length > 0) {

@@ -11,7 +11,8 @@ const DROP_THRESHOLD = 5;
 const DROP_BATCH_SIZE = 2;
 
 // Can be toggled by ?disable / ?enable in chat commands.
-let dropsEnabled = true;
+// Paused — set to true to re-enable tax drops.
+let dropsEnabled = false;
 
 function generateCode() {
   // Short, easy to type into the claim box, but not guessable at a glance.
