@@ -317,27 +317,26 @@ exports.giveaway = asyncHandler(async (req, res) => {
         endDate = new Date();
         endDate.setMinutes(endDate.getMinutes() + time);
   
-        // One giveaway containing ALL selected items — winner gets them all
-        const singleGiveaway = new giveaways({
+        // One separate giveaway per item — each item gets its own giveaway
+        giveawaysToSave = validatedItems.map((validatedItem) => new giveaways({
           starterid: req.user.id,
           starterusername: user.username,
           entries: 0,
-          item: validatedItems.map((v) => ({
-            id: v.id,
-            itemname: v.itemname,
-            itemimage: v.itemimage || " ",
-            itemvalue: v.itemvalue,
-            itemid: v.itemid,
-          })),
+          item: [{
+            id: validatedItem.id,
+            itemname: validatedItem.itemname,
+            itemimage: validatedItem.itemimage || " ",
+            itemvalue: validatedItem.itemvalue,
+            itemid: validatedItem.itemid,
+          }],
           winner: null,
           winnerid: null,
           winnerusername: null,
           complete: false,
           refunded: false,
           enddate: endDate,
-        });
-        giveawaysToSave = [singleGiveaway];
-  
+        }));
+
         await giveaways.insertMany(giveawaysToSave, { session });
       });
 
@@ -348,16 +347,14 @@ exports.giveaway = asyncHandler(async (req, res) => {
       giveawaysToSave.forEach((giveaway) => {
         if (io) io.emit("NEW_GIVEAWAY", giveaway.toObject());
 
-        const itemsList = giveaway.item.map((i) => `${i.itemname} (R$${i.itemvalue})`).join(", ");
-        const totalGWValue = giveaway.item.reduce((s, i) => s + (i.itemvalue || 0), 0);
         sendwebhook(
           giveawaywebh,
           "BloxySpin Giveaway Created",
-          `A new giveaway has been created in BloxySpin. Join now at https://bloxyspin.com/`,
+          `A new **${giveaway.item[0].itemname}** giveaway has been created in BloxySpin. Join now at https://bloxyspin.com/`,
           [
             { name: "Host",  value: `\`\`${savedUser.username}\`\``, inline: false },
-            { name: "Items", value: `\`\`${itemsList}\`\``,           inline: false },
-            { name: "Total Value", value: `\`\`R$${totalGWValue}\`\``, inline: true },
+            { name: "Item",  value: `\`\`${giveaway.item[0].itemname} - R$${giveaway.item[0].itemvalue}\`\``, inline: false },
+            { name: "Value", value: `\`\`R$${giveaway.item[0].itemvalue}\`\``, inline: true },
             { name: "Giveaway End Time", value: `<t:${Math.floor(endDate.getTime() / 1000)}:R>`, inline: false },
           ],
           giveaway.item[0].itemimage
