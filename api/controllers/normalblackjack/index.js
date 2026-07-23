@@ -91,9 +91,12 @@ function userIdOf(req) {
 }
 
 function betOf(raw) {
-  const bet = Number(raw);
+  const input = typeof raw === "string" ? raw.trim().toLowerCase() : raw;
+  const match = typeof input === "string" ? input.match(/^(\d+(?:\.\d+)?)([kmbt]?)$/) : null;
+  const multipliers = { "": 1, k: 1_000, m: 1_000_000, b: 1_000_000_000, t: 1_000_000_000_000 };
+  const bet = match ? Number(match[1]) * multipliers[match[2]] : Number(input);
   if (!Number.isSafeInteger(bet) || bet < 1 || bet > MAX_BET) {
-    throw httpError(400, `Bet must be a whole number between 1 and ${MAX_BET.toLocaleString()}.`);
+    throw httpError(400, `Bet must be a whole number between 1 and ${MAX_BET.toLocaleString()}. You can also use 1m or 100m.`);
   }
   return bet;
 }

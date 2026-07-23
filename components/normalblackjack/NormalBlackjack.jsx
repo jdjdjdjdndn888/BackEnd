@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useContext } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Coins, RefreshCw, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import UserContext from "../../utils/user.js";
@@ -6,11 +6,11 @@ import { api } from "../../config.js";
 import { getauth } from "../../utils/getauth.js";
 import { formatLargeNumber } from "../../utils/value";
 import { useSeo } from "../../utils/useSeo";
+import tableArt from "../../attached_assets/image_1784821751710.png";
 import "./normalblackjack.css";
-import dealerArt from "../../attached_assets/image_1784820632335.png";
 
-const BRAND = "#a855f7";
 const HOUSE_TAX = 0.08;
+const COMPACT_UNITS = { k: 1_000, m: 1_000_000, b: 1_000_000_000, t: 1_000_000_000_000 };
 
 function operationId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -21,17 +21,17 @@ function money(value) {
   return formatLargeNumber(Math.max(0, Math.floor(Number(value) || 0)));
 }
 
+function parseCompactAmount(raw) {
+  const input = typeof raw === "string" ? raw.trim().toLowerCase().replaceAll(",", "") : raw;
+  const match = typeof input === "string" ? input.match(/^(\d+(?:\.\d+)?)([kmbt]?)$/) : null;
+  const value = match ? Number(match[1]) * (COMPACT_UNITS[match[2]] || 1) : Number(input);
+  return Number.isSafeInteger(value) && value > 0 ? value : 0;
+}
+
 function Card({ card, hidden = false }) {
-  if (hidden || card?.hidden) {
-    return <div className="normal-bj-card normal-bj-card--hidden"><span>?</span></div>;
-  }
+  if (hidden || card?.hidden) return <div className="normal-bj-card normal-bj-card--hidden"><span>?</span></div>;
   const red = card?.suit === "♥" || card?.suit === "♦";
-  return (
-    <div className={`normal-bj-card ${red ? "normal-bj-card--red" : ""}`}>
-      <strong>{card?.rank}</strong>
-      <span>{card?.suit}</span>
-    </div>
-  );
+  return <div className={`normal-bj-card ${red ? "normal-bj-card--red" : ""}`}><strong>{card?.rank}</strong><span>{card?.suit}</span></div>;
 }
 
 function InventoryGrid({ items, selected, onToggle, emptyLabel }) {
@@ -41,12 +41,7 @@ function InventoryGrid({ items, selected, onToggle, emptyLabel }) {
       {items.map((item) => {
         const active = selected.has(String(item.inventoryid));
         return (
-          <button
-            key={item.inventoryid}
-            type="button"
-            onClick={() => onToggle(item)}
-            className={`normal-bj-item ${active ? "normal-bj-item--selected" : ""}`}
-          >
+          <button key={item.inventoryid} type="button" onClick={() => onToggle(item)} className={`normal-bj-item ${active ? "normal-bj-item--selected" : ""}`}>
             <img src={item.itemimage || "/logo-small.png"} alt="" />
             <span>{item.itemname}</span>
             <b>{money(item.itemvalue)}</b>
@@ -58,47 +53,31 @@ function InventoryGrid({ items, selected, onToggle, emptyLabel }) {
 }
 
 export default function NormalBlackjack() {
-  useSeo({
-    title: "Normal Blackjack | GemTide",
-    description: "Play GemTide normal blackjack with a separate item-backed wallet.",
-    path: "/normal-blackjack",
-  });
-
+  useSeo({ title: "Normal Blackjack | GemTide", description: "Play GemTide normal blackjack with a separate item-backed wallet.", path: "/normal-blackjack" });
   const { userData } = useContext(UserContext);
   const [tab, setTab] = useState("play");
   const [wallet, setWallet] = useState({ balance: 0, taxRate: HOUSE_TAX });
   const [inventory, setInventory] = useState([]);
   const [houseInventory, setHouseInventory] = useState([]);
-  const [selected, setSelected] = useState(new Set());
+  const [sourceSelected, setSourceSelected] = useState(new Set());
+  const [targetSelected, setTargetSelected] = useState(new Set());
   const [game, setGame] = useState(null);
   const [history, setHistory] = useState([]);
-  const [bet, setBet] = useState("100");
-  const [breakAmount, setBreakAmount] = useState("100000000");
-  const [breakDenomination, setBreakDenomination] = useState("1000000");
+  const [bet, setBet] = useState("1m");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("The dealer is ready.");
 
-  const authHeaders = useCallback(() => ({
-    authorization: `Bearer ${getauth()}`,
-    "content-type": "application/json",
-  }), []);
-
+  const authHeaders = useCallback(() => ({ authorization: `Bearer ${getauth()}`, "content-type": "application/json" }), []);
   const request = useCallback(async (path, options = {}) => {
-    const response = await fetch(`${api}${path}`, {
-      ...options,
-      headers: { ...authHeaders(), ...(options.headers || {}) },
-    });
+    const response = await fetch(`${api}${path}`, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.message || "Something went wrong.");
     return body;
   }, [authHeaders]);
 
   const refresh = useCallback(async () => {
-    if (!getauth()) {
-      setLoading(false);
-      return;
-    }
+    if (!getauth()) { setLoading(false); return; }
     try {
       const [walletRes, inventoryRes, houseRes, currentRes, historyRes] = await Promise.all([
         request("/normal-wallet"),
@@ -122,63 +101,35 @@ export default function NormalBlackjack() {
 
   useEffect(() => { refresh(); }, [refresh, userData?.userid]);
 
-  const selectedItems = useMemo(
-    () => inventory.filter((item) => selected.has(String(item.inventoryid))),
-    [inventory, selected],
-  );
+  const selectedItems = useMemo(() => inventory.filter((item) => sourceSelected.has(String(item.inventoryid))), [inventory, sourceSelected]);
+  const selectedHouseItems = useMemo(() => houseInventory.filter((item) => targetSelected.has(String(item.inventoryid))), [houseInventory, targetSelected]);
   const selectedValue = selectedItems.reduce((sum, item) => sum + Number(item.itemvalue || 0), 0);
-  const selectedTax = Math.floor(selectedValue * HOUSE_TAX);
-  const selectedCredit = selectedValue - selectedTax;
-  const selectedHouseItems = useMemo(
-    () => houseInventory.filter((item) => selected.has(String(item.inventoryid))),
-    [houseInventory, selected],
-  );
   const selectedHouseValue = selectedHouseItems.reduce((sum, item) => sum + Number(item.itemvalue || 0), 0);
   const currentHand = game?.playerHands?.[game.activeHand || 0];
-  const dealerName = game?.status === "finished" ? "Dealer" : "Mr. Tide";
-  const gemDenominations = [
-    { value: 1_000_000, label: "1m gems" },
-    { value: 5_000_000, label: "5m gems" },
-    { value: 10_000_000, label: "10m gems" },
-    { value: 25_000_000, label: "25m gems" },
-    { value: 50_000_000, label: "50m gems" },
-    { value: 100_000_000, label: "100m gems" },
-  ];
-  const parsedBreakAmount = Number(breakAmount);
-  const parsedBreakDenomination = Number(breakDenomination);
-  const breakPieces = Number.isSafeInteger(parsedBreakAmount) && Number.isSafeInteger(parsedBreakDenomination) && parsedBreakDenomination > 0
-    ? parsedBreakAmount / parsedBreakDenomination
-    : 0;
+  const betValue = parseCompactAmount(bet);
+  const loginPrompt = !getauth();
 
-  const toggleItem = (item) => {
-    setSelected((old) => {
-      const next = new Set(old);
-      const id = String(item.inventoryid);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleSelected = (setter) => (item) => setter((old) => {
+    const next = new Set(old);
+    const id = String(item.inventoryid);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleSource = toggleSelected(setSourceSelected);
+  const toggleTarget = toggleSelected(setTargetSelected);
+
+  const clearSelections = () => {
+    setSourceSelected(new Set());
+    setTargetSelected(new Set());
   };
 
   const exchange = async () => {
     if (!selectedItems.length) return toast.error("Select items first.");
     setBusy(true);
     try {
-      const result = await request("/normal-wallet/exchange", {
-        method: "POST",
-        body: JSON.stringify({
-          operationId: operationId(),
-          inventoryIds: selectedItems.map((item) => item.inventoryid),
-        }),
-      });
-      toast.success(result.message);
-      setSelected(new Set());
-      await refresh();
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setBusy(false);
-    }
+      const result = await request("/normal-wallet/exchange", { method: "POST", body: JSON.stringify({ operationId: operationId(), inventoryIds: selectedItems.map((item) => item.inventoryid) }) });
+      toast.success(result.message); clearSelections(); await refresh();
+    } catch (error) { toast.error(error.message); } finally { setBusy(false); }
   };
 
   const redeem = async () => {
@@ -186,269 +137,122 @@ export default function NormalBlackjack() {
     if (selectedHouseValue > wallet.balance) return toast.error("Your normal wallet is too low.");
     setBusy(true);
     try {
-      const result = await request("/normal-wallet/redeem", {
-        method: "POST",
-        body: JSON.stringify({
-          operationId: operationId(),
-          inventoryIds: selectedHouseItems.map((item) => item.inventoryid),
-        }),
-      });
-      toast.success(result.message);
-      setSelected(new Set());
-      await refresh();
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setBusy(false);
-    }
+      const result = await request("/normal-wallet/redeem", { method: "POST", body: JSON.stringify({ operationId: operationId(), inventoryIds: selectedHouseItems.map((item) => item.inventoryid) }) });
+      toast.success(result.message); clearSelections(); await refresh();
+    } catch (error) { toast.error(error.message); } finally { setBusy(false); }
   };
 
-  const downgrade = async () => {
-    if (!Number.isSafeInteger(parsedBreakAmount) || parsedBreakAmount < parsedBreakDenomination) {
-      return toast.error("Enter a whole wallet amount that is at least one selected gem piece.");
-    }
-    if (parsedBreakAmount % parsedBreakDenomination !== 0) {
-      return toast.error("The amount must divide evenly into the selected gem denomination.");
-    }
-    if (breakPieces > 500) {
-      return toast.error("That conversion would create too many items. Choose a larger denomination.");
-    }
-    if (parsedBreakAmount > wallet.balance) {
-      return toast.error("Your normal wallet does not have enough credits.");
-    }
+  const swap = async () => {
+    if (!selectedItems.length || !selectedHouseItems.length) return toast.error("Choose the items you are breaking and the items you want back.");
+    if (selectedValue !== selectedHouseValue) return toast.error("The two sides must have equal item value.");
     setBusy(true);
     try {
-      const result = await request("/normal-wallet/downgrade", {
+      const result = await request("/normal-wallet/swap", {
         method: "POST",
         body: JSON.stringify({
           operationId: operationId(),
-          amount: parsedBreakAmount,
-          denomination: parsedBreakDenomination,
+          sourceInventoryIds: selectedItems.map((item) => item.inventoryid),
+          targetInventoryIds: selectedHouseItems.map((item) => item.inventoryid),
         }),
       });
-      toast.success(result.message);
-      setBreakAmount(String(parsedBreakAmount));
-      await refresh();
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setBusy(false);
-    }
+      toast.success(result.message); clearSelections(); await refresh();
+    } catch (error) { toast.error(error.message); } finally { setBusy(false); }
   };
 
   const startGame = async () => {
-    setBusy(true);
-    setMessage("The dealer is shuffling the shoe...");
+    if (!betValue || betValue > wallet.balance) return toast.error("Enter a valid wager within your normal wallet.");
+    setBusy(true); setMessage("The dealer is shuffling the shoe...");
     try {
-      const result = await request("/normal-blackjack/create", {
-        method: "POST",
-        body: JSON.stringify({ bet: Number(bet), operationId: operationId(), clientSeed: operationId() }),
-      });
-      setGame(result.data);
-      setMessage(result.data?.status === "finished" ? "The dealer has dealt a natural hand." : "Your move, player.");
-      await refresh();
-    } catch (error) {
-      setMessage("The dealer pauses.");
-      toast.error(error.message);
-    } finally {
-      setBusy(false);
-    }
+      const result = await request("/normal-blackjack/create", { method: "POST", body: JSON.stringify({ bet, operationId: operationId(), clientSeed: operationId() }) });
+      setGame(result.data); setMessage(result.data?.status === "finished" ? "The dealer has dealt a natural hand." : "Your move, player."); await refresh();
+    } catch (error) { setMessage("The dealer pauses."); toast.error(error.message); } finally { setBusy(false); }
   };
 
   const action = async (name) => {
     if (!game) return;
-    setBusy(true);
-    const narration = {
-      hit: "The dealer slides you another card...",
-      stand: "The dealer nods and checks the table...",
-      double: "The dealer doubles the wager...",
-      split: "The dealer separates the pair...",
-      insurance: "The dealer offers insurance...",
-    };
-    setMessage(narration[name] || "The dealer studies the table...");
+    setBusy(true); setMessage(name === "hit" ? "The dealer slides you another card..." : "The dealer nods and checks the table...");
     try {
-      const result = await request("/normal-blackjack/action", {
-        method: "POST",
-        body: JSON.stringify({ gameId: game._id, action: name }),
-      });
-      setGame(result.data);
-      setMessage(result.data.status === "finished" ? "The dealer has finished the hand." : "Your move, player.");
-      await refresh();
-    } catch (error) {
-      toast.error(error.message);
-      setMessage("The dealer waits for a valid move.");
-    } finally {
-      setBusy(false);
-    }
+      const result = await request("/normal-blackjack/action", { method: "POST", body: JSON.stringify({ gameId: game._id, action: name }) });
+      setGame(result.data); setMessage(result.data.status === "finished" ? "The dealer has finished the hand." : "Your move, player."); await refresh();
+    } catch (error) { toast.error(error.message); setMessage("The dealer waits for a valid move."); } finally { setBusy(false); }
   };
 
-  const loginPrompt = !getauth();
   return (
     <div className="normal-bj-page">
-      <section className="normal-bj-hero">
-        <div className="normal-bj-hero-copy">
-          <div className="normal-bj-eyebrow"><Sparkles size={14} /> NORMAL TABLE</div>
-          <h1>Blackjack <em>against the dealer.</em></h1>
-          <p>Exchange PS99 items into a separate table wallet, then play a fair six-deck game. Your site balance never mixes with this wallet.</p>
-          <div className="normal-bj-trust"><ShieldCheck size={15} /> Provably fair shoe · dealer hits soft 17 · 8% item exchange tax</div>
+      <header className="normal-bj-topbar">
+        <div className="normal-bj-brand"><span className="normal-bj-mark">GT</span><div><b>Normal Blackjack</b><small>Player versus dealer</small></div></div>
+        <div className="normal-bj-wallet-mini"><small>Normal wallet</small><strong>{money(wallet.balance)}</strong><span>credits</span></div>
+      </header>
+
+      <section className="normal-bj-full-table" aria-label="Normal blackjack table">
+        <img src={tableArt} alt="" className="normal-bj-table-art" />
+        <div className="normal-bj-table-vignette" />
+        <div className="normal-bj-no-chip" aria-hidden="true" />
+        <div className="normal-bj-status"><span />{message}</div>
+        <div className="normal-bj-dealer-hand">
+          {game?.dealerHand?.map((card, index) => <Card key={`dealer-${index}-${card.rank}`} card={card} hidden={card.hidden} />)}
+          {!game && <><Card hidden /><Card card={{ rank: "K", suit: "♣" }} /></>}
         </div>
-        <div className="normal-bj-dealer-stage" aria-label={`${dealerName} dealer animation`}>
-          <img className="normal-bj-source-art" src={dealerArt} alt="" />
-          <img className="normal-bj-source-art normal-bj-source-art--motion" src={dealerArt} alt="" />
-          <div className="normal-bj-scene-vignette" />
-          <div className="normal-bj-scene-glow" />
-          <div className="normal-bj-scene-label normal-bj-scene-label--dealer">DEALER · {dealerName}</div>
-          <div className="normal-bj-scene-label normal-bj-scene-label--player">PLAYER</div>
-          <div className="normal-bj-scene-cards normal-bj-scene-cards--dealer">
-            {game?.dealerHand?.map((card, index) => <Card key={`hero-dealer-${index}-${card.rank}`} card={card} />)}
-            {!game && <span className="normal-bj-scene-awaiting">WAITING FOR WAGER</span>}
+        <div className="normal-bj-table-copy">DEALER · MR. TIDE</div>
+        <div className="normal-bj-player-panel">
+          <div className="normal-bj-player-heading"><span>Your hand</span><b>{currentHand?.total ?? "—"}</b></div>
+          <div className="normal-bj-player-cards">
+            {currentHand?.cards?.map((card, index) => <Card key={`player-${index}-${card.rank}`} card={card} />)}
+            {!currentHand && <span className="normal-bj-awaiting">Place a wager to deal</span>}
           </div>
-          <div className="normal-bj-scene-cards normal-bj-scene-cards--player">
-            {currentHand?.cards?.map((card, index) => <Card key={`hero-player-${index}-${card.rank}`} card={card} />)}
-            {!currentHand && <span className="normal-bj-scene-awaiting">YOUR HAND</span>}
-          </div>
-          <div className="normal-bj-scene-chip"><span>GT</span><b>{game ? money(currentHand?.bet) : "BET"}</b></div>
-          <div className="normal-bj-dealer-caption"><b>{dealerName}</b><span>{message}</span></div>
+          {!game && (
+            <div className="normal-bj-deal-row">
+              <div className="normal-bj-bet-input"><Coins size={15} /><input aria-label="Wager" value={bet} disabled={busy} onChange={(event) => setBet(event.target.value)} placeholder="1m" /><span>credits</span></div>
+              <button type="button" className="normal-bj-deal-button" onClick={startGame} disabled={busy || !betValue || betValue > wallet.balance}>Deal</button>
+            </div>
+          )}
+          {game?.status === "active" && <div className="normal-bj-actions"><button type="button" onClick={() => action("hit")} disabled={busy}>Hit</button><button type="button" onClick={() => action("stand")} disabled={busy}>Stand</button></div>}
+          {game?.status === "finished" && <button type="button" className="normal-bj-deal-button normal-bj-new-hand" onClick={() => { setGame(null); setMessage("The dealer is ready."); }}>Deal another hand</button>}
         </div>
+        <div className="normal-bj-table-footer"><span>{game ? `Wager ${money(game.initialBet)} credits` : "Six-deck shoe · 6:5 blackjack"}</span><span>Dealer hits soft 17</span></div>
       </section>
 
       <div className="normal-bj-walletbar">
-        <div className="normal-bj-wallet-balance"><WalletCards size={18} /><span>Normal wallet</span><strong>{money(wallet.balance)}</strong></div>
-        <div className="normal-bj-wallet-note">Only used for normal games · never your site balance</div>
-        <button className="normal-bj-refresh" type="button" onClick={refresh} disabled={loading}><RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh</button>
+        <div className="normal-bj-wallet-balance"><WalletCards size={17} /><span>Normal wallet</span><strong>{money(wallet.balance)}</strong></div>
+        <div className="normal-bj-wallet-note">Separate from your site balance · type 1m, 100m, or a full number to wager</div>
+        <button className="normal-bj-refresh" type="button" onClick={refresh} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh</button>
       </div>
 
-      {loginPrompt ? (
-        <div className="normal-bj-login">Log in to exchange items and play normal blackjack.</div>
-      ) : (
+      {loginPrompt ? <div className="normal-bj-login">Log in to exchange items and play normal blackjack.</div> : (
         <>
           <nav className="normal-bj-tabs">
-            {[["play", "Play blackjack"], ["exchange", "Exchange items"], ["break", "Break credits"], ["redeem", "Buy items back"], ["history", "History"]].map(([key, label]) => (
-              <button key={key} type="button" className={tab === key ? "active" : ""} onClick={() => { setTab(key); setSelected(new Set()); }}>{label}</button>
+            {[["play", "Play blackjack"], ["exchange", "Exchange items"], ["break", "Break / swap items"], ["redeem", "Buy items back"], ["history", "History"]].map(([key, label]) => (
+              <button key={key} type="button" className={tab === key ? "active" : ""} onClick={() => { setTab(key); clearSelections(); }}>{label}</button>
             ))}
           </nav>
 
-          {tab === "play" && (
-            <section className="normal-bj-play-layout">
-              <div className="normal-bj-table">
-                <div className="normal-bj-table-header"><span>DEALER</span><small>{game ? `Hand ${game._id.slice(-6)}` : "New table"}</small></div>
-                <div className="normal-bj-hand-row">
-                  {game?.dealerHand?.map((card, index) => <Card key={`${index}-${card.rank}`} card={card} />)}
-                  {!game && <div className="normal-bj-card-placeholder">The dealer is waiting for a wager</div>}
-                </div>
-                {game?.dealerTotal != null && <div className="normal-bj-total">Dealer total <b>{game.dealerTotal}</b></div>}
-                <div className="normal-bj-divider" />
-                <div className="normal-bj-table-header"><span>PLAYER</span><small>{currentHand ? `Wager ${money(currentHand.bet)}` : "Place a wager below"}</small></div>
-                <div className="normal-bj-hand-row">
-                  {currentHand?.cards?.map((card, index) => <Card key={`${index}-${card.rank}`} card={card} />)}
-                  {!currentHand && <div className="normal-bj-card-placeholder">Your cards appear here</div>}
-                </div>
-                {currentHand && <div className="normal-bj-total">Your total <b>{currentHand.total}</b></div>}
-                {game?.playerHands?.length > 1 && <div className="normal-bj-split-note">{game.playerHands.length} hands · playing hand {game.activeHand + 1}</div>}
-                {game?.status === "finished" && <div className="normal-bj-result">{game.outcome?.replaceAll(",", " · ").toUpperCase()} · PAID {money(game.payout)}</div>}
-              </div>
-              <aside className="normal-bj-controls">
-                <div className="normal-bj-control-card">
-                  <label htmlFor="normal-bet">Wager from normal wallet</label>
-                  <div className="normal-bj-bet-input"><Coins size={16} /><input id="normal-bet" type="number" min="1" max="1000000000" value={bet} disabled={!!game || busy} onChange={(event) => setBet(event.target.value)} /><span>credits</span></div>
-                  {!game && <button className="normal-bj-primary" type="button" onClick={startGame} disabled={busy || Number(bet) < 1 || Number(bet) > wallet.balance}>Deal hand</button>}
-                  {game?.status === "active" && (
-                    <div className="normal-bj-actions">
-                      <button type="button" onClick={() => action("hit")} disabled={busy}>Hit</button>
-                      <button type="button" onClick={() => action("stand")} disabled={busy}>Stand</button>
-                      <button type="button" onClick={() => action("double")} disabled={busy}>Double</button>
-                      <button type="button" onClick={() => action("split")} disabled={busy}>Split</button>
-                      {game.dealerHand?.[0]?.rank === "A" && <button type="button" onClick={() => action("insurance")} disabled={busy}>Insurance</button>}
-                    </div>
-                  )}
-                  {game?.status === "finished" && <button type="button" className="normal-bj-primary" onClick={() => { setGame(null); setMessage("The dealer is ready."); }}>Deal another hand</button>}
-                </div>
-                <div className="normal-bj-rules"><b>House rules</b><span>Blackjack pays 6:5</span><span>Dealer hits soft 17</span><span>Double after deal · one split</span><span>No surrender · insurance pays 2:1</span></div>
-              </aside>
-            </section>
-          )}
-
+          {tab === "play" && <section className="normal-bj-rules-row"><ShieldCheck size={15} /><span>Provably fair six-deck shoe</span><span>Blackjack pays 6:5</span><span>No surrender or cancellation after deal</span></section>}
           {tab === "exchange" && (
             <section className="normal-bj-panel">
-              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">ITEMS → CREDITS</span><h2>Fund your table wallet</h2><p>Selected items are moved to the owner inventory atomically. They cannot be spent twice.</p></div><div className="normal-bj-fee-card"><span>Exchange tax</span><b>8%</b><small>credited amount: {money(selectedCredit)}</small></div></div>
-              <InventoryGrid items={inventory} selected={selected} onToggle={toggleItem} emptyLabel="No unlocked items available." />
-              <div className="normal-bj-panel-footer"><span>{selectedItems.length} items · gross {money(selectedValue)} · fee {money(selectedTax)}</span><button type="button" className="normal-bj-primary" onClick={exchange} disabled={busy || !selectedItems.length}>Exchange for {money(selectedCredit)}</button></div>
+              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">ITEMS → CREDITS</span><h2>Fund your table wallet</h2><p>Selected items move to the house inventory and credit the separate wallet after the 8% exchange tax.</p></div><div className="normal-bj-fee-card"><span>Credited amount</span><b>{money(selectedValue - Math.floor(selectedValue * HOUSE_TAX))}</b><small>8% exchange tax</small></div></div>
+              <InventoryGrid items={inventory} selected={sourceSelected} onToggle={toggleSource} emptyLabel="No unlocked items available." />
+              <div className="normal-bj-panel-footer"><span>{selectedItems.length} items · gross {money(selectedValue)}</span><button type="button" className="normal-bj-primary" onClick={exchange} disabled={busy || !selectedItems.length}>Exchange for {money(selectedValue - Math.floor(selectedValue * HOUSE_TAX))}</button></div>
             </section>
           )}
-
           {tab === "redeem" && (
             <section className="normal-bj-panel">
-              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">CREDITS → ITEMS</span><h2>Buy items back</h2><p>House inventory is reserved by the server during checkout. Your credits are only charged when the items move.</p></div><div className="normal-bj-fee-card"><span>Selected value</span><b>{money(selectedHouseValue)}</b><small>balance: {money(wallet.balance)}</small></div></div>
-              <InventoryGrid items={houseInventory} selected={selected} onToggle={toggleItem} emptyLabel="The owner inventory has no redeemable items right now." />
+              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">CREDITS → ITEMS</span><h2>Buy items back</h2><p>Use wallet credits to take house inventory items back into your account.</p></div><div className="normal-bj-fee-card"><span>Selected value</span><b>{money(selectedHouseValue)}</b><small>Balance: {money(wallet.balance)}</small></div></div>
+              <InventoryGrid items={houseInventory} selected={targetSelected} onToggle={toggleTarget} emptyLabel="The house inventory has no redeemable items right now." />
               <div className="normal-bj-panel-footer"><span>{selectedHouseItems.length} items selected</span><button type="button" className="normal-bj-primary" onClick={redeem} disabled={busy || !selectedHouseItems.length || selectedHouseValue > wallet.balance}>Redeem for {money(selectedHouseValue)}</button></div>
             </section>
           )}
-
           {tab === "break" && (
             <section className="normal-bj-panel">
-              <div className="normal-bj-panel-heading">
-                <div>
-                  <span className="normal-bj-eyebrow">CREDITS → GEM ITEMS</span>
-                  <h2>Break wallet credits</h2>
-                  <p>Turn one wallet balance into tradeable PS99 gem pieces. The conversion is exact and atomic.</p>
-                </div>
-                <div className="normal-bj-fee-card">
-                  <span>Wallet balance</span>
-                  <b>{money(wallet.balance)}</b>
-                  <small>No conversion fee</small>
-                </div>
+              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">ITEMS ↔ ITEMS</span><h2>Break items into the pieces you want</h2><p>Pick the items to break, then pick the house items you want instead. It swaps ownership directly — no credits are created, removed, or touched.</p></div><div className="normal-bj-fee-card"><span>Value to swap</span><b className={selectedValue === selectedHouseValue && selectedValue > 0 ? "normal-bj-equal" : ""}>{money(selectedValue)} / {money(selectedHouseValue)}</b><small>{selectedValue === selectedHouseValue && selectedValue > 0 ? "Equal value" : "Both sides must match"}</small></div></div>
+              <div className="normal-bj-swap-columns">
+                <div className="normal-bj-swap-side"><div className="normal-bj-swap-heading"><span>1. Items you break</span><b>{selectedItems.length} selected</b></div><InventoryGrid items={inventory} selected={sourceSelected} onToggle={toggleSource} emptyLabel="No unlocked items available." /></div>
+                <div className="normal-bj-swap-arrow">⇄</div>
+                <div className="normal-bj-swap-side"><div className="normal-bj-swap-heading"><span>2. Items you want back</span><b>{selectedHouseItems.length} selected</b></div><InventoryGrid items={houseInventory} selected={targetSelected} onToggle={toggleTarget} emptyLabel="No house items available." /></div>
               </div>
-              <div className="normal-bj-break-layout">
-                <div className="normal-bj-control-card">
-                  <label htmlFor="break-amount">Credits to convert</label>
-                  <div className="normal-bj-bet-input">
-                    <Coins size={16} />
-                    <input
-                      id="break-amount"
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={breakAmount}
-                      disabled={busy}
-                      onChange={(event) => setBreakAmount(event.target.value)}
-                    />
-                    <span>credits</span>
-                  </div>
-                  <label className="normal-bj-break-label">Gem piece size</label>
-                  <div className="normal-bj-denomination-grid">
-                    {gemDenominations.map((denomination) => (
-                      <button
-                        key={denomination.value}
-                        type="button"
-                        className={parsedBreakDenomination === denomination.value ? "active" : ""}
-                        disabled={busy}
-                        onClick={() => setBreakDenomination(String(denomination.value))}
-                      >
-                        {denomination.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="normal-bj-break-preview">
-                    <span>You receive</span>
-                    <b>{Number.isInteger(breakPieces) && breakPieces > 0 ? `${breakPieces.toLocaleString()} × ${gemDenominations.find((item) => item.value === parsedBreakDenomination)?.label || "gem gems"}` : "Enter an even amount"}</b>
-                  </div>
-                  <button type="button" className="normal-bj-primary" onClick={downgrade} disabled={busy || !Number.isInteger(breakPieces) || breakPieces < 1 || breakPieces > 500 || parsedBreakAmount > wallet.balance}>
-                    Convert credits into gems
-                  </button>
-                </div>
-                <div className="normal-bj-break-info">
-                  <b>Available denominations</b>
-                  <p>Use 1m for small bets, or choose 5m, 10m, 25m, 50m, or 100m pieces for fewer inventory items.</p>
-                  <p>Conversions never create value. Your wallet is reduced by the exact amount and the matching gem items are added to your inventory in one transaction.</p>
-                  <span>Maximum 500 pieces per conversion</span>
-                </div>
-              </div>
+              <div className="normal-bj-panel-footer"><span>{selectedValue === selectedHouseValue && selectedValue > 0 ? "Ready to swap equal value" : "Select equal total value on both sides"}</span><button type="button" className="normal-bj-primary" onClick={swap} disabled={busy || !selectedItems.length || !selectedHouseItems.length || selectedValue !== selectedHouseValue}>Swap items</button></div>
             </section>
           )}
-
-          {tab === "history" && (
-            <section className="normal-bj-panel"><div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">TABLE LOG</span><h2>Your recent hands</h2></div></div><div className="normal-bj-history">{history.length ? history.map((entry) => <div key={entry._id}><span>{new Date(entry.finishedAt || entry.createdAt).toLocaleString()}</span><b>{entry.outcome}</b><strong className={entry.payout >= entry.totalBet ? "win" : "loss"}>{entry.payout >= entry.totalBet ? "+" : "-"}{money(Math.abs(entry.payout - entry.totalBet))}</strong></div>) : <div className="normal-bj-empty">No completed hands yet.</div>}</div></section>
-          )}
+          {tab === "history" && <section className="normal-bj-panel"><div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">TABLE LOG</span><h2>Your recent hands</h2></div></div><div className="normal-bj-history">{history.length ? history.map((entry) => <div key={entry._id}><span>{new Date(entry.finishedAt || entry.createdAt).toLocaleString()}</span><b>{entry.outcome}</b><strong className={entry.payout >= entry.totalBet ? "win" : "loss"}>{entry.payout >= entry.totalBet ? "+" : "-"}{money(Math.abs(entry.payout - entry.totalBet))}</strong></div>) : <div className="normal-bj-empty">No completed hands yet.</div>}</div></section>}
         </>
       )}
     </div>
