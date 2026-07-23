@@ -34,6 +34,7 @@ const mineswebh      = process.env.MINES_WEBHOOK_URL      || null;
 const tradewebh      = process.env.TRADE_WEBHOOK_URL      || null;
 const rpswebh        = process.env.RPS_WEBHOOK_URL        || null;
 const caseswebh      = process.env.CASES_WEBHOOK_URL       || null;
+const bjWebhook      = process.env.BJ_WEBHOOK               || null;
 
 module.exports = {
   jwt_secret,
@@ -59,4 +60,5 @@ module.exports = {
   tradewebh,
   rpswebh,
   caseswebh,
+  bjWebhook,
 };

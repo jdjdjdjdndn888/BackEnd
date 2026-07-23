@@ -4,8 +4,9 @@ const mongoose = require("mongoose");
 const users = require("../../modules/users.js");
 const NormalBlackjack = require("../../modules/normalblackjack.js");
 const { Wallet } = require("../../modules/normalwallet.js");
+const { bjWebhook } = require("../../config.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
-const { addHistory, updateuser } = require("../transaction/index.js");
+const { addHistory, updateuser, sendwebhook, WEBHOOK_COLORS } = require("../transaction/index.js");
 const { httpError } = require("../../utils/httpError.js");
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -105,6 +106,45 @@ function operationIdOf(raw) {
   const id = typeof raw === "string" ? raw.trim() : "";
   if (!id || id.length > 120) throw httpError(400, "A unique operation id is required.");
   return id;
+}
+
+function outcomeColor(game) {
+  const outcomes = String(game.outcome || "").split(",");
+  if (outcomes.some((outcome) => outcome === "blackjack" || outcome === "win")) return WEBHOOK_COLORS.WIN;
+  if (outcomes.length && outcomes.every((outcome) => outcome === "loss" || outcome === "bust")) return WEBHOOK_COLORS.LOSS;
+  return WEBHOOK_COLORS.NEUTRAL;
+}
+
+function outcomeLabel(game) {
+  return String(game.outcome || "active").replaceAll(",", " · ").toUpperCase();
+}
+
+function normalBlackjackFields(game, extra = []) {
+  const fields = [
+    { name: "Player", value: game.username || `User ${game.userId}`, inline: true },
+    { name: "Wager", value: `${Number(game.totalBet || game.initialBet || 0).toLocaleString()} credits`, inline: true },
+    { name: "Status", value: game.status, inline: true },
+  ];
+  if (game.status === "finished") {
+    fields.push(
+      { name: "Outcome", value: outcomeLabel(game), inline: true },
+      { name: "Payout", value: `${Number(game.payout || 0).toLocaleString()} credits`, inline: true },
+      { name: "Net", value: `${Number((game.payout || 0) - (game.totalBet || 0)).toLocaleString()} credits`, inline: true },
+    );
+  }
+  return [...fields, ...extra];
+}
+
+function logNormalBlackjack(title, description, game, fields = [], color = WEBHOOK_COLORS.NEUTRAL) {
+  return sendwebhook(
+    bjWebhook,
+    title,
+    description,
+    normalBlackjackFields(game, fields),
+    game.thumbnail,
+    null,
+    color,
+  ).catch((error) => console.error("normal blackjack webhook:", error));
 }
 
 function markHand(hand) {
@@ -257,7 +297,17 @@ exports.create = asyncHandler(async (req, res) => {
       await wallet.save({ session });
     });
     await updateuser(userId, req.app.get("io"));
-    return res.json({ success: true, data: exposedGame(game) });
+    const publicGame = exposedGame(game);
+    void logNormalBlackjack(
+      game.status === "finished" ? "🃏 Normal Blackjack Result" : "🃏 Normal Blackjack Started",
+      game.status === "finished"
+        ? `**${game.username}** finished a normal blackjack hand.`
+        : `**${game.username}** started a normal blackjack hand.`,
+      game,
+      [{ name: "Server seed hash", value: game.serverSeedHash, inline: false }],
+      game.status === "finished" ? outcomeColor(game) : WEBHOOK_COLORS.CREATE,
+    );
+    return res.json({ success: true, data: publicGame });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ message: error.message || "Could not start blackjack." });
   } finally {
@@ -343,7 +393,18 @@ exports.action = asyncHandler(async (req, res) => {
       await wallet.save({ session });
     });
     await updateuser(userId, req.app.get("io"));
-    return res.json({ success: true, data: exposedGame(game) });
+    const publicGame = exposedGame(game);
+    const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+    void logNormalBlackjack(
+      game.status === "finished" ? `🃏 Normal Blackjack ${outcomeLabel(game)}` : `🃏 Normal Blackjack ${actionLabel}`,
+      game.status === "finished"
+        ? `**${game.username}** completed a normal blackjack hand after choosing **${actionLabel}**.`
+        : `**${game.username}** chose **${actionLabel}** in normal blackjack.`,
+      game,
+      [{ name: "Action", value: actionLabel, inline: true }],
+      game.status === "finished" ? outcomeColor(game) : WEBHOOK_COLORS.CREATE,
+    );
+    return res.json({ success: true, data: publicGame });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ message: error.message || "Blackjack action failed." });
   } finally {
