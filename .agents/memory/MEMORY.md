@@ -9,3 +9,4 @@
 - [Rank/permission system](rank-permission-system.md) — canonical rank strings live in api/utils/rankTiers.js; frontend/backend rank casing must match exactly or badges+permissions silently break
 - [Ticket system custom assets](ticket-system-custom-assets.md) — support ticket system uses only custom images, not emoji; Discord side uploads them as application emojis
 - [Mongo update without $set bug](mongo-update-without-set-bug.md) — bare-object updateOne/updateMany (no $set/$inc) is rejected by MongoDB; caused jackpot/upgrader payout failures, check for this after touching game payout code
+- [Normal blackjack wallet](normal-blackjack-wallet.md) — separate item-backed wallet, fixed 8% exchange fee, and transaction-guarded dealer settlement

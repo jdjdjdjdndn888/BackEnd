@@ -144,10 +144,40 @@ const staffAccounts = mongoose.model("staffAccounts", new Schema({
   locked: { type: Boolean, default: false },
 }, { strict: false }));
 
+// ─── Invite System Models ──────────────────────────────────────────────────
+const inviteSettings = mongoose.model("inviteSettings", new Schema({
+  guildId:         { type: String, required: true, unique: true },
+  channelId:       { type: String, default: "" },
+  logChannelId:    { type: String, default: "" },
+  rewardPerInvite: { type: Number, default: 0 },
+  enabled:         { type: Boolean, default: false },
+  paused:          { type: Boolean, default: false },
+  panelMessageId:  { type: String, default: "" },
+}, { strict: false }));
+
+const inviteRecord = mongoose.model("inviteRecord", new Schema({
+  guildId:         { type: String, required: true },
+  inviterId:       { type: String, required: true },
+  inviteeId:       { type: String, required: true },
+  inviteCode:      { type: String, default: "" },
+  joinedAt:        { type: Date, default: Date.now },
+  claimed:         { type: Boolean, default: false },
+  isRejoin:        { type: Boolean, default: false },
+  leftAt:          { type: Date, default: null },
+}, { strict: false }));
+
+const memberHistory = mongoose.model("memberHistory", new Schema({
+  guildId:       { type: String, required: true },
+  memberId:      { type: String, required: true },
+  firstJoinedAt: { type: Date, default: Date.now },
+  hasEverLeft:   { type: Boolean, default: false },
+}, { strict: false }));
+
 // ─── In-memory state ─────────────────────────────────────────────────────────
 const settings       = { cancelWithdrawsEnabled: true, tippingLocked: false };
 const warnings       = new Map();
 const activeGiveaways = new Map();
+const inviteCache     = new Map(); // guildId → Map(code → uses)
 
 // ─── Log channels ─────────────────────────────────────────────────────────────
 const LOG_CHANNELS = {
@@ -236,6 +266,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildInvites,
   ],
 });
 
@@ -250,6 +281,14 @@ function isOwner(i) {
   if (OWNER_DISCORD_ID && i.user.id === OWNER_DISCORD_ID) return true;
   return i.memberPermissions?.has(PermissionFlagsBits.Administrator);
 }
+function fmtBal(n) {
+  if (!n || n === 0) return "0";
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  return String(Math.round(n));
+}
+const REQUIRED_INVITE_ROLE = "1513016389139697698";
 function applyBanner(e) { if (BANNER_URL) e.setImage(BANNER_URL); return e; }
 function applyTicketBanner(e) { if (TICKET_BANNER_URL) e.setImage(TICKET_BANNER_URL); return e; }
 function fmt(n) { return (n || 0).toLocaleString(); }
@@ -2571,6 +2610,16 @@ client.once("clientReady", async () => {
   logger.init(client);
   await ensureTicketEmojis();
 
+  // ── Seed invite cache ──────────────────────────────────────────────────
+  for (const [, guild] of client.guilds.cache) {
+    try {
+      const inv = await guild.invites.fetch();
+      const m = new Map();
+      for (const [code, i] of inv) m.set(code, i.uses || 0);
+      inviteCache.set(guild.id, m);
+    } catch { /* no Manage Guild perms — skip */ }
+  }
+
   let commands = [];
   try {
     commands = [
@@ -2664,6 +2713,31 @@ client.once("clientReady", async () => {
       new SlashCommandBuilder().setName("unlock").setDescription("Admin — unlock a channel").addChannelOption((o) => o.setName("channel").setDescription("Channel (defaults to current)")),
       new SlashCommandBuilder().setName("nick").setDescription("Admin — change a member's nickname").addUserOption((o) => o.setName("user").setDescription("Member").setRequired(true)).addStringOption((o) => o.setName("nickname").setDescription("New nickname (blank to reset)")),
       new SlashCommandBuilder().setName("dmall").setDescription("Owner only — DM all server members").addStringOption((o) => o.setName("message").setDescription("The message to send to all members").setRequired(true)).addStringOption((o) => o.setName("embed_title").setDescription("Optional embed title")).addStringOption((o) => o.setName("embed_color").setDescription("Hex color (e.g. #8b5cf6)")),
+      // ── Invite System ─────────────────────────────────────────────────────
+      new SlashCommandBuilder()
+        .setName("invites")
+        .setDescription("See how many people you've successfully invited"),
+      new SlashCommandBuilder()
+        .setName("sendinvite")
+        .setDescription("Owner — set up the invite reward panel")
+        .addChannelOption((o) => o.setName("channel").setDescription("Channel for the invite panel").setRequired(true))
+        .addIntegerOption((o) => o.setName("reward_millions").setDescription("Gems per invite (millions)").setRequired(true)
+          .addChoices(
+            { name: "100M",  value: 100  }, { name: "200M", value: 200 },
+            { name: "300M",  value: 300  }, { name: "400M", value: 400 },
+            { name: "500M",  value: 500  }, { name: "600M", value: 600 },
+            { name: "700M",  value: 700  }, { name: "800M", value: 800 },
+            { name: "900M",  value: 900  }, { name: "1B",   value: 1000 },
+          )),
+      new SlashCommandBuilder()
+        .setName("pauseinvites")
+        .setDescription("Owner — pause or resume the invite reward system")
+        .addStringOption((o) => o.setName("action").setDescription("pause or resume").setRequired(true)
+          .addChoices({ name: "Pause", value: "pause" }, { name: "Resume", value: "resume" })),
+      new SlashCommandBuilder()
+        .setName("setlogchannel")
+        .setDescription("Owner — set the log channel for invite system events")
+        .addChannelOption((o) => o.setName("channel").setDescription("Channel for logs").setRequired(true)),
       // ── SAB Pet Auto-Add ──────────────────────────────────────────────────
       new SlashCommandBuilder()
         .setName("addsabpet")
@@ -2717,6 +2791,7 @@ client.on("interactionCreate", async (interaction) => {
     if (TICKET_CATEGORIES[customId]) return handleTicketCreate(interaction, customId);
     if (customId === "ticket_close") return handleTicketClose(interaction);
     if (customId.startsWith("giveaway_enter_")) return handleGiveawayEnter(interaction, customId.replace("giveaway_enter_", ""));
+    if (customId === "claim_invite_reward") return handleInviteClaim(interaction);
     return;
   }
   if (!interaction.isChatInputCommand()) return;
@@ -2886,6 +2961,1211 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.editReply({ embeds: [embed] });
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // INFO / UTILITY
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "ping") {
+      const ms = Date.now() - interaction.createdTimestamp;
+      return interaction.editReply(`🏓 **Pong!** Bot: \`${ms}ms\` | WebSocket: \`${client.ws.ping}ms\``);
+    }
+
+    if (commandName === "help") {
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("📋 GemTide Bot Commands")
+        .setDescription(`All commands available on GemTide.\n🌐 **${SITE_URL}**`)
+        .addFields(
+          { name: "👤 Account", value: "`/balance` `/stats` `/profit` `/wager` `/inventory` `/history` `/profile` `/link` `/unlink`", inline: false },
+          { name: "🎁 Perks", value: "`/affiliate` `/daily` `/withdraws` `/cancelallwithdraws` `/deposit`", inline: false },
+          { name: "🏆 Leaderboards", value: "`/leaderboard` `/richest` `/topprofit` `/toplosers` `/toplevel`", inline: false },
+          { name: "🎮 Site Info", value: "`/sitestats` `/activecoinflips` `/jackpotstats` `/recentgames` `/games`", inline: false },
+          { name: "📨 Invites", value: "`/invites`", inline: false },
+          { name: "🎲 Fun", value: "`/roll` `/flip` `/8ball` `/rps` `/poll` `/remind` `/calc`", inline: false },
+          { name: "ℹ️ General", value: "`/ping` `/serverinfo` `/botinfo` `/avatar` `/support` `/invite`", inline: false },
+        ).setFooter({ text: "Admin commands not listed • GemTide" }).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "support") {
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("🎫 GemTide Support")
+        .setDescription("Need help? Open a ticket in the server or contact us on-site.")
+        .addFields(
+          { name: "🌐 Website", value: SITE_URL, inline: true },
+          { name: "🎫 Tickets", value: "Use the Support panel in this server", inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "invite") {
+      return interaction.editReply(`🎮 **Play on GemTide!**\n${SITE_URL}`);
+    }
+
+    if (commandName === "serverinfo") {
+      const g = interaction.guild;
+      if (!g) return interaction.editReply("❌ Server only.");
+      await g.fetch();
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🏠 ${g.name}`)
+        .setThumbnail(g.iconURL({ size: 256 }))
+        .addFields(
+          { name: "Members", value: fmt(g.memberCount), inline: true },
+          { name: "Channels", value: fmt(g.channels.cache.size), inline: true },
+          { name: "Roles", value: fmt(g.roles.cache.size), inline: true },
+          { name: "Owner", value: `<@${g.ownerId}>`, inline: true },
+          { name: "Created", value: `<t:${Math.floor(g.createdTimestamp / 1000)}:D>`, inline: true },
+          { name: "Boost Level", value: String(g.premiumTier), inline: true },
+        ).setFooter({ text: `ID: ${g.id}` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "botinfo") {
+      const upMs = process.uptime() * 1000;
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("🤖 GemTide Bot")
+        .setThumbnail(client.user.displayAvatarURL())
+        .addFields(
+          { name: "Uptime",   value: fmtMs(upMs), inline: true },
+          { name: "Ping",     value: `${client.ws.ping}ms`, inline: true },
+          { name: "Servers",  value: fmt(client.guilds.cache.size), inline: true },
+          { name: "Commands", value: fmt(client.application?.commands?.cache?.size || 0), inline: true },
+          { name: "Website",  value: SITE_URL, inline: true },
+        ).setFooter({ text: `Bot ID: ${client.user.id}` }).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "avatar") {
+      const target = interaction.options.getUser("user") || user;
+      const url = target.displayAvatarURL({ size: 1024 });
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🖼️ ${target.username}'s Avatar`)
+        .setImage(url).setDescription(`[Open full size](${url})`).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "games") {
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("🎮 GemTide Games")
+        .setDescription(`Play at **${SITE_URL}**`)
+        .addFields(
+          { name: "🪙 Coinflip",   value: "1v1 battles",         inline: true },
+          { name: "🎲 Dice",       value: "Roll the dice",        inline: true },
+          { name: "🃏 Blackjack",  value: "Beat the dealer",      inline: true },
+          { name: "⬛ Mines",      value: "Avoid the mines",      inline: true },
+          { name: "🏆 Jackpot",    value: "Enter to win the pot", inline: true },
+          { name: "✂️ RPS",        value: "Rock Paper Scissors",  inline: true },
+          { name: "📦 Cases",      value: "Open cases",           inline: true },
+          { name: "⬆️ Upgrader",   value: "Upgrade items",        inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "daily") {
+      return interaction.editReply(`☀️ Claim your daily bonus:\n${SITE_URL}/daily`);
+    }
+
+    if (commandName === "deposit") {
+      const activeBots = await bots.find({ online: true }).lean();
+      if (!activeBots.length) return interaction.editReply("❌ No deposit bots online right now.");
+      const e = new EmbedBuilder().setColor(0x22c55e).setTitle("📥 Active Deposit Bots")
+        .setDescription(`Trade items to a bot below, then your balance updates on ${SITE_URL}`).setTimestamp();
+      for (const b of activeBots.slice(0, 10))
+        e.addFields({ name: `🤖 ${b.name}`, value: `Game: **${b.game}**${b.link ? `\n[Profile](${b.link})` : ""}`, inline: true });
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FUN COMMANDS
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "roll") {
+      const sides = interaction.options.getInteger("sides") || 100;
+      const result = Math.floor(Math.random() * sides) + 1;
+      return interaction.editReply(`🎲 You rolled **${result}** / ${sides}`);
+    }
+
+    if (commandName === "flip") {
+      const coin = Math.random() < 0.5 ? "🟡 Heads" : "⚫ Tails";
+      return interaction.editReply(`🪙 **${coin}!**`);
+    }
+
+    if (commandName === "8ball") {
+      const q = interaction.options.getString("question");
+      const ans = ["It is certain.", "Outlook good.", "Yes.", "Most likely.", "Ask again later.", "Cannot predict now.", "Don't count on it.", "Very doubtful.", "My reply is no."][Math.floor(Math.random() * 9)];
+      return interaction.editReply(`🎱 **${q}**\n> ${ans}`);
+    }
+
+    if (commandName === "rps") {
+      const choices = ["rock", "paper", "scissors"];
+      const playerChoice = interaction.options.getString("choice");
+      const botChoice = choices[Math.floor(Math.random() * 3)];
+      const win = (playerChoice === "rock" && botChoice === "scissors") || (playerChoice === "paper" && botChoice === "rock") || (playerChoice === "scissors" && botChoice === "paper");
+      const tie = playerChoice === botChoice;
+      const emoji = { rock: "🪨", paper: "📄", scissors: "✂️" };
+      return interaction.editReply(`${emoji[playerChoice]} vs ${emoji[botChoice]} — **${tie ? "Tie!" : win ? "You win!" : "Bot wins!"}**`);
+    }
+
+    if (commandName === "poll") {
+      const question = interaction.options.getString("question");
+      const opts = interaction.options.getString("options").split("|").map((o) => o.trim()).filter(Boolean).slice(0, 10);
+      const letters = ["🇦","🇧","🇨","🇩","🇪","🇫","🇬","🇭","🇮","🇯"];
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`📊 ${question}`)
+        .setDescription(opts.map((o, i) => `${letters[i]} ${o}`).join("\n"))
+        .setFooter({ text: `Poll by ${user.username}` }).setTimestamp();
+      const msg = await interaction.editReply({ embeds: [e] });
+      try { const m = await interaction.fetchReply(); for (let i = 0; i < opts.length; i++) await m.react(letters[i]); } catch {}
+      return;
+    }
+
+    if (commandName === "remind") {
+      const mins = interaction.options.getInteger("minutes");
+      const msg = interaction.options.getString("message");
+      await interaction.editReply(`⏰ I'll remind you about "**${msg}**" in **${mins}** minute(s)!`);
+      setTimeout(async () => {
+        try { await user.send(`⏰ **Reminder!**\n${msg}`); } catch {}
+      }, mins * 60000);
+      return;
+    }
+
+    if (commandName === "calc") {
+      const expr = interaction.options.getString("expression").replace(/[^0-9+\-*/.() %]/g, "");
+      try {
+        // eslint-disable-next-line no-new-func
+        const result = Function(`"use strict"; return (${expr})`)();
+        if (typeof result !== "number" || !isFinite(result)) throw new Error("Invalid");
+        return interaction.editReply(`🔢 \`${expr}\` = **${result.toLocaleString()}**`);
+      } catch {
+        return interaction.editReply("❌ Invalid expression.");
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // USER ACCOUNT COMMANDS
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "balance") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const e = new EmbedBuilder().setColor(0x22c55e).setTitle(`💰 ${u.username}'s Balance`)
+        .addFields(
+          { name: "Balance",   value: fmtBal(u.balance),   inline: true },
+          { name: "Deposited", value: fmtBal(u.deposited), inline: true },
+          { name: "Level",     value: fmt(u.level),         inline: true },
+        ).setThumbnail(u.thumbnail || null).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "profit") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const profit = (u.won || 0) - (u.lost || 0);
+      const color = profit >= 0 ? 0x22c55e : 0xef4444;
+      const e = new EmbedBuilder().setColor(color).setTitle(`📈 ${u.username}'s Profit`)
+        .addFields(
+          { name: "Won",    value: fmtBal(u.won),  inline: true },
+          { name: "Lost",   value: fmtBal(u.lost), inline: true },
+          { name: "Profit", value: `${profit >= 0 ? "+" : ""}${fmtBal(profit)}`, inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "stats") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`📊 ${u.username}'s Stats`)
+        .setThumbnail(u.thumbnail || null)
+        .addFields(
+          { name: "Balance",   value: fmtBal(u.balance),   inline: true },
+          { name: "Wager",     value: fmtBal(u.wager),     inline: true },
+          { name: "Level",     value: fmt(u.level),         inline: true },
+          { name: "Won",       value: fmtBal(u.won),        inline: true },
+          { name: "Lost",      value: fmtBal(u.lost),       inline: true },
+          { name: "Deposited", value: fmtBal(u.deposited),  inline: true },
+          { name: "Rank",      value: u.rank || "USER",     inline: true },
+          { name: "Roblox ID", value: String(u.userid),     inline: true },
+          { name: "Banned",    value: u.banned ? "Yes ❌" : "No ✅", inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "wager") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle(`⚡ ${u.username}'s Wager`)
+        .addFields(
+          { name: "Total Wager", value: fmtBal(u.wager), inline: true },
+          { name: "Level",       value: fmt(u.level),     inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "affiliate") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const aff = await affiliatecodes.findOne({ ownerid: u.userid }).lean();
+      if (!aff) return interaction.editReply("❌ You don't have an affiliate code yet. Play more to unlock one!");
+      const uses = await affiliateuses.countDocuments({ codeownerid: u.userid });
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🔗 ${u.username}'s Affiliate`)
+        .addFields(
+          { name: "Code",  value: `\`${aff.code}\``, inline: true },
+          { name: "Uses",  value: fmt(uses),          inline: true },
+          { name: "Link",  value: `${SITE_URL}?ref=${aff.code}`, inline: false },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "link") {
+      const already = await users.findOne({ discordid: user.id }).lean();
+      if (already) return interaction.editReply(`✅ Already linked to **${already.username}** (Roblox ID: ${already.userid}). Use \`/unlink\` to disconnect.`);
+      const { clientid, uri } = require("./config.js");
+      const oauthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientid}&redirect_uri=${encodeURIComponent(uri)}&response_type=code&scope=identify`;
+      return interaction.editReply(`🔗 **Link your Discord to GemTide:**\n${oauthUrl}\n\nOr visit ${SITE_URL} and click **Link Discord** in your profile.`);
+    }
+
+    if (commandName === "unlink") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply("❌ Your Discord is not linked to any GemTide account.");
+      await users.updateOne({ discordid: user.id }, { $unset: { discordid: 1, discordusername: 1 } });
+      return interaction.editReply(`✅ Unlinked from **${u.username}**. Visit ${SITE_URL} to reconnect.`);
+    }
+
+    if (commandName === "withdraws") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const pending = await withdraws.find({ userid: u.userid }).lean();
+      if (!pending.length) return interaction.editReply("✅ No pending withdrawals.");
+      const list = pending.slice(0, 20).map((w, i) => `${i + 1}. **${w.itemname || w.itemid}**`).join("\n");
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle(`📤 ${u.username}'s Pending Withdrawals`)
+        .setDescription(list).setFooter({ text: `${pending.length} total` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "cancelallwithdraws") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      if (!settings.cancelWithdrawsEnabled) return interaction.editReply("❌ Withdrawal cancellation is currently disabled.");
+      const { deletedCount } = await withdraws.deleteMany({ userid: u.userid });
+      return interaction.editReply(`✅ Cancelled **${deletedCount}** pending withdrawal(s).`);
+    }
+
+    if (commandName === "inventory") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 15;
+      const invItems = await inventorys.find({ owner: u.userid }).lean();
+      if (!invItems.length) return interaction.editReply("🎒 Your inventory is empty.");
+      const itemIds = [...new Set(invItems.map((i) => i.itemid))];
+      const itemDocs = await items.find({ $or: [{ _id: { $in: itemIds } }, { itemid: { $in: itemIds.map(Number).filter(Boolean) } }] }).lean();
+      const idMap = {};
+      for (const it of itemDocs) { idMap[it._id.toString()] = it.itemname; idMap[String(it.itemid)] = it.itemname; }
+      const named = invItems.map((i) => idMap[i.itemid] || idMap[i.itemid?.toString()] || `Item #${i.itemid}`);
+      const counts = {};
+      for (const n of named) counts[n] = (counts[n] || 0) + 1;
+      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const total = entries.length;
+      const slice = entries.slice((page - 1) * perPage, page * perPage);
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🎒 ${u.username}'s Inventory`)
+        .setDescription(slice.map(([n, c]) => `• **${n}** x${c}`).join("\n"))
+        .setFooter({ text: `Page ${page}/${Math.ceil(total / perPage)} • ${invItems.length} items` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "history") {
+      const u = await users.findOne({ discordid: user.id }).lean();
+      if (!u) return interaction.editReply(`❌ Discord not linked. Link at ${SITE_URL}`);
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 10;
+      const total = await history.countDocuments({ userid: u.userid });
+      const recs = await history.find({ userid: u.userid }).sort({ date: -1 }).skip((page - 1) * perPage).limit(perPage).lean();
+      if (!recs.length) return interaction.editReply("📋 No transaction history yet.");
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`📋 ${u.username}'s History`)
+        .setDescription(recs.map((r) => `• **${r.type}** — ${r.amount} — <t:${Math.floor(new Date(r.date).getTime() / 1000)}:R>`).join("\n"))
+        .setFooter({ text: `Page ${page}/${Math.ceil(total / perPage)} • ${total} records` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "profile") {
+      const target = interaction.options.getUser("user");
+      const u = await users.findOne({ discordid: target.id }).lean();
+      if (!u) return interaction.editReply(`❌ **${target.username}** hasn't linked their Discord to GemTide.`);
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`👤 ${u.username}`)
+        .setThumbnail(u.thumbnail || target.displayAvatarURL())
+        .addFields(
+          { name: "Balance", value: fmtBal(u.balance), inline: true },
+          { name: "Wager",   value: fmtBal(u.wager),   inline: true },
+          { name: "Level",   value: fmt(u.level),       inline: true },
+          { name: "Won",     value: fmtBal(u.won),      inline: true },
+          { name: "Lost",    value: fmtBal(u.lost),     inline: true },
+          { name: "Rank",    value: u.rank || "USER",   inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // LEADERBOARDS
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "leaderboard") {
+      const top = await users.find({ banned: { $ne: true } }).sort({ wager: -1 }).limit(10).lean();
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle("🏆 Top 10 Wagerers")
+        .setDescription(top.map((u, i) => `**${i + 1}.** ${u.username} — ${fmtBal(u.wager)}`).join("\n")).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "richest") {
+      const top = await users.find({ banned: { $ne: true } }).sort({ balance: -1 }).limit(10).lean();
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle("💰 Top 10 Richest")
+        .setDescription(top.map((u, i) => `**${i + 1}.** ${u.username} — ${fmtBal(u.balance)}`).join("\n")).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "topprofit") {
+      const top = await users.find({ banned: { $ne: true } }).sort({ won: -1 }).limit(10).lean();
+      const e = new EmbedBuilder().setColor(0x22c55e).setTitle("📈 Top 10 Most Profitable")
+        .setDescription(top.map((u, i) => `**${i + 1}.** ${u.username} — +${fmtBal(u.won)}`).join("\n")).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "toplosers") {
+      const top = await users.find({ banned: { $ne: true } }).sort({ lost: -1 }).limit(10).lean();
+      const e = new EmbedBuilder().setColor(0xef4444).setTitle("📉 Top 10 Most Lost")
+        .setDescription(top.map((u, i) => `**${i + 1}.** ${u.username} — ${fmtBal(u.lost)} lost`).join("\n")).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "toplevel") {
+      const top = await users.find({ banned: { $ne: true } }).sort({ level: -1 }).limit(10).lean();
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("⭐ Top 10 by Level")
+        .setDescription(top.map((u, i) => `**${i + 1}.** ${u.username} — Level ${u.level}`).join("\n")).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // SITE STATS
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "sitestats") {
+      const [totalUsers, totalItems, totalCF, totalJP] = await Promise.all([
+        users.countDocuments(), items.countDocuments(),
+        Coinflips.countDocuments(), Jackpot.countDocuments(),
+      ]);
+      const richest = await users.findOne().sort({ balance: -1 }).lean();
+      const topWager = await users.findOne().sort({ wager: -1 }).lean();
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("📊 GemTide Site Stats")
+        .addFields(
+          { name: "Total Users",    value: fmt(totalUsers),  inline: true },
+          { name: "Total Items",    value: fmt(totalItems),  inline: true },
+          { name: "Coinflip Games", value: fmt(totalCF),     inline: true },
+          { name: "Jackpots",       value: fmt(totalJP),     inline: true },
+          { name: "Richest",        value: richest ? `${richest.username} (${fmtBal(richest.balance)})` : "N/A", inline: true },
+          { name: "Top Wagerer",    value: topWager ? `${topWager.username} (${fmtBal(topWager.wager)})` : "N/A", inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "activecoinflips") {
+      const active = await Coinflips.find({ active: true }).sort({ start: -1 }).limit(10).lean();
+      if (!active.length) return interaction.editReply("🪙 No active coinflips right now.");
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle("🪙 Active Coinflips")
+        .setDescription(active.map((cf) => `• **${cf.PlayerOne?.username}** vs ${cf.PlayerTwo?.username || "Waiting..."} — ${fmtBal((cf.PlayerOne?.value || 0) + (cf.PlayerTwo?.value || 0))}`).join("\n"))
+        .setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "jackpotstats") {
+      const jp = await Jackpot.findOne({ inactive: { $ne: true } }).sort({ _id: -1 }).lean();
+      if (!jp) return interaction.editReply("🏆 No active jackpot.");
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle("🏆 Current Jackpot")
+        .addFields(
+          { name: "Pot Value", value: fmtBal(jp.value), inline: true },
+          { name: "State",     value: jp.state || "Active", inline: true },
+          { name: "Ends",      value: jp.endsAt ? `<t:${Math.floor(new Date(jp.endsAt).getTime() / 1000)}:R>` : "TBD", inline: true },
+        ).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "recentgames") {
+      const recent = await Coinflips.find({ active: false }).sort({ end: -1 }).limit(5).lean();
+      if (!recent.length) return interaction.editReply("🪙 No completed coinflips yet.");
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("🕐 Recent Coinflips")
+        .setDescription(recent.map((cf) => {
+          const winner = cf.winner === cf.PlayerOne?.id ? cf.PlayerOne?.username : cf.PlayerTwo?.username;
+          return `• **${winner}** won ${fmtBal((cf.PlayerOne?.value || 0) + (cf.PlayerTwo?.value || 0))} — <t:${Math.floor(new Date(cf.end).getTime() / 1000)}:R>`;
+        }).join("\n")).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ADMIN — USER MANAGEMENT
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "ban") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const reason = interaction.options.getString("reason") || "No reason provided";
+      const u = await users.findOneAndUpdate({ discordid: target.id }, { $set: { banned: true } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No site account found for **${target.username}**.`);
+      await logger.logEvent({ type: "🔨 User Banned", color: 0xef4444, description: `**${u.username}** banned by ${user.username}`, fields: [{ name: "Reason", value: reason }] });
+      return interaction.editReply(`✅ **${u.username}** has been banned. Reason: ${reason}`);
+    }
+
+    if (commandName === "unban") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const u = await users.findOneAndUpdate({ discordid: target.id }, { $set: { banned: false } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No site account found for **${target.username}**.`);
+      return interaction.editReply(`✅ **${u.username}** has been unbanned.`);
+    }
+
+    if (commandName === "banid") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const reason = interaction.options.getString("reason") || "No reason provided";
+      const u = await users.findOneAndUpdate({ userid: Number(rid) }, { $set: { banned: true } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      await logger.logEvent({ type: "🔨 User Banned", color: 0xef4444, description: `**${u.username}** (${rid}) banned`, fields: [{ name: "Reason", value: reason }] });
+      return interaction.editReply(`✅ **${u.username}** (Roblox ID: ${rid}) banned. Reason: ${reason}`);
+    }
+
+    if (commandName === "unbanid") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const u = await users.findOneAndUpdate({ userid: Number(rid) }, { $set: { banned: false } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      return interaction.editReply(`✅ **${u.username}** unbanned.`);
+    }
+
+    if (commandName === "listbanned") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 15;
+      const total = await users.countDocuments({ banned: true });
+      const banned = await users.find({ banned: true }).skip((page - 1) * perPage).limit(perPage).lean();
+      if (!banned.length) return interaction.editReply("✅ No banned users.");
+      const e = new EmbedBuilder().setColor(0xef4444).setTitle("🔨 Banned Users")
+        .setDescription(banned.map((u) => `• **${u.username}** (${u.userid})`).join("\n"))
+        .setFooter({ text: `Page ${page}/${Math.ceil(total / perPage)} • ${total} total` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "userinfo") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const u = await users.findOne({ discordid: target.id }).lean();
+      if (!u) return interaction.editReply(`❌ No site account linked to **${target.username}**.`);
+      const invCount = await inventorys.countDocuments({ owner: u.userid });
+      const wdCount  = await withdraws.countDocuments({ userid: u.userid });
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🔍 ${u.username}`)
+        .setThumbnail(u.thumbnail || null)
+        .addFields(
+          { name: "Roblox ID",  value: String(u.userid),     inline: true },
+          { name: "Balance",    value: fmtBal(u.balance),    inline: true },
+          { name: "Wager",      value: fmtBal(u.wager),      inline: true },
+          { name: "Won",        value: fmtBal(u.won),        inline: true },
+          { name: "Lost",       value: fmtBal(u.lost),       inline: true },
+          { name: "Deposited",  value: fmtBal(u.deposited),  inline: true },
+          { name: "Level",      value: fmt(u.level),          inline: true },
+          { name: "Rank",       value: u.rank || "USER",      inline: true },
+          { name: "Banned",     value: u.banned ? "Yes ❌" : "No ✅", inline: true },
+          { name: "Inventory",  value: fmt(invCount),         inline: true },
+          { name: "Withdrawals",value: fmt(wdCount),          inline: true },
+          { name: "Discord",    value: target.toString(),     inline: true },
+        ).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "userinfobyid") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const u = await users.findOne({ userid: Number(rid) }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      const invCount = await inventorys.countDocuments({ owner: u.userid });
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🔍 ${u.username} (${rid})`)
+        .setThumbnail(u.thumbnail || null)
+        .addFields(
+          { name: "Balance",   value: fmtBal(u.balance),  inline: true },
+          { name: "Wager",     value: fmtBal(u.wager),    inline: true },
+          { name: "Won",       value: fmtBal(u.won),      inline: true },
+          { name: "Lost",      value: fmtBal(u.lost),     inline: true },
+          { name: "Level",     value: fmt(u.level),       inline: true },
+          { name: "Rank",      value: u.rank || "USER",   inline: true },
+          { name: "Banned",    value: u.banned ? "Yes ❌" : "No ✅", inline: true },
+          { name: "Inventory", value: fmt(invCount),      inline: true },
+          { name: "Discord",   value: u.discordid ? `<@${u.discordid}>` : "Not linked", inline: true },
+        ).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "finduser") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const query = interaction.options.getString("query");
+      const found = await users.find({ username: new RegExp(escapeRegex(query), "i") }).limit(10).lean();
+      if (!found.length) return interaction.editReply(`❌ No users matching **${query}**.`);
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🔎 Search: "${query}"`)
+        .setDescription(found.map((u) => `• **${u.username}** — ID: ${u.userid} | Bal: ${fmtBal(u.balance)} | ${u.banned ? "❌ Banned" : "✅"}`).join("\n")).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "addbalance") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const amount = interaction.options.getInteger("amount");
+      const u = await users.findOneAndUpdate({ userid: Number(rid) }, { $inc: { balance: amount } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      const sign = amount >= 0 ? "+" : "";
+      await logger.logEvent({ type: "💰 Balance Modified", color: amount >= 0 ? 0x22c55e : 0xef4444, description: `**${u.username}** balance ${sign}${fmtBal(amount)} by ${user.username}\nNew balance: ${fmtBal(u.balance)}` });
+      return interaction.editReply(`✅ **${u.username}**: ${sign}${fmtBal(amount)} → New balance: **${fmtBal(u.balance)}**`);
+    }
+
+    if (commandName === "setbalance") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const amount = interaction.options.getInteger("amount");
+      const u = await users.findOneAndUpdate({ userid: Number(rid) }, { $set: { balance: amount } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      await logger.logEvent({ type: "💰 Balance Set", color: 0xf59e0b, description: `**${u.username}** balance set to ${fmtBal(amount)} by ${user.username}` });
+      return interaction.editReply(`✅ **${u.username}** balance set to **${fmtBal(amount)}**.`);
+    }
+
+    if (commandName === "addwager") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const amount = interaction.options.getInteger("amount");
+      const u = await users.findOneAndUpdate({ userid: Number(rid) }, { $inc: { wager: amount } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      return interaction.editReply(`✅ Added ${fmtBal(amount)} wager to **${u.username}**. New total: ${fmtBal(u.wager)}`);
+    }
+
+    if (commandName === "setlevel") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const level = interaction.options.getInteger("level");
+      const u = await users.findOneAndUpdate({ userid: Number(rid) }, { $set: { level } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      return interaction.editReply(`✅ **${u.username}** level set to **${level}**.`);
+    }
+
+    if (commandName === "resetstats") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const u = await users.findOneAndUpdate({ userid: Number(rid) }, { $set: { won: 0, lost: 0, wager: 0 } }, { new: true }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      return interaction.editReply(`✅ Stats reset for **${u.username}** (won/lost/wager → 0).`);
+    }
+
+    if (commandName === "transferbalance") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const fromId = interaction.options.getString("from_id");
+      const toId   = interaction.options.getString("to_id");
+      const amount = interaction.options.getInteger("amount");
+      const [from, to] = await Promise.all([users.findOne({ userid: Number(fromId) }).lean(), users.findOne({ userid: Number(toId) }).lean()]);
+      if (!from) return interaction.editReply(`❌ Sender (${fromId}) not found.`);
+      if (!to)   return interaction.editReply(`❌ Recipient (${toId}) not found.`);
+      if (from.balance < amount) return interaction.editReply(`❌ **${from.username}** only has ${fmtBal(from.balance)}, can't transfer ${fmtBal(amount)}.`);
+      await Promise.all([
+        users.updateOne({ userid: from.userid }, { $inc: { balance: -amount } }),
+        users.updateOne({ userid: to.userid },   { $inc: { balance:  amount } }),
+      ]);
+      return interaction.editReply(`✅ Transferred **${fmtBal(amount)}** from **${from.username}** → **${to.username}**.`);
+    }
+
+    if (commandName === "listalllinked") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 15;
+      const total = await users.countDocuments({ discordid: { $exists: true, $ne: "" } });
+      const linked = await users.find({ discordid: { $exists: true, $ne: "" } }).skip((page - 1) * perPage).limit(perPage).lean();
+      if (!linked.length) return interaction.editReply("No linked accounts.");
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("🔗 Linked Accounts")
+        .setDescription(linked.map((u) => `• **${u.username}** — <@${u.discordid}>`).join("\n"))
+        .setFooter({ text: `Page ${page}/${Math.ceil(total / perPage)} • ${total} total` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ADMIN — ITEMS & WITHDRAWALS
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "give") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid      = interaction.options.getString("roblox_id");
+      const itemName = interaction.options.getString("item_name");
+      const qty      = interaction.options.getInteger("quantity") || 1;
+      const u        = await users.findOne({ userid: Number(rid) }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      const item = await items.findOne({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }).lean();
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not found in database.`);
+      const docs = Array.from({ length: qty }, () => ({ itemid: item._id.toString(), owner: u.userid }));
+      await inventorys.insertMany(docs);
+      return interaction.editReply(`✅ Gave **${qty}x ${item.itemname}** to **${u.username}**.`);
+    }
+
+    if (commandName === "clearwithdrawals") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const u = await users.findOne({ discordid: target.id }).lean();
+      if (!u) return interaction.editReply(`❌ No site account for **${target.username}**.`);
+      const { deletedCount } = await withdraws.deleteMany({ userid: u.userid });
+      return interaction.editReply(`✅ Cleared **${deletedCount}** withdrawals for **${u.username}**.`);
+    }
+
+    if (commandName === "clearwithdrawalsbyid") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const { deletedCount } = await withdraws.deleteMany({ userid: Number(rid) });
+      return interaction.editReply(`✅ Cleared **${deletedCount}** withdrawals for Roblox ID ${rid}.`);
+    }
+
+    if (commandName === "pendingwithdrawals") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 15;
+      const total = await withdraws.countDocuments();
+      const wds = await withdraws.find().skip((page - 1) * perPage).limit(perPage).lean();
+      if (!wds.length) return interaction.editReply("✅ No pending withdrawals.");
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle("📤 All Pending Withdrawals")
+        .setDescription(wds.map((w) => `• UserID **${w.userid}** — **${w.itemname || w.itemid}**`).join("\n"))
+        .setFooter({ text: `Page ${page}/${Math.ceil(total / perPage)} • ${total} total` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "addwithdrawal") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid      = interaction.options.getString("roblox_id");
+      const itemName = interaction.options.getString("item_name");
+      await withdraws.create({ userid: Number(rid), itemid: itemName, itemname: itemName });
+      return interaction.editReply(`✅ Queued withdrawal of **${itemName}** for Roblox ID ${rid}.`);
+    }
+
+    if (commandName === "withdrawstats") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const total   = await withdraws.countDocuments();
+      const byUser  = await withdraws.aggregate([{ $group: { _id: "$userid", count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 5 }]);
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle("📊 Withdrawal Stats")
+        .addFields({ name: "Total Pending", value: fmt(total), inline: true })
+        .setDescription(byUser.map((b) => `• UserID ${b._id}: ${b.count} pending`).join("\n") || "None").setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "inventoryof") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid   = interaction.options.getString("roblox_id");
+      const page  = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 15;
+      const u = await users.findOne({ userid: Number(rid) }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      const invItems = await inventorys.find({ owner: u.userid }).lean();
+      if (!invItems.length) return interaction.editReply(`📦 **${u.username}** has an empty inventory.`);
+      const itemIds = invItems.map((i) => i.itemid);
+      const itemDocs = await items.find({ $or: [{ _id: { $in: itemIds } }, { itemid: { $in: itemIds.map(Number).filter(Boolean) } }] }).lean();
+      const idMap = {};
+      for (const it of itemDocs) { idMap[it._id.toString()] = it.itemname; idMap[String(it.itemid)] = it.itemname; }
+      const named = invItems.map((i) => idMap[i.itemid] || `#${i.itemid}`);
+      const counts = {};
+      for (const n of named) counts[n] = (counts[n] || 0) + 1;
+      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const slice = entries.slice((page - 1) * perPage, page * perPage);
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`📦 ${u.username}'s Inventory`)
+        .setDescription(slice.map(([n, c]) => `• **${n}** x${c}`).join("\n"))
+        .setFooter({ text: `Page ${page}/${Math.ceil(entries.length / perPage)} • ${invItems.length} items` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "clearinventory") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid = interaction.options.getString("roblox_id");
+      const u = await users.findOne({ userid: Number(rid) }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      const { deletedCount } = await inventorys.deleteMany({ owner: u.userid });
+      await logger.logEvent({ type: "🗑️ Inventory Cleared", color: 0xef4444, description: `**${u.username}** inventory cleared (${deletedCount} items) by ${user.username}` });
+      return interaction.editReply(`✅ Cleared **${deletedCount}** item(s) from **${u.username}**'s inventory.`);
+    }
+
+    if (commandName === "removeitem") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const rid      = interaction.options.getString("roblox_id");
+      const itemName = interaction.options.getString("item_name");
+      const u    = await users.findOne({ userid: Number(rid) }).lean();
+      if (!u) return interaction.editReply(`❌ No user with Roblox ID **${rid}**.`);
+      const item = await items.findOne({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }).lean();
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not found.`);
+      const one = await inventorys.findOneAndDelete({ owner: u.userid, itemid: { $in: [item._id.toString(), String(item.itemid)] } });
+      if (!one) return interaction.editReply(`❌ **${u.username}** doesn't have **${item.itemname}**.`);
+      return interaction.editReply(`✅ Removed 1x **${item.itemname}** from **${u.username}**.`);
+    }
+
+    if (commandName === "searchinventory") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const itemName = interaction.options.getString("item_name");
+      const item = await items.findOne({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }).lean();
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not in database.`);
+      const holders = await inventorys.find({ itemid: { $in: [item._id.toString(), String(item.itemid)] } }).lean();
+      if (!holders.length) return interaction.editReply(`📦 Nobody holds **${item.itemname}**.`);
+      const counts = {};
+      for (const h of holders) counts[h.owner] = (counts[h.owner] || 0) + 1;
+      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 15);
+      const userIds = entries.map(([id]) => Number(id));
+      const ownerDocs = await users.find({ userid: { $in: userIds } }).lean();
+      const userMap = {};
+      for (const ud of ownerDocs) userMap[ud.userid] = ud.username;
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`🔍 Holders of ${item.itemname}`)
+        .setDescription(entries.map(([id, c]) => `• **${userMap[Number(id)] || id}** — x${c}`).join("\n"))
+        .setFooter({ text: `${holders.length} total held` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "givemass") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const itemName = interaction.options.getString("item_name");
+      const gameFilter = interaction.options.getString("game");
+      const qty  = interaction.options.getInteger("quantity") || 1;
+      const item = await items.findOne({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }).lean();
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not found.`);
+      const allUsers = await users.find({ banned: { $ne: true } }).lean();
+      const docs = allUsers.flatMap((u) => Array.from({ length: qty }, () => ({ itemid: item._id.toString(), owner: u.userid })));
+      await inventorys.insertMany(docs, { ordered: false });
+      return interaction.editReply(`✅ Gave **${qty}x ${item.itemname}** to **${allUsers.length}** users (${docs.length} total items).`);
+    }
+
+    if (commandName === "iteminfo") {
+      const itemName = interaction.options.getString("name");
+      const item = await items.findOne({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }).lean();
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not found.`);
+      const heldCount = await inventorys.countDocuments({ itemid: { $in: [item._id.toString(), String(item.itemid)] } });
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`📦 ${item.itemname}`)
+        .setThumbnail(item.itemimage || null)
+        .addFields(
+          { name: "Value",   value: fmtBal(item.itemvalue), inline: true },
+          { name: "Game",    value: item.game,              inline: true },
+          { name: "Item ID", value: String(item.itemid),    inline: true },
+          { name: "In Inv.", value: fmt(heldCount),          inline: true },
+        ).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "itemlist") {
+      const gameFilter = interaction.options.getString("game");
+      const page = Math.max(1, interaction.options.getInteger("page") || 1);
+      const perPage = 15;
+      const query = gameFilter ? { game: new RegExp(`^${escapeRegex(gameFilter)}$`, "i") } : {};
+      const total = await items.countDocuments(query);
+      const list  = await items.find(query).sort({ itemvalue: -1 }).skip((page - 1) * perPage).limit(perPage).lean();
+      if (!list.length) return interaction.editReply("❌ No items found.");
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle(`📦 Items${gameFilter ? ` — ${gameFilter}` : ""}`)
+        .setDescription(list.map((it) => `• **${it.itemname}** — ${fmtBal(it.itemvalue)} [${it.game}]`).join("\n"))
+        .setFooter({ text: `Page ${page}/${Math.ceil(total / perPage)} • ${total} items` }).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "createitem") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const itemName = interaction.options.getString("name");
+      const value    = interaction.options.getInteger("value");
+      const game     = interaction.options.getString("game").toUpperCase();
+      const existing = await items.findOne({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }).lean();
+      if (existing) return interaction.editReply(`❌ Item **${itemName}** already exists (ID: ${existing.itemid}).`);
+      const maxItem = await items.findOne().sort({ itemid: -1 }).select("itemid").lean();
+      const itemid  = (maxItem?.itemid || 0) + 1;
+      await items.create({ itemid, itemname: itemName, itemvalue: value, itemimage: "", game });
+      return interaction.editReply(`✅ Created **${itemName}** (ID: ${itemid}) — Value: ${fmtBal(value)} — Game: ${game}`);
+    }
+
+    if (commandName === "updateitemvalue") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const itemName = interaction.options.getString("name");
+      const value    = interaction.options.getInteger("value");
+      const item = await items.findOneAndUpdate({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }, { $set: { itemvalue: value } }, { new: true }).lean();
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not found.`);
+      return interaction.editReply(`✅ **${item.itemname}** value updated to **${fmtBal(value)}**.`);
+    }
+
+    if (commandName === "deleteitem") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const itemName = interaction.options.getString("name");
+      const item = await items.findOneAndDelete({ itemname: new RegExp(`^${escapeRegex(itemName)}$`, "i") }).lean();
+      if (!item) return interaction.editReply(`❌ Item **${itemName}** not found.`);
+      return interaction.editReply(`✅ Deleted **${item.itemname}** from the database.`);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ADMIN — BOT MANAGEMENT
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "create") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const name   = interaction.options.getString("name");
+      const pfp    = interaction.options.getString("pfp");
+      const userid = interaction.options.getInteger("userid");
+      const game   = interaction.options.getString("game").toUpperCase();
+      const link   = interaction.options.getString("link") || "";
+      const b = await bots.create({ name, pfp, userid, game, link });
+      return interaction.editReply(`✅ Registered bot **${name}** (${game}) — DB ID: \`${b._id}\``);
+    }
+
+    if (commandName === "toggle") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const sub = interaction.options.getSubcommand();
+      if (sub === "list") {
+        const all = await bots.find().lean();
+        if (!all.length) return interaction.editReply("No bots registered.");
+        const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("🤖 Registered Bots")
+          .setDescription(all.map((b) => `• **${b.name}** [${b.game}] — ${b.online ? "🟢 Online" : "🔴 Offline"} — \`${b._id}\``).join("\n")).setTimestamp();
+        return interaction.editReply({ embeds: [e] });
+      }
+      if (sub === "on" || sub === "off") {
+        const botid = interaction.options.getString("botid");
+        const online = sub === "on";
+        if (botid === "all") { await bots.updateMany({}, { $set: { online } }); return interaction.editReply(`✅ All bots set to ${online ? "Online 🟢" : "Offline 🔴"}.`); }
+        const b = await bots.findByIdAndUpdate(botid, { $set: { online } }, { new: true }).lean();
+        if (!b) return interaction.editReply("❌ Bot not found.");
+        return interaction.editReply(`✅ **${b.name}** is now ${online ? "🟢 Online" : "🔴 Offline"}.`);
+      }
+      if (sub === "delete") {
+        const botid = interaction.options.getString("botid");
+        const b = await bots.findByIdAndDelete(botid).lean();
+        if (!b) return interaction.editReply("❌ Bot not found.");
+        return interaction.editReply(`✅ Deleted bot **${b.name}**.`);
+      }
+      if (sub === "cancelwithdraws") {
+        const action = interaction.options.getString("action");
+        settings.cancelWithdrawsEnabled = action === "enable";
+        return interaction.editReply(`✅ Cancel-withdraws ${action}d.`);
+      }
+    }
+
+    if (commandName === "botstatus") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const all = await bots.find().lean();
+      if (!all.length) return interaction.editReply("No bots registered.");
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("🤖 Bot Status")
+        .setDescription(all.map((b) => `${b.online ? "🟢" : "🔴"} **${b.name}** [${b.game}]${b.link ? ` — [Profile](${b.link})` : ""}`).join("\n")).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "editbot") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const botid = interaction.options.getString("botid");
+      const field = interaction.options.getString("field");
+      const val   = interaction.options.getString("value");
+      const b = await bots.findByIdAndUpdate(botid, { $set: { [field]: val } }, { new: true }).lean();
+      if (!b) return interaction.editReply("❌ Bot not found.");
+      return interaction.editReply(`✅ **${b.name}** — \`${field}\` updated to \`${val}\`.`);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ADMIN — MISC
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "say") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const msg  = interaction.options.getString("message");
+      const ch   = interaction.options.getChannel("channel") || interaction.channel;
+      try { await ch.send(msg); return interaction.editReply("✅ Sent."); }
+      catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "announce") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const msg = interaction.options.getString("message");
+      const ch  = interaction.options.getChannel("channel") || interaction.channel;
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("📢 GemTide Announcement")
+        .setDescription(msg).setFooter({ text: `By ${user.username}` }).setTimestamp();
+      applyBanner(e);
+      try { await ch.send({ embeds: [e] }); return interaction.editReply("✅ Announcement sent."); }
+      catch (err) { return interaction.editReply(`❌ ${err.message}`); }
+    }
+
+    if (commandName === "locktipping") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const action = interaction.options.getString("action");
+      settings.tippingLocked = action === "disable";
+      return interaction.editReply(`✅ Tipping ${action}d.`);
+    }
+
+    if (commandName === "giveaway") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const sub = interaction.options.getSubcommand();
+
+      if (sub === "start") {
+        const prize    = interaction.options.getString("prize");
+        const duration = interaction.options.getInteger("duration");
+        const winners  = interaction.options.getInteger("winners") || 1;
+        const ch       = interaction.options.getChannel("channel") || interaction.channel;
+        const endTime  = Date.now() + duration * 60000;
+        const giveawayId = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const embed = buildGiveawayEmbed(prize, endTime, winners, 0);
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`giveaway_enter_${giveawayId}`).setLabel("🎉 Enter").setStyle(ButtonStyle.Success),
+        );
+        const msg = await ch.send({ embeds: [embed], components: [row] });
+        activeGiveaways.set(giveawayId, { prize, endTime, winnersCount: winners, entrants: new Set(), messageId: msg.id, channelId: ch.id, timer: setTimeout(() => endGiveaway(giveawayId), duration * 60000) });
+        return interaction.editReply(`✅ Giveaway started in ${ch} for **${prize}** — ends <t:${Math.floor(endTime / 1000)}:R>`);
+      }
+
+      if (sub === "end") {
+        const id = interaction.options.getString("id");
+        if (!activeGiveaways.has(id)) return interaction.editReply("❌ Giveaway not found.");
+        await endGiveaway(id);
+        return interaction.editReply("✅ Giveaway ended.");
+      }
+
+      if (sub === "list") {
+        if (!activeGiveaways.size) return interaction.editReply("No active giveaways.");
+        const lines = [...activeGiveaways.entries()].map(([id, gw]) => `• **${gw.prize}** — ends <t:${Math.floor(gw.endTime / 1000)}:R> — ${gw.entrants.size} entries — ID: \`${id}\``);
+        return interaction.editReply(lines.join("\n"));
+      }
+
+      if (sub === "reroll") {
+        const msgId = interaction.options.getString("messageid");
+        return interaction.editReply("⚠️ Reroll from message ID requires manual fetch — use the giveaway ID with `/giveaway end` instead.");
+      }
+    }
+
+    if (commandName === "dmall") {
+      if (user.id !== OWNER_DISCORD_ID) return interaction.editReply("❌ Owner only.");
+      const msg        = interaction.options.getString("message");
+      const embedTitle = interaction.options.getString("embed_title") || null;
+      const colorHex   = interaction.options.getString("embed_color") || "#8b5cf6";
+      const guild = interaction.guild;
+      if (!guild) return interaction.editReply("❌ Server only.");
+      await guild.members.fetch();
+      const members = guild.members.cache.filter((m) => !m.user.bot);
+      await interaction.editReply(`⏳ DMing **${members.size}** members...`);
+      let sent = 0, failed = 0;
+      for (const [, m] of members) {
+        try {
+          if (embedTitle) {
+            const color = parseInt(colorHex.replace("#", ""), 16) || 0x8b5cf6;
+            const e = new EmbedBuilder().setColor(color).setTitle(embedTitle).setDescription(msg).setTimestamp();
+            await m.send({ embeds: [e] });
+          } else { await m.send(msg); }
+          sent++;
+        } catch { failed++; }
+        await new Promise((r) => setTimeout(r, 800)); // rate-limit safe
+      }
+      return interaction.editReply(`✅ DM campaign done — **${sent}** sent, **${failed}** failed.`);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // DISCORD MODERATION
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "kick") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const reason = interaction.options.getString("reason") || "No reason";
+      try {
+        const member = await interaction.guild?.members.fetch(target.id);
+        await member.kick(reason);
+        return interaction.editReply(`✅ Kicked **${target.username}**. Reason: ${reason}`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "discordban") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target  = interaction.options.getUser("user");
+      const reason  = interaction.options.getString("reason") || "No reason";
+      const delDays = interaction.options.getInteger("delete_days") || 0;
+      try {
+        await interaction.guild?.bans.create(target.id, { reason, deleteMessageDays: delDays });
+        return interaction.editReply(`✅ Banned **${target.username}** from Discord. Reason: ${reason}`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "timeout") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const mins   = interaction.options.getInteger("minutes");
+      const reason = interaction.options.getString("reason") || "No reason";
+      try {
+        const member = await interaction.guild?.members.fetch(target.id);
+        await member.timeout(mins * 60000, reason);
+        return interaction.editReply(`✅ Timed out **${target.username}** for **${mins}** minute(s).`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "untimeout") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      try {
+        const member = await interaction.guild?.members.fetch(target.id);
+        await member.timeout(null);
+        return interaction.editReply(`✅ Removed timeout from **${target.username}**.`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "warn") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const reason = interaction.options.getString("reason");
+      const key    = `${interaction.guild?.id}_${target.id}`;
+      if (!warnings.has(key)) warnings.set(key, []);
+      warnings.get(key).push({ reason, by: user.username, at: new Date().toISOString() });
+      const count = warnings.get(key).length;
+      try { await target.send(`⚠️ You received a warning in **${interaction.guild?.name}**\n**Reason:** ${reason}\nTotal warnings: ${count}`); } catch {}
+      return interaction.editReply(`✅ Warned **${target.username}** — now has **${count}** warning(s). Reason: ${reason}`);
+    }
+
+    if (commandName === "warnings") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const key    = `${interaction.guild?.id}_${target.id}`;
+      const list   = warnings.get(key) || [];
+      if (!list.length) return interaction.editReply(`✅ **${target.username}** has no warnings.`);
+      const e = new EmbedBuilder().setColor(0xf59e0b).setTitle(`⚠️ Warnings — ${target.username}`)
+        .setDescription(list.map((w, i) => `${i + 1}. ${w.reason} — by ${w.by} at ${w.at}`).join("\n")).setTimestamp();
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "clearwarnings") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const key    = `${interaction.guild?.id}_${target.id}`;
+      warnings.delete(key);
+      return interaction.editReply(`✅ Cleared all warnings for **${target.username}**.`);
+    }
+
+    if (commandName === "purge") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const count = interaction.options.getInteger("count");
+      try {
+        const ch = interaction.channel;
+        const deleted = await ch.bulkDelete(count, true);
+        return interaction.editReply(`✅ Deleted **${deleted.size}** message(s).`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "slowmode") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const secs = interaction.options.getInteger("seconds");
+      const ch   = interaction.options.getChannel("channel") || interaction.channel;
+      try {
+        await ch.setRateLimitPerUser(secs, "Slowmode set via bot");
+        return interaction.editReply(secs === 0 ? `✅ Slowmode disabled in ${ch}.` : `✅ Slowmode set to **${secs}s** in ${ch}.`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "lock") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const ch = interaction.options.getChannel("channel") || interaction.channel;
+      try {
+        await ch.permissionOverwrites.edit(interaction.guild.roles.everyone, { SendMessages: false });
+        return interaction.editReply(`🔒 **${ch.name}** locked.`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "unlock") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const ch = interaction.options.getChannel("channel") || interaction.channel;
+      try {
+        await ch.permissionOverwrites.edit(interaction.guild.roles.everyone, { SendMessages: null });
+        return interaction.editReply(`🔓 **${ch.name}** unlocked.`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    if (commandName === "nick") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Admin only.");
+      const target = interaction.options.getUser("user");
+      const nick   = interaction.options.getString("nickname") || null;
+      try {
+        const member = await interaction.guild?.members.fetch(target.id);
+        await member.setNickname(nick, "Nick set via bot");
+        return interaction.editReply(nick ? `✅ Set **${target.username}**'s nick to **${nick}**.` : `✅ Reset **${target.username}**'s nickname.`);
+      } catch (e) { return interaction.editReply(`❌ ${e.message}`); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // INVITE SYSTEM
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (commandName === "invites") {
+      const guild = interaction.guild;
+      if (!guild) return interaction.editReply("❌ Server only.");
+      const total     = await inviteRecord.countDocuments({ guildId: guild.id, inviterId: user.id, isRejoin: false });
+      const claimed   = await inviteRecord.countDocuments({ guildId: guild.id, inviterId: user.id, isRejoin: false, claimed: true });
+      const unclaimed = await inviteRecord.find({ guildId: guild.id, inviterId: user.id, isRejoin: false, claimed: false }).lean();
+      let validCount = 0;
+      for (const rec of unclaimed) {
+        try { const m = await guild.members.fetch(rec.inviteeId); if (m?.roles.cache.has(REQUIRED_INVITE_ROLE)) validCount++; } catch {}
+      }
+      const cfg = await inviteSettings.findOne({ guildId: guild.id }).lean();
+      const reward = cfg?.rewardPerInvite || 0;
+      const e = new EmbedBuilder().setColor(0x8b5cf6).setTitle("📨 Your Invite Stats")
+        .addFields(
+          { name: "Total Invites",    value: fmt(total),       inline: true },
+          { name: "Claimed",          value: fmt(claimed),     inline: true },
+          { name: "Claimable Now",    value: fmt(validCount),  inline: true },
+          { name: "Pending Reward",   value: reward && validCount ? `${fmtBal(validCount * reward)} gems` : "—", inline: true },
+        ).setFooter({ text: "Invitees must have the verification role to count" }).setTimestamp();
+      applyBanner(e);
+      return interaction.editReply({ embeds: [e] });
+    }
+
+    if (commandName === "sendinvite") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Owner only.");
+      const guild   = interaction.guild;
+      if (!guild) return interaction.editReply("❌ Server only.");
+      const ch      = interaction.options.getChannel("channel");
+      const rewardM = interaction.options.getInteger("reward_millions");
+      const reward  = rewardM * 1_000_000;
+      await inviteSettings.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { guildId: guild.id, channelId: ch.id, rewardPerInvite: reward, enabled: true, paused: false } },
+        { upsert: true, new: true },
+      );
+      const panelE = new EmbedBuilder().setColor(0xf59e0b).setTitle("🎁 GemTide Invite Rewards")
+        .setDescription(
+          `**Earn gems by inviting friends!**\n\n` +
+          `💎 **Reward:** ${fmtBal(reward)} gems per valid invite\n\n` +
+          `**Requirements:**\n` +
+          `• Invitee must stay in the server\n` +
+          `• Invitee must receive the <@&${REQUIRED_INVITE_ROLE}> role\n` +
+          `• Rejoins do **not** count\n\n` +
+          `Click **Claim Rewards** below to collect your gems!`,
+        ).setFooter({ text: "GemTide Invite System" }).setTimestamp();
+      applyBanner(panelE);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("claim_invite_reward").setLabel("Claim Rewards").setEmoji("💎").setStyle(ButtonStyle.Success),
+      );
+      try {
+        const panelMsg = await ch.send({ embeds: [panelE], components: [row] });
+        await inviteSettings.findOneAndUpdate({ guildId: guild.id }, { $set: { panelMessageId: panelMsg.id } });
+        return interaction.editReply(`✅ Invite panel posted in ${ch}!\n💎 **${fmtBal(reward)} gems** per valid invite.`);
+      } catch (err) { return interaction.editReply(`❌ Failed to post panel: ${err.message}`); }
+    }
+
+    if (commandName === "pauseinvites") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Owner only.");
+      const guild = interaction.guild;
+      if (!guild) return interaction.editReply("❌ Server only.");
+      const action = interaction.options.getString("action");
+      const paused = action === "pause";
+      await inviteSettings.findOneAndUpdate({ guildId: guild.id }, { $set: { paused } }, { upsert: true });
+      return interaction.editReply(paused ? "⏸️ Invite rewards **paused**." : "▶️ Invite rewards **resumed**.");
+    }
+
+    if (commandName === "setlogchannel") {
+      if (!isOwner(interaction)) return interaction.editReply("❌ Owner only.");
+      const guild = interaction.guild;
+      if (!guild) return interaction.editReply("❌ Server only.");
+      const ch = interaction.options.getChannel("channel");
+      await inviteSettings.findOneAndUpdate({ guildId: guild.id }, { $set: { logChannelId: ch.id } }, { upsert: true });
+      return interaction.editReply(`✅ Invite log channel set to ${ch}.`);
+    }
+
     // If no command matched
     await interaction.editReply("❌ Unknown command. Use `/help` to see all available commands.");
   } catch (error) {
@@ -2943,6 +4223,137 @@ async function handleGiveawayEnter(interaction, giveawayId) {
   try { const message = await interaction.channel.messages.fetch(gw.messageId); await message.edit({ embeds: [buildGiveawayEmbed(gw.prize, gw.endTime, gw.winnersCount, gw.entrants.size)] }); } catch {}
   await interaction.reply({ content: `🎉 You've entered the giveaway for **${gw.prize}**! Good luck!`, ephemeral: true });
 }
+
+// ─── Invite Claim Button Handler ─────────────────────────────────────────────
+async function handleInviteClaim(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  const guild = interaction.guild;
+  if (!guild) return interaction.editReply({ content: "❌ Server only.", ephemeral: true });
+
+  const cfg = await inviteSettings.findOne({ guildId: guild.id }).lean();
+  if (!cfg || !cfg.enabled) return interaction.editReply({ content: "❌ The invite reward system is not active.", ephemeral: true });
+  if (cfg.paused) return interaction.editReply({ content: "⏳ **Please wait for knowni1 to restock** — the invite reward system is currently paused.", ephemeral: true });
+
+  const unclaimed = await inviteRecord.find({ guildId: guild.id, inviterId: interaction.user.id, isRejoin: false, claimed: false }).lean();
+  if (!unclaimed.length) return interaction.editReply({ content: "❌ No unclaimed invites yet. Invite friends and make sure they receive the verification role!", ephemeral: true });
+
+  // Only count invitees who are still in the server AND have the required role
+  const validIds = [];
+  for (const rec of unclaimed) {
+    try {
+      const member = await guild.members.fetch(rec.inviteeId);
+      if (member?.roles.cache.has(REQUIRED_INVITE_ROLE)) validIds.push(rec._id);
+    } catch { /* member left */ }
+  }
+
+  if (!validIds.length) return interaction.editReply({ content: `❌ None of your invitees have the <@&${REQUIRED_INVITE_ROLE}> role yet. They need to receive it before you can claim!`, ephemeral: true });
+
+  const reward = validIds.length * cfg.rewardPerInvite;
+
+  // Check owner balance
+  const ownerAccount = await users.findOne({ discordid: OWNER_DISCORD_ID }).lean();
+  if (!ownerAccount || (ownerAccount.balance || 0) < reward) {
+    return interaction.editReply({ content: "⏳ **Please wait for knowni1 to restock!**\nThere are not enough funds to pay out your reward right now. Check back soon.", ephemeral: true });
+  }
+
+  // Check inviter has a site account
+  const inviterAccount = await users.findOne({ discordid: interaction.user.id }).lean();
+  if (!inviterAccount) return interaction.editReply({ content: `❌ Your Discord is not linked to a GemTide account. Link at ${SITE_URL}`, ephemeral: true });
+
+  // Atomically transfer
+  await Promise.all([
+    users.updateOne({ discordid: OWNER_DISCORD_ID },    { $inc: { balance: -reward } }),
+    users.updateOne({ discordid: interaction.user.id }, { $inc: { balance:  reward } }),
+    inviteRecord.updateMany({ _id: { $in: validIds } }, { $set: { claimed: true } }),
+  ]);
+
+  // Log to invite log channel
+  if (cfg.logChannelId) {
+    try {
+      const logCh = await client.channels.fetch(cfg.logChannelId);
+      const logE = new EmbedBuilder().setColor(0x22c55e).setTitle("💎 Invite Reward Claimed")
+        .addFields(
+          { name: "User",    value: `${interaction.user.tag} (<@${interaction.user.id}>)`, inline: true },
+          { name: "Invites", value: String(validIds.length), inline: true },
+          { name: "Reward",  value: fmtBal(reward),          inline: true },
+          { name: "New Balance (inviter)", value: fmtBal((inviterAccount.balance || 0) + reward), inline: true },
+        ).setTimestamp();
+      await logCh.send({ embeds: [logE] });
+    } catch {}
+  }
+
+  return interaction.editReply({ content: `✅ **Claimed!** You received **${fmtBal(reward)} gems** for **${validIds.length}** valid invite${validIds.length !== 1 ? "s" : ""}!`, ephemeral: true });
+}
+
+// ─── Guild Member Add — invite tracking ──────────────────────────────────────
+client.on("guildMemberAdd", async (member) => {
+  try {
+    const guild = member.guild;
+    const cfg = await inviteSettings.findOne({ guildId: guild.id }).lean();
+
+    // Track all members for rejoin detection regardless of invite system state
+    const histDoc = await memberHistory.findOne({ guildId: guild.id, memberId: member.id }).lean();
+    const isRejoin = !!histDoc;
+    if (!histDoc) await memberHistory.create({ guildId: guild.id, memberId: member.id });
+
+    // Determine which invite was used by diffing counts against cache
+    let usedInviterId = null, usedCode = "";
+    try {
+      const freshInvites = await guild.invites.fetch();
+      const cached       = inviteCache.get(guild.id) || new Map();
+      for (const [code, inv] of freshInvites) {
+        if ((inv.uses || 0) > (cached.get(code) || 0)) { usedInviterId = inv.inviter?.id || null; usedCode = code; break; }
+      }
+      const newCache = new Map();
+      for (const [code, inv] of freshInvites) newCache.set(code, inv.uses || 0);
+      inviteCache.set(guild.id, newCache);
+    } catch { /* no Manage Guild perm */ }
+
+    if (cfg?.enabled && usedInviterId && usedInviterId !== member.id) {
+      await inviteRecord.create({ guildId: guild.id, inviterId: usedInviterId, inviteeId: member.id, inviteCode: usedCode, isRejoin });
+    }
+
+    // Log
+    if (cfg?.logChannelId) {
+      try {
+        const logCh = await client.channels.fetch(cfg.logChannelId);
+        const logE = new EmbedBuilder()
+          .setColor(isRejoin ? 0xff6b35 : 0x22c55e)
+          .setTitle(isRejoin ? "🔄 Member Rejoined" : "👋 New Member Joined")
+          .addFields(
+            { name: "Member",  value: `${member.user.tag} (<@${member.id}>)`, inline: true },
+            { name: "Inviter", value: usedInviterId ? `<@${usedInviterId}>` : "Unknown", inline: true },
+            { name: "Rejoin",  value: isRejoin ? "Yes ❌ (won't count)" : "No ✅", inline: true },
+          ).setTimestamp();
+        await logCh.send({ embeds: [logE] });
+      } catch {}
+    }
+  } catch (err) { console.error("[invites] guildMemberAdd error:", err.message); }
+});
+
+// ─── Guild Member Remove — mark left ─────────────────────────────────────────
+client.on("guildMemberRemove", async (member) => {
+  try {
+    const guild = member.guild;
+    await memberHistory.findOneAndUpdate({ guildId: guild.id, memberId: member.id }, { $set: { hasEverLeft: true } }, { upsert: true });
+    await inviteRecord.findOneAndUpdate({ guildId: guild.id, inviteeId: member.id, claimed: false }, { $set: { leftAt: new Date() } });
+    // Refresh invite cache
+    try {
+      const freshInvites = await guild.invites.fetch();
+      const newCache = new Map();
+      for (const [code, inv] of freshInvites) newCache.set(code, inv.uses || 0);
+      inviteCache.set(guild.id, newCache);
+    } catch {}
+
+    const cfg = await inviteSettings.findOne({ guildId: guild.id }).lean();
+    if (cfg?.logChannelId) {
+      try {
+        const logCh = await client.channels.fetch(cfg.logChannelId);
+        await logCh.send({ embeds: [new EmbedBuilder().setColor(0x888888).setTitle("🚪 Member Left").addFields({ name: "Member", value: `${member.user.tag} (<@${member.id}>)`, inline: true }).setTimestamp()] });
+      } catch {}
+    }
+  } catch (err) { console.error("[invites] guildMemberRemove error:", err.message); }
+});
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 if (BOT_TOKEN) {
