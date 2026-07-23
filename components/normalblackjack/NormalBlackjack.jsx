@@ -7,6 +7,7 @@ import { getauth } from "../../utils/getauth.js";
 import { formatLargeNumber } from "../../utils/value";
 import { useSeo } from "../../utils/useSeo";
 import "./normalblackjack.css";
+import dealerArt from "../../attached_assets/image_1784820632335.png";
 
 const BRAND = "#a855f7";
 const HOUSE_TAX = 0.08;
@@ -262,13 +263,21 @@ export default function NormalBlackjack() {
           <div className="normal-bj-trust"><ShieldCheck size={15} /> Provably fair shoe · dealer hits soft 17 · 8% item exchange tax</div>
         </div>
         <div className="normal-bj-dealer-stage" aria-label={`${dealerName} dealer animation`}>
-          <div className="normal-bj-table-art" />
-          <div className="normal-bj-dealer">
-            <div className="normal-bj-dealer-head"><i /><i /></div>
-            <div className="normal-bj-dealer-body"><span>♠</span></div>
-            <div className="normal-bj-dealer-arm normal-bj-dealer-arm--left" />
-            <div className="normal-bj-dealer-arm normal-bj-dealer-arm--right" />
+          <img className="normal-bj-source-art" src={dealerArt} alt="" />
+          <img className="normal-bj-source-art normal-bj-source-art--motion" src={dealerArt} alt="" />
+          <div className="normal-bj-scene-vignette" />
+          <div className="normal-bj-scene-glow" />
+          <div className="normal-bj-scene-label normal-bj-scene-label--dealer">DEALER · {dealerName}</div>
+          <div className="normal-bj-scene-label normal-bj-scene-label--player">PLAYER</div>
+          <div className="normal-bj-scene-cards normal-bj-scene-cards--dealer">
+            {game?.dealerHand?.map((card, index) => <Card key={`hero-dealer-${index}-${card.rank}`} card={card} />)}
+            {!game && <span className="normal-bj-scene-awaiting">WAITING FOR WAGER</span>}
           </div>
+          <div className="normal-bj-scene-cards normal-bj-scene-cards--player">
+            {currentHand?.cards?.map((card, index) => <Card key={`hero-player-${index}-${card.rank}`} card={card} />)}
+            {!currentHand && <span className="normal-bj-scene-awaiting">YOUR HAND</span>}
+          </div>
+          <div className="normal-bj-scene-chip"><span>GT</span><b>{game ? money(currentHand?.bet) : "BET"}</b></div>
           <div className="normal-bj-dealer-caption"><b>{dealerName}</b><span>{message}</span></div>
         </div>
       </section>
