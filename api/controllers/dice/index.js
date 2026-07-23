@@ -507,23 +507,22 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       );
       checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("dice drop check:", e));
 
-      setTimeout(async () => {
-        try {
-          await inventorys.insertMany(
-            winnerItems.map((item) => ({
-              _id: item._id,
-              owner: winnerId,
-              itemid: item.itemid,
-              locked: false,
-            })),
-            { ordered: false }
-          );
-          await updateuser(winnerId, req.app.get("io"));
-          await updateuser(loserId, req.app.get("io"));
-        } catch (error) {
-          if (error.code !== 11000) console.error("Dice setTimeout error:", error);
-        }
-      }, 5000);
+      // Pay winner immediately — no setTimeout so items are never lost on restart
+      try {
+        await inventorys.insertMany(
+          winnerItems.map((item) => ({
+            _id: item._id,
+            owner: winnerId,
+            itemid: item.itemid,
+            locked: false,
+          })),
+          { ordered: false }
+        );
+        await updateuser(winnerId, req.app.get("io"));
+        await updateuser(loserId, req.app.get("io"));
+      } catch (error) {
+        if (error.code !== 11000) console.error("Dice payout error:", error);
+      }
 
       setTimeout(() => {
         req.app.get("io").emit("DICE_CANCEL", { _id: finalUpdate._id, active: false });
