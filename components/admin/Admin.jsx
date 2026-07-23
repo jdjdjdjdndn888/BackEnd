@@ -113,6 +113,21 @@ function OverviewTab() {
     finally { setResetting(false); }
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+  const forceRefresh = async () => {
+    if (!confirm("Force refresh the site for ALL connected users?")) return;
+    setRefreshing(true);
+    try {
+      const res = await fetch(`${api}/admin/force-refresh`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      res.ok ? toast.success(d.message) : toast.error(d.message || "Failed");
+    } catch { toast.error("Network error"); }
+    finally { setRefreshing(false); }
+  };
+
   const cards = [
     { label: "Total Users",      value: stats?.totalUsers     ?? "—", icon: "👥" },
     { label: "Items in DB",      value: stats?.totalItems     ?? "—", icon: "📦" },
@@ -133,14 +148,24 @@ function OverviewTab() {
         <div className="rounded-xl bg-[#13151f] border border-[#EF444440] p-5">
           <p className="text-sm font-bold text-red-400 mb-1">🔴 Owner Actions</p>
           <p className="text-xs text-[#6B7280] mb-3">Destructive actions — owner only. Cannot be undone.</p>
-          <button
-            onClick={resetBalances}
-            disabled={resetting}
-            className="px-5 py-2.5 rounded-lg border-none text-white text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}
-          >
-            {resetting ? "Resetting..." : "💰 Reset All Balances to 0"}
-          </button>
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={resetBalances}
+              disabled={resetting}
+              className="px-5 py-2.5 rounded-lg border-none text-white text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}
+            >
+              {resetting ? "Resetting..." : "💰 Reset All Balances to 0"}
+            </button>
+            <button
+              onClick={forceRefresh}
+              disabled={refreshing}
+              className="px-5 py-2.5 rounded-lg border-none text-white text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}
+            >
+              {refreshing ? "Sending..." : "🔄 Force Refresh Site"}
+            </button>
+          </div>
         </div>
       )}
     </div>

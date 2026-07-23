@@ -280,6 +280,14 @@ exports.notify = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Notification sent to all users." });
 });
 
+exports.forceRefresh = asyncHandler(async (req, res) => {
+  const io = req.app.get("io");
+  if (!io) return res.status(500).json({ message: "Socket not available" });
+  io.emit("FORCE_REFRESH");
+  logAction(req.adminUser, "Force Refresh", null, "Site force-refreshed for all connected users");
+  res.json({ message: "Force refresh sent to all connected users." });
+});
+
 // ── Bot announcement (called by Discord bot via shared secret) ───────────────
 
 exports.botAnnounce = asyncHandler(async (req, res) => {

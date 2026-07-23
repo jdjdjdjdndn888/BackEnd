@@ -66,8 +66,13 @@ export default function Header({ onOpenMobileNav = () => {} }) {
       setProfileImage(data.thumbnail || Undefinded);
       setLevel(getDisplayLevel(data.rank, data.level || 0));
     };
+    const handleForceRefresh = () => window.location.reload();
     socket.on("UPDATE_ME", handleUpdate);
-    return () => { socket.off("UPDATE_ME", handleUpdate); };
+    socket.on("FORCE_REFRESH", handleForceRefresh);
+    return () => {
+      socket.off("UPDATE_ME", handleUpdate);
+      socket.off("FORCE_REFRESH", handleForceRefresh);
+    };
   }, [socket, setUserData]);
 
   const handleLogout = () => {
