@@ -12,6 +12,8 @@ const adminController = require("../controllers/admin/index.js");
 const tradesController = require("../controllers/trades/index.js");
 const diceController = require("../controllers/dice/index.js");
 const blackjackController = require("../controllers/blackjack/index.js");
+const normalWalletController = require("../controllers/normalwallet/index.js");
+const normalBlackjackController = require("../controllers/normalblackjack/index.js");
 const upgraderController = require("../controllers/upgrader/index.js");
 const minesController = require("../controllers/mines/index.js");
 const rpsController     = require("../controllers/rps/index.js");
@@ -138,6 +140,18 @@ router.post("/blackjack/hit", mutationLimiter, accountController.verifyToken, bl
 router.post("/blackjack/stand", mutationLimiter, accountController.verifyToken, blackjackController.stand);
 router.post("/blackjack/cancel", mutationLimiter, accountController.verifyToken, blackjackController.cancelmatch);
 router.post("/blackjack/history/me", accountController.verifyToken, blackjackController.historyme);
+
+// ── Normal blackjack: item exchange wallet + player versus dealer ────────────
+router.get("/normal-wallet", accountController.verifyToken, normalWalletController.getWallet);
+router.get("/normal-wallet/inventory", accountController.verifyToken, normalWalletController.getInventory);
+router.get("/normal-wallet/house-inventory", accountController.verifyToken, normalWalletController.getHouseInventory);
+router.post("/normal-wallet/exchange", mutationLimiter, accountController.verifyToken, normalWalletController.exchange);
+router.post("/normal-wallet/redeem", mutationLimiter, accountController.verifyToken, normalWalletController.redeem);
+router.get("/normal-blackjack/current", accountController.verifyToken, normalBlackjackController.getCurrent);
+router.get("/normal-blackjack/history", accountController.verifyToken, normalBlackjackController.history);
+router.post("/normal-blackjack/create", mutationLimiter, accountController.verifyToken, normalBlackjackController.create);
+router.post("/normal-blackjack/action", mutationLimiter, accountController.verifyToken, normalBlackjackController.action);
+router.post("/normal-blackjack/cancel", mutationLimiter, accountController.verifyToken, normalBlackjackController.cancel);
 
 router.get("/stats/all", gamesController.getvalue);
 
