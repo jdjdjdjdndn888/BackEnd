@@ -28,6 +28,35 @@ function parseCompactAmount(raw) {
   return Number.isSafeInteger(value) && value > 0 ? value : 0;
 }
 
+function autoSelectHouseStock(items, balance) {
+  const limit = Math.max(0, Math.floor(Number(balance) || 0));
+  if (!limit || !items.length) return new Set();
+
+  const usable = items
+    .filter((item) => Number.isSafeInteger(Number(item.itemvalue)) && Number(item.itemvalue) > 0)
+    .slice(0, 100);
+  const total = usable.reduce((sum, item) => sum + Number(item.itemvalue), 0);
+  if (total <= limit) return new Set(usable.map((item) => String(item.inventoryid)));
+
+  const chooseGreedy = (ordered) => {
+    let remaining = limit;
+    const chosen = [];
+    for (const item of ordered) {
+      const value = Number(item.itemvalue);
+      if (value <= remaining) {
+        chosen.push(item);
+        remaining -= value;
+      }
+    }
+    return { chosen, value: limit - remaining };
+  };
+
+  const ascending = chooseGreedy([...usable].sort((a, b) => Number(a.itemvalue) - Number(b.itemvalue)));
+  const descending = chooseGreedy([...usable].sort((a, b) => Number(b.itemvalue) - Number(a.itemvalue)));
+  const best = descending.value > ascending.value ? descending : ascending;
+  return new Set(best.chosen.map((item) => String(item.inventoryid)));
+}
+
 function Card({ card, hidden = false }) {
   if (hidden || card?.hidden) return <div className="normal-bj-card normal-bj-card--hidden"><span>?</span></div>;
   const red = card?.suit === "♥" || card?.suit === "♦";
@@ -109,6 +138,12 @@ export default function NormalBlackjack() {
   const betValue = parseCompactAmount(bet);
   const loginPrompt = !getauth();
 
+  useEffect(() => {
+    if (tab === "redeem") {
+      setTargetSelected(autoSelectHouseStock(houseInventory, wallet.balance));
+    }
+  }, [tab, houseInventory, wallet.balance]);
+
   const toggleSelected = (setter) => (item) => setter((old) => {
     const next = new Set(old);
     const id = String(item.inventoryid);
@@ -133,7 +168,7 @@ export default function NormalBlackjack() {
   };
 
   const redeem = async () => {
-    if (!selectedHouseItems.length) return toast.error("Select house items first.");
+    if (!selectedHouseItems.length) return toast.error("There is no available owner stock within your current wallet balance.");
     if (selectedHouseValue > wallet.balance) return toast.error("Your normal wallet is too low.");
     setBusy(true);
     try {
@@ -236,9 +271,9 @@ export default function NormalBlackjack() {
           )}
           {tab === "redeem" && (
             <section className="normal-bj-panel">
-              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">CREDITS → ITEMS</span><h2>Buy items back</h2><p>Use wallet credits to take house inventory items back into your account.</p></div><div className="normal-bj-fee-card"><span>Selected value</span><b>{money(selectedHouseValue)}</b><small>Balance: {money(wallet.balance)}</small></div></div>
+              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">CREDITS → ITEMS</span><h2>Withdraw available stock</h2><p>Your withdrawal is automatically selected from items the owner currently has. If the owner has less stock than your wallet balance, withdraw what is available now and come back later for the rest.</p></div><div className="normal-bj-fee-card"><span>Auto-selected stock</span><b>{money(selectedHouseValue)}</b><small>Wallet: {money(wallet.balance)}</small></div></div>
               <InventoryGrid items={houseInventory} selected={targetSelected} onToggle={toggleTarget} emptyLabel="The house inventory has no redeemable items right now." />
-              <div className="normal-bj-panel-footer"><span>{selectedHouseItems.length} items selected</span><button type="button" className="normal-bj-primary" onClick={redeem} disabled={busy || !selectedHouseItems.length || selectedHouseValue > wallet.balance}>Redeem for {money(selectedHouseValue)}</button></div>
+              <div className="normal-bj-panel-footer"><span>{selectedHouseItems.length ? `Auto-selected ${selectedHouseItems.length} item${selectedHouseItems.length === 1 ? "" : "s"} · ${money(selectedHouseValue)} credits${selectedHouseValue < wallet.balance ? ` · ${money(wallet.balance - selectedHouseValue)} remain for later` : ""}` : "No owner stock is currently available within your wallet balance."}</span><button type="button" className="normal-bj-primary" onClick={redeem} disabled={busy || !selectedHouseItems.length || selectedHouseValue > wallet.balance}>Withdraw {money(selectedHouseValue)}</button></div>
             </section>
           )}
           {tab === "break" && (

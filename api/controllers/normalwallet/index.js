@@ -201,10 +201,11 @@ exports.redeem = asyncHandler(async (req, res) => {
       );
       wallet.balance -= totalValue;
       await wallet.save({ session });
+      const remainingBalance = Math.max(0, Math.floor(wallet.balance || 0));
       result = {
         success: true,
-        message: `Redeemed ${totalValue.toLocaleString()} wallet credits for ${selected.length} item${selected.length === 1 ? "" : "s"}.`,
-        data: walletResult(wallet, { debitedValue: totalValue }),
+        message: `Redeemed ${totalValue.toLocaleString()} wallet credits for ${selected.length} item${selected.length === 1 ? "" : "s"}${remainingBalance ? `. ${remainingBalance.toLocaleString()} credits remain for later stock.` : "."}`,
+        data: walletResult(wallet, { debitedValue: totalValue, remainingBalance }),
       };
       await Operation.create([{ operationId, owner, type: "redeem", result }], { session });
     });
