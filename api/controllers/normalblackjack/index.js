@@ -11,6 +11,8 @@ const { httpError } = require("../../utils/httpError.js");
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const MAX_BET = 1_000_000_000;
+const BLACKJACK_PROFIT_NUMERATOR = 6;
+const BLACKJACK_PROFIT_DENOMINATOR = 5;
 
 function value(rank) {
   if (rank === "A") return 11;
@@ -125,7 +127,7 @@ function dealerPlay(game) {
   }
 }
 
-function settleGame(game, wallet, forcedOutcome = null) {
+function settleGame(game, wallet) {
   if (game.status !== "active") return 0;
   const dealer = handValue(game.dealerHand);
   const dealerNatural = isNatural({ cards: game.dealerHand });
@@ -136,17 +138,16 @@ function settleGame(game, wallet, forcedOutcome = null) {
     const player = handValue(hand.cards);
     let handPayout = 0;
     let result = "loss";
-    if (forcedOutcome === "surrender") {
-      handPayout = Math.floor(hand.bet / 2);
-      result = "surrender";
-    } else if (player.total > 21) {
+    if (player.total > 21) {
       result = "bust";
     } else if (isNatural(hand) && !game.splitUsed) {
       if (dealerNatural) {
         handPayout = hand.bet;
         result = "push";
       } else {
-        handPayout = hand.bet + Math.floor(hand.bet * 1.5);
+        handPayout = hand.bet + Math.floor(
+          (hand.bet * BLACKJACK_PROFIT_NUMERATOR) / BLACKJACK_PROFIT_DENOMINATOR
+        );
         result = "blackjack";
       }
     } else if (dealerNatural) {
@@ -172,7 +173,7 @@ function settleGame(game, wallet, forcedOutcome = null) {
   if (net > 0) wallet.won += net;
   if (net < 0) wallet.lost += Math.abs(net);
   game.payout = payout;
-  game.outcome = outcomes.join(",") || forcedOutcome || "loss";
+  game.outcome = outcomes.join(",") || "loss";
   game.status = "finished";
   game.finishedAt = new Date();
   return payout;
@@ -184,7 +185,7 @@ async function loadActive(req, session, action) {
   if (!mongoose.isValidObjectId(gameId)) throw httpError(400, "Invalid game.");
   const game = await NormalBlackjack.findOne({ _id: gameId, userId, status: "active" }).session(session);
   if (!game) throw httpError(404, "Active hand not found.");
-  if (!["hit", "stand", "double", "split", "surrender", "insurance"].includes(action)) {
+  if (!["hit", "stand", "double", "split", "insurance"].includes(action)) {
     throw httpError(400, "Unsupported blackjack action.");
   }
   return { game, userId };
@@ -312,9 +313,6 @@ exports.action = asyncHandler(async (req, res) => {
         const right = { cards: [hand.cards[1], draw(game)], bet, stood: false, busted: false, doubled: false, result: "active" };
         game.playerHands.splice(game.activeHand, 1, left, right);
         game.splitUsed = true;
-      } else if (action === "surrender") {
-        if (hand.cards.length !== 2 || game.splitUsed) throw httpError(400, "Surrender is only available on the original opening hand.");
-        settleGame(game, wallet, "surrender");
       } else if (action === "insurance") {
         if (game.activeHand !== 0 || game.playerHands.length !== 1 || dealerUpCard(game).rank !== "A" || game.insuranceBet) {
           throw httpError(400, "Insurance is not available for this hand.");
@@ -352,31 +350,5 @@ exports.action = asyncHandler(async (req, res) => {
 });
 
 exports.cancel = asyncHandler(async (req, res) => {
-  const userId = userIdOf(req);
-  if (!acquireLock(userId, "normal_blackjack_cancel")) {
-    return res.status(429).json({ message: "Request already in progress, please wait." });
-  }
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      const game = await NormalBlackjack.findOne({ _id: req.body?.gameId, userId, status: "active" }).session(session);
-      if (!game) throw httpError(404, "Active hand not found.");
-      const wallet = await Wallet.findOne({ owner: userId }).session(session);
-      if (!wallet) throw httpError(400, "Normal wallet not found.");
-      wallet.balance += game.totalBet;
-      game.status = "cancelled";
-      game.outcome = "cancelled";
-      game.payout = game.totalBet;
-      game.finishedAt = new Date();
-      await game.save({ session });
-      await wallet.save({ session });
-    });
-    await updateuser(userId, req.app.get("io"));
-    return res.json({ success: true, message: "Hand cancelled and bet returned." });
-  } catch (error) {
-    return res.status(error.statusCode || 500).json({ message: error.message || "Could not cancel hand." });
-  } finally {
-    await session.endSession();
-    releaseLock(userId, "normal_blackjack_cancel");
-  }
+  throw httpError(400, "Hands cannot be cancelled after the deal. Refresh the table to resume your active hand.");
 });

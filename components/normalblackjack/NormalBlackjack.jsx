@@ -73,6 +73,8 @@ export default function NormalBlackjack() {
   const [game, setGame] = useState(null);
   const [history, setHistory] = useState([]);
   const [bet, setBet] = useState("100");
+  const [breakAmount, setBreakAmount] = useState("100000000");
+  const [breakDenomination, setBreakDenomination] = useState("1000000");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("The dealer is ready.");
@@ -134,6 +136,19 @@ export default function NormalBlackjack() {
   const selectedHouseValue = selectedHouseItems.reduce((sum, item) => sum + Number(item.itemvalue || 0), 0);
   const currentHand = game?.playerHands?.[game.activeHand || 0];
   const dealerName = game?.status === "finished" ? "Dealer" : "Mr. Tide";
+  const gemDenominations = [
+    { value: 1_000_000, label: "1m gems" },
+    { value: 5_000_000, label: "5m gems" },
+    { value: 10_000_000, label: "10m gems" },
+    { value: 25_000_000, label: "25m gems" },
+    { value: 50_000_000, label: "50m gems" },
+    { value: 100_000_000, label: "100m gems" },
+  ];
+  const parsedBreakAmount = Number(breakAmount);
+  const parsedBreakDenomination = Number(breakDenomination);
+  const breakPieces = Number.isSafeInteger(parsedBreakAmount) && Number.isSafeInteger(parsedBreakDenomination) && parsedBreakDenomination > 0
+    ? parsedBreakAmount / parsedBreakDenomination
+    : 0;
 
   const toggleItem = (item) => {
     setSelected((old) => {
@@ -188,6 +203,39 @@ export default function NormalBlackjack() {
     }
   };
 
+  const downgrade = async () => {
+    if (!Number.isSafeInteger(parsedBreakAmount) || parsedBreakAmount < parsedBreakDenomination) {
+      return toast.error("Enter a whole wallet amount that is at least one selected gem piece.");
+    }
+    if (parsedBreakAmount % parsedBreakDenomination !== 0) {
+      return toast.error("The amount must divide evenly into the selected gem denomination.");
+    }
+    if (breakPieces > 500) {
+      return toast.error("That conversion would create too many items. Choose a larger denomination.");
+    }
+    if (parsedBreakAmount > wallet.balance) {
+      return toast.error("Your normal wallet does not have enough credits.");
+    }
+    setBusy(true);
+    try {
+      const result = await request("/normal-wallet/downgrade", {
+        method: "POST",
+        body: JSON.stringify({
+          operationId: operationId(),
+          amount: parsedBreakAmount,
+          denomination: parsedBreakDenomination,
+        }),
+      });
+      toast.success(result.message);
+      setBreakAmount(String(parsedBreakAmount));
+      await refresh();
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const startGame = async () => {
     setBusy(true);
     setMessage("The dealer is shuffling the shoe...");
@@ -215,7 +263,6 @@ export default function NormalBlackjack() {
       stand: "The dealer nods and checks the table...",
       double: "The dealer doubles the wager...",
       split: "The dealer separates the pair...",
-      surrender: "The dealer returns half the wager...",
       insurance: "The dealer offers insurance...",
     };
     setMessage(narration[name] || "The dealer studies the table...");
@@ -230,23 +277,6 @@ export default function NormalBlackjack() {
     } catch (error) {
       toast.error(error.message);
       setMessage("The dealer waits for a valid move.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cancel = async () => {
-    if (!game) return;
-    setBusy(true);
-    try {
-      await request("/normal-blackjack/cancel", {
-        method: "POST",
-        body: JSON.stringify({ gameId: game._id }),
-      });
-      toast.success("Bet returned to your normal wallet.");
-      await refresh();
-    } catch (error) {
-      toast.error(error.message);
     } finally {
       setBusy(false);
     }
@@ -293,7 +323,7 @@ export default function NormalBlackjack() {
       ) : (
         <>
           <nav className="normal-bj-tabs">
-            {[["play", "Play blackjack"], ["exchange", "Exchange items"], ["redeem", "Buy items back"], ["history", "History"]].map(([key, label]) => (
+            {[["play", "Play blackjack"], ["exchange", "Exchange items"], ["break", "Break credits"], ["redeem", "Buy items back"], ["history", "History"]].map(([key, label]) => (
               <button key={key} type="button" className={tab === key ? "active" : ""} onClick={() => { setTab(key); setSelected(new Set()); }}>{label}</button>
             ))}
           </nav>
@@ -328,14 +358,12 @@ export default function NormalBlackjack() {
                       <button type="button" onClick={() => action("stand")} disabled={busy}>Stand</button>
                       <button type="button" onClick={() => action("double")} disabled={busy}>Double</button>
                       <button type="button" onClick={() => action("split")} disabled={busy}>Split</button>
-                      <button type="button" onClick={() => action("surrender")} disabled={busy}>Surrender</button>
                       {game.dealerHand?.[0]?.rank === "A" && <button type="button" onClick={() => action("insurance")} disabled={busy}>Insurance</button>}
                     </div>
                   )}
-                  {game?.status === "active" && <button type="button" className="normal-bj-cancel" onClick={cancel} disabled={busy}>Cancel hand and return wager</button>}
                   {game?.status === "finished" && <button type="button" className="normal-bj-primary" onClick={() => { setGame(null); setMessage("The dealer is ready."); }}>Deal another hand</button>}
                 </div>
-                <div className="normal-bj-rules"><b>House rules</b><span>Blackjack pays 3:2</span><span>Dealer stands on hard 17</span><span>Double after deal · one split</span><span>Dealer advantage is built in—bet responsibly</span></div>
+                <div className="normal-bj-rules"><b>House rules</b><span>Blackjack pays 6:5</span><span>Dealer hits soft 17</span><span>Double after deal · one split</span><span>No surrender · insurance pays 2:1</span></div>
               </aside>
             </section>
           )}
@@ -353,6 +381,68 @@ export default function NormalBlackjack() {
               <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">CREDITS → ITEMS</span><h2>Buy items back</h2><p>House inventory is reserved by the server during checkout. Your credits are only charged when the items move.</p></div><div className="normal-bj-fee-card"><span>Selected value</span><b>{money(selectedHouseValue)}</b><small>balance: {money(wallet.balance)}</small></div></div>
               <InventoryGrid items={houseInventory} selected={selected} onToggle={toggleItem} emptyLabel="The owner inventory has no redeemable items right now." />
               <div className="normal-bj-panel-footer"><span>{selectedHouseItems.length} items selected</span><button type="button" className="normal-bj-primary" onClick={redeem} disabled={busy || !selectedHouseItems.length || selectedHouseValue > wallet.balance}>Redeem for {money(selectedHouseValue)}</button></div>
+            </section>
+          )}
+
+          {tab === "break" && (
+            <section className="normal-bj-panel">
+              <div className="normal-bj-panel-heading">
+                <div>
+                  <span className="normal-bj-eyebrow">CREDITS → GEM ITEMS</span>
+                  <h2>Break wallet credits</h2>
+                  <p>Turn one wallet balance into tradeable PS99 gem pieces. The conversion is exact and atomic.</p>
+                </div>
+                <div className="normal-bj-fee-card">
+                  <span>Wallet balance</span>
+                  <b>{money(wallet.balance)}</b>
+                  <small>No conversion fee</small>
+                </div>
+              </div>
+              <div className="normal-bj-break-layout">
+                <div className="normal-bj-control-card">
+                  <label htmlFor="break-amount">Credits to convert</label>
+                  <div className="normal-bj-bet-input">
+                    <Coins size={16} />
+                    <input
+                      id="break-amount"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={breakAmount}
+                      disabled={busy}
+                      onChange={(event) => setBreakAmount(event.target.value)}
+                    />
+                    <span>credits</span>
+                  </div>
+                  <label className="normal-bj-break-label">Gem piece size</label>
+                  <div className="normal-bj-denomination-grid">
+                    {gemDenominations.map((denomination) => (
+                      <button
+                        key={denomination.value}
+                        type="button"
+                        className={parsedBreakDenomination === denomination.value ? "active" : ""}
+                        disabled={busy}
+                        onClick={() => setBreakDenomination(String(denomination.value))}
+                      >
+                        {denomination.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="normal-bj-break-preview">
+                    <span>You receive</span>
+                    <b>{Number.isInteger(breakPieces) && breakPieces > 0 ? `${breakPieces.toLocaleString()} × ${gemDenominations.find((item) => item.value === parsedBreakDenomination)?.label || "gem gems"}` : "Enter an even amount"}</b>
+                  </div>
+                  <button type="button" className="normal-bj-primary" onClick={downgrade} disabled={busy || !Number.isInteger(breakPieces) || breakPieces < 1 || breakPieces > 500 || parsedBreakAmount > wallet.balance}>
+                    Convert credits into gems
+                  </button>
+                </div>
+                <div className="normal-bj-break-info">
+                  <b>Available denominations</b>
+                  <p>Use 1m for small bets, or choose 5m, 10m, 25m, 50m, or 100m pieces for fewer inventory items.</p>
+                  <p>Conversions never create value. Your wallet is reduced by the exact amount and the matching gem items are added to your inventory in one transaction.</p>
+                  <span>Maximum 500 pieces per conversion</span>
+                </div>
+              </div>
             </section>
           )}
 

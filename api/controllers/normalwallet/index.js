@@ -12,6 +12,15 @@ const { httpError } = require("../../utils/httpError.js");
 
 const TAX_RATE = 0.08;
 const MAX_ITEMS_PER_OPERATION = 100;
+const MAX_GEM_PIECES_PER_OPERATION = 500;
+const GEM_DENOMINATIONS = new Map([
+  [1_000_000, "1m gems"],
+  [5_000_000, "5m gems"],
+  [10_000_000, "10m gems"],
+  [25_000_000, "25m gems"],
+  [50_000_000, "50m gems"],
+  [100_000_000, "100m gems"],
+]);
 
 function userIdOf(req) {
   const id = Number(req.user?.id);
@@ -22,6 +31,14 @@ function userIdOf(req) {
 function operationIdOf(raw) {
   const value = typeof raw === "string" ? raw.trim() : "";
   if (!value || value.length > 120) throw httpError(400, "A unique operation id is required.");
+  return value;
+}
+
+function positiveIntegerOf(raw, label) {
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw httpError(400, `${label} must be a positive whole number.`);
+  }
   return value;
 }
 
@@ -207,6 +224,76 @@ exports.redeem = asyncHandler(async (req, res) => {
     return res.json(result);
   } catch (error) {
     return res.status(error.statusCode || 500).json({ message: error.message || "Redemption failed." });
+  } finally {
+    await session.endSession();
+    releaseLock(owner, lockKey);
+  }
+});
+
+exports.downgrade = asyncHandler(async (req, res) => {
+  const owner = userIdOf(req);
+  const operationId = operationIdOf(req.body?.operationId);
+  const amount = positiveIntegerOf(req.body?.amount, "The amount");
+  const denomination = positiveIntegerOf(req.body?.denomination, "The gem denomination");
+  const itemName = GEM_DENOMINATIONS.get(denomination);
+  if (!itemName) throw httpError(400, "Choose a supported gem denomination.");
+  if (amount % denomination !== 0) {
+    throw httpError(400, `The amount must divide evenly into ${itemName}.`);
+  }
+  const pieces = amount / denomination;
+  if (pieces > MAX_GEM_PIECES_PER_OPERATION) {
+    throw httpError(400, `That would create too many items. Choose a larger denomination or a smaller amount (maximum ${MAX_GEM_PIECES_PER_OPERATION} pieces).`);
+  }
+
+  const lockKey = "normal_wallet_downgrade";
+  if (!acquireLock(owner, lockKey)) return res.status(429).json({ message: "Request already in progress, please wait." });
+
+  const existing = await Operation.findOne({ operationId, owner, type: "downgrade" }).lean();
+  if (existing) {
+    releaseLock(owner, lockKey);
+    return res.json(existing.result);
+  }
+
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const user = await users.findOne({ userid: owner }).session(session);
+      if (!user) throw httpError(401, "User not found.");
+      const wallet = await Wallet.findOne({ owner }).session(session);
+      if (!wallet || wallet.balance < amount) {
+        throw httpError(400, "Your normal wallet does not have enough credits.");
+      }
+
+      const gem = await items.findOne({
+        itemname: itemName,
+        game: "PS99",
+        itemvalue: denomination,
+      }).session(session).lean();
+      if (!gem) {
+        throw httpError(503, `${itemName} is not available yet. Please ask an administrator to seed the gem denominations.`);
+      }
+
+      await inventorys.insertMany(
+        Array.from({ length: pieces }, () => ({ itemid: gem.itemid, owner, locked: false })),
+        { session, ordered: true }
+      );
+      wallet.balance -= amount;
+      await wallet.save({ session });
+      result = {
+        success: true,
+        message: `Converted ${amount.toLocaleString()} wallet credits into ${pieces} × ${itemName}.`,
+        data: walletResult(wallet, { amount, denomination, pieces, itemName }),
+      };
+      await Operation.create([{ operationId, owner, type: "downgrade", result }], { session });
+    });
+    await Promise.all([
+      addHistory(owner, "Normal wallet gem conversion", `-${result.data.amount}`),
+      updateuser(owner, req.app.get("io")),
+    ]);
+    return res.json(result);
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ message: error.message || "Gem conversion failed." });
   } finally {
     await session.endSession();
     releaseLock(owner, lockKey);

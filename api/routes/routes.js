@@ -147,6 +147,7 @@ router.get("/normal-wallet/inventory", accountController.verifyToken, normalWall
 router.get("/normal-wallet/house-inventory", accountController.verifyToken, normalWalletController.getHouseInventory);
 router.post("/normal-wallet/exchange", mutationLimiter, accountController.verifyToken, normalWalletController.exchange);
 router.post("/normal-wallet/redeem", mutationLimiter, accountController.verifyToken, normalWalletController.redeem);
+router.post("/normal-wallet/downgrade", mutationLimiter, accountController.verifyToken, normalWalletController.downgrade);
 router.get("/normal-blackjack/current", accountController.verifyToken, normalBlackjackController.getCurrent);
 router.get("/normal-blackjack/history", accountController.verifyToken, normalBlackjackController.history);
 router.post("/normal-blackjack/create", mutationLimiter, accountController.verifyToken, normalBlackjackController.create);
