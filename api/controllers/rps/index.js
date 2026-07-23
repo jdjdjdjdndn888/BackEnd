@@ -424,11 +424,13 @@ exports.joinmatch = asyncHandler(async (req, res) => {
         target: match.PlayerOne.id,
       }, match.PlayerOne.id, req.app.get("io"));
 
+      const loserId = finalUpdate.winner === match.PlayerOne.id ? user.userid : match.PlayerOne.id;
+
       await Promise.all([
         addHistory(finalUpdate.winner, "Game Win", `+${totalJoinerValue}`),
-        addHistory(user.userid, "Game Loss", `-${totalJoinerValue}`),
+        addHistory(loserId, "Game Loss", `-${totalJoinerValue}`),
         level(finalUpdate.winner, match.PlayerOne.value),
-        level(user.userid, totalJoinerValue),
+        level(loserId, totalJoinerValue),
         updateuser(user.userid, req.app.get("io")),
         updatestats(req.app.get("io")),
         sendwebhook(

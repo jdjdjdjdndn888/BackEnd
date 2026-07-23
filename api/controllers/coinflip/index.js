@@ -449,11 +449,13 @@ exports.joinmatch = asyncHandler(async (req, res) => {
           target: coinflip.PlayerOne.id,
         }, coinflip.PlayerOne.id, req.app.get("io"));
 
+        const loserId = finalUpdate.winner === coinflip.PlayerOne.id ? user.userid : coinflip.PlayerOne.id;
+
         await Promise.all([
             addHistory(finalUpdate.winner, "Game Win", `+${totalJoinerValue}`),
-            addHistory(user.userid, "Game Loss", `-${totalJoinerValue}`),
+            addHistory(loserId, "Game Loss", `-${totalJoinerValue}`),
             level(finalUpdate.winner, coinflip.PlayerOne.value),
-            level(user.userid, totalJoinerValue),
+            level(loserId, totalJoinerValue),
             updateuser(user.userid, req.app.get("io")),
             updatestats(req.app.get("io")),
             sendwebhook(
