@@ -354,6 +354,7 @@ async function endGiveaway(giveawayId) {
 const express = require("express");
 const http = require("http");
 const path = require("path");
+const fs = require("fs");
 const session = require("express-session");
 const app = express();
 const server = http.createServer(app);
@@ -2663,6 +2664,18 @@ client.once("clientReady", async () => {
       new SlashCommandBuilder().setName("unlock").setDescription("Admin — unlock a channel").addChannelOption((o) => o.setName("channel").setDescription("Channel (defaults to current)")),
       new SlashCommandBuilder().setName("nick").setDescription("Admin — change a member's nickname").addUserOption((o) => o.setName("user").setDescription("Member").setRequired(true)).addStringOption((o) => o.setName("nickname").setDescription("New nickname (blank to reset)")),
       new SlashCommandBuilder().setName("dmall").setDescription("Owner only — DM all server members").addStringOption((o) => o.setName("message").setDescription("The message to send to all members").setRequired(true)).addStringOption((o) => o.setName("embed_title").setDescription("Optional embed title")).addStringOption((o) => o.setName("embed_color").setDescription("Hex color (e.g. #8b5cf6)")),
+      // ── SAB Pet Auto-Add ──────────────────────────────────────────────────
+      new SlashCommandBuilder()
+        .setName("addsabpet")
+        .setDescription("Admin — add a SAB pet to the item database")
+        .addStringOption((o) => o.setName("name").setDescription("Pet name e.g. Diamond Cat").setRequired(true))
+        .addIntegerOption((o) => o.setName("value").setDescription("Pet value in gems").setRequired(true).setMinValue(1))
+        .addAttachmentOption((o) => o.setName("image").setDescription("Pet image PNG/JPG/WEBP/GIF").setRequired(true))
+        .addStringOption((o) => o.setName("mutations").setDescription("Mutations e.g. Diamond, Emerald (optional)")),
+      new SlashCommandBuilder()
+        .setName("addsabpets")
+        .setDescription("Admin — batch-add SAB pets by sending images with captions")
+        .addIntegerOption((o) => o.setName("count").setDescription("Number of pets to add (1–10)").setRequired(true).setMinValue(1).setMaxValue(10)),
     ].map((c) => c.toJSON());
   } catch (e) { console.error("Failed to build commands:", e.message); }
 
@@ -2723,10 +2736,156 @@ client.on("interactionCreate", async (interaction) => {
 
   // ─── All command handlers ──────────────────────────────────────────────
   try {
-    // All command handlers here (balance, profit, stats, etc.)
-    // For full functionality, add all the command handlers from the previous version
-    // This is a placeholder - the full command list is in the previous response
-    
+
+    // ── /addsabpet ────────────────────────────────────────────────────────
+    if (commandName === "addsabpet") {
+      if (!isOwner(interaction)) {
+        return interaction.editReply("❌ This command requires **Administrator** permissions in the Discord server.");
+      }
+      const petName    = interaction.options.getString("name").trim();
+      const petValue   = interaction.options.getInteger("value");
+      const attachment = interaction.options.getAttachment("image");
+      const mutationsStr = interaction.options.getString("mutations") || "";
+
+      const validExts = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+      const rawExt = attachment.name ? path.extname(attachment.name).toLowerCase() : ".png";
+      const ext = validExts.includes(rawExt) ? rawExt : ".png";
+
+      // Duplicate check
+      const existing = await items.findOne({ itemname: new RegExp(`^${escapeRegex(petName)}$`, "i"), game: "SAB" }).lean();
+      if (existing) return interaction.editReply(`❌ A SAB item named **${petName}** already exists (ID: ${existing.itemid}).`);
+
+      // Download + save image to disk
+      const filename = `sab_${Date.now()}${ext}`;
+      const sabDir   = path.join(__dirname, "public", "sab-images");
+      const savePath = path.join(sabDir, filename);
+      const imageUrl = `https://api.gemtide.win/sab-images/${filename}`;
+
+      try {
+        if (!fs.existsSync(sabDir)) fs.mkdirSync(sabDir, { recursive: true });
+        const imgRes = await fetch(attachment.url);
+        if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+        fs.writeFileSync(savePath, Buffer.from(await imgRes.arrayBuffer()));
+      } catch (imgErr) {
+        return interaction.editReply(`❌ Failed to download image: ${imgErr.message}`);
+      }
+
+      // Create item in MongoDB
+      const maxItem = await items.findOne().sort({ itemid: -1 }).select("itemid").lean();
+      const itemid  = (maxItem?.itemid || 0) + 1;
+      await items.create({ itemid, itemname: petName, itemvalue: petValue, itemimage: imageUrl, game: "SAB" });
+
+      const embed = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle("✅ SAB Pet Added")
+        .setThumbnail(attachment.url)
+        .addFields(
+          { name: "Name",    value: petName,                 inline: true },
+          { name: "Value",   value: petValue.toLocaleString(), inline: true },
+          { name: "Game",    value: "SAB",                   inline: true },
+          { name: "Item ID", value: String(itemid),          inline: true },
+          { name: "Image",   value: imageUrl,                inline: false },
+        )
+        .setFooter({ text: `Added by ${interaction.user.username}` })
+        .setTimestamp();
+      if (mutationsStr) embed.addFields({ name: "Mutations", value: mutationsStr, inline: false });
+      applyBanner(embed);
+      return interaction.editReply({ embeds: [embed] });
+    }
+
+    // ── /addsabpets ───────────────────────────────────────────────────────
+    if (commandName === "addsabpets") {
+      if (!isOwner(interaction)) {
+        return interaction.editReply("❌ This command requires **Administrator** permissions in the Discord server.");
+      }
+      const count = interaction.options.getInteger("count");
+
+      await interaction.editReply(
+        `📸 Send **${count}** message(s) with:\n` +
+        `• Pet image attached\n` +
+        `• Caption: \`Name: <name> | Value: <value>\`\n\n` +
+        `Example: \`Name: Diamond Cat | Value: 5000\`\n\nYou have **120 seconds** total.`
+      );
+
+      const filter = (msg) => msg.author.id === interaction.user.id && msg.attachments.size > 0;
+      const validExts  = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+      const results    = [];
+      const seen       = new Set();
+
+      try {
+        const collected = await interaction.channel.awaitMessages({ filter, max: count, time: 120000, errors: ["time"] });
+
+        for (const [, msg] of collected) {
+          const att     = msg.attachments.first();
+          const content = msg.content || "";
+          const nameM   = content.match(/[Nn]ame\s*:\s*(.+?)(?:\s*\||\s*$)/);
+          const valM    = content.match(/[Vv]alue\s*:\s*(\d+)/);
+
+          if (!nameM || !valM) {
+            results.push({ name: att?.name || "?", status: "failed", reason: "Missing Name/Value in caption" });
+            continue;
+          }
+
+          const petName  = nameM[1].trim();
+          const petValue = parseInt(valM[1], 10);
+
+          if (seen.has(petName.toLowerCase())) {
+            results.push({ name: petName, status: "skipped", reason: "Duplicate in batch" });
+            continue;
+          }
+          seen.add(petName.toLowerCase());
+
+          const dup = await items.findOne({ itemname: new RegExp(`^${escapeRegex(petName)}$`, "i"), game: "SAB" }).lean();
+          if (dup) { results.push({ name: petName, status: "skipped", reason: "Already in database" }); continue; }
+
+          const rawExt = path.extname(att.name || ".png").toLowerCase();
+          const ext    = validExts.includes(rawExt) ? rawExt : ".png";
+          const filename = `sab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}${ext}`;
+          const sabDir   = path.join(__dirname, "public", "sab-images");
+          const savePath = path.join(sabDir, filename);
+          const imageUrl = `https://api.gemtide.win/sab-images/${filename}`;
+
+          try {
+            if (!fs.existsSync(sabDir)) fs.mkdirSync(sabDir, { recursive: true });
+            const imgRes = await fetch(att.url);
+            fs.writeFileSync(savePath, Buffer.from(await imgRes.arrayBuffer()));
+
+            const maxItem = await items.findOne().sort({ itemid: -1 }).select("itemid").lean();
+            const itemid  = (maxItem?.itemid || 0) + 1;
+            await items.create({ itemid, itemname: petName, itemvalue: petValue, itemimage: imageUrl, game: "SAB" });
+            results.push({ name: petName, status: "success", itemid });
+          } catch (err) {
+            results.push({ name: petName, status: "failed", reason: err.message });
+          }
+        }
+      } catch { /* timed out — show what we have */ }
+
+      if (results.length === 0)
+        return interaction.editReply("❌ No valid images received within the time limit.");
+
+      const ok   = results.filter((r) => r.status === "success").length;
+      const skip = results.filter((r) => r.status === "skipped").length;
+      const fail = results.filter((r) => r.status === "failed").length;
+      const details = results.map((r) => {
+        const e = r.status === "success" ? "✅" : r.status === "skipped" ? "⏭️" : "❌";
+        return `${e} **${r.name}**${r.status !== "success" ? ` — ${r.reason}` : ""}`;
+      }).join("\n");
+
+      const embed = new EmbedBuilder()
+        .setColor(ok > 0 ? 0x00FF00 : 0xFF4444)
+        .setTitle("📊 SAB Batch Complete")
+        .addFields(
+          { name: "✅ Added",   value: String(ok),   inline: true },
+          { name: "⏭️ Skipped", value: String(skip), inline: true },
+          { name: "❌ Failed",  value: String(fail), inline: true },
+          { name: "Details",   value: details.slice(0, 1024) || "No results", inline: false },
+        )
+        .setFooter({ text: `Run by ${interaction.user.username}` })
+        .setTimestamp();
+      applyBanner(embed);
+      return interaction.editReply({ embeds: [embed] });
+    }
+
     // If no command matched
     await interaction.editReply("❌ Unknown command. Use `/help` to see all available commands.");
   } catch (error) {

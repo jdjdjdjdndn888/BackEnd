@@ -85,6 +85,18 @@ app.use((_req, res, next) => {
 
 app.use(cors(corsOptions));
 
+// Static SAB pet images — served publicly so the frontend can load them in <img> tags.
+// Must be registered BEFORE originGuard so image requests (which don't carry an Origin
+// header) are served without being caught by the auth gate.
+const path = require("path");
+app.use("/sab-images", express.static(path.join(__dirname, "public", "sab-images"), {
+  maxAge: "7d",
+  setHeaders(res) {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Cache-Control", "public, max-age=604800, immutable");
+  },
+}));
+
 // Hard origin guard — blocks any request that isn't from the approved frontend
 // origin, the Roblox bot scripts (Bearer JWT), or the Discord bot announce path.
 app.use(originGuard);
