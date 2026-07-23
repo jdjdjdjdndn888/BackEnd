@@ -11,6 +11,7 @@ const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHO
 const { checkAndTriggerDrop } = require("../chat/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
+const { retryPayout } = require("../../utils/retryPayout.js");
 
 const CHOICES = ["rock", "paper", "scissors"];
 
@@ -446,24 +447,18 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       ]);
       checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("rps drop check:", e));
 
-      // Pay winner immediately — no setTimeout so items are never lost on restart
-      try {
-        await inventorys.insertMany(
-          winnerItems.map(item => ({
-            _id: item._id,
-            owner: winner === "PlayerOne" ? match.PlayerOne.id : user.userid,
-            itemid: item.itemid,
-            locked: false
-          })),
-          { ordered: false }
-        );
-        await updateuser(finalUpdate.winner, req.app.get("io"));
-        await updateuser(user.userid, req.app.get("io"));
-      } catch (error) {
-        if (error.code !== 11000) {
-          console.error("RPS payout error:", error);
-        }
-      }
+      // Pay winner with automatic retry — up to 5 attempts with exponential back-off
+      await retryPayout(
+        winnerItems.map(item => ({
+          _id: item._id,
+          owner: winner === "PlayerOne" ? match.PlayerOne.id : user.userid,
+          itemid: item.itemid,
+          locked: false,
+        })),
+        "RPS"
+      );
+      await updateuser(finalUpdate.winner, req.app.get("io"));
+      await updateuser(user.userid, req.app.get("io"));
 
       setTimeout(() => {
         req.app.get("io").emit("RPS_CANCEL", {

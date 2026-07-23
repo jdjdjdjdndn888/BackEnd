@@ -12,6 +12,7 @@ const { addHistory, updateuser, updatestats, level, emituser, sendwebhook, WEBHO
 const { checkAndTriggerDrop } = require("../chat/index.js");
 const { acquireLock, releaseLock } = require("../../utils/userLocks.js");
 const { httpError } = require("../../utils/httpError.js");
+const { retryPayout } = require("../../utils/retryPayout.js");
 
 /** Derive 6 dice rolls (1-6) from seeds using rejection sampling to avoid modulo bias */
 function getDiceRolls(serverSeed, randomSeed) {
@@ -507,22 +508,18 @@ exports.joinmatch = asyncHandler(async (req, res) => {
       );
       checkAndTriggerDrop(req.app.get("io")).catch((e) => console.error("dice drop check:", e));
 
-      // Pay winner immediately — no setTimeout so items are never lost on restart
-      try {
-        await inventorys.insertMany(
-          winnerItems.map((item) => ({
-            _id: item._id,
-            owner: winnerId,
-            itemid: item.itemid,
-            locked: false,
-          })),
-          { ordered: false }
-        );
-        await updateuser(winnerId, req.app.get("io"));
-        await updateuser(loserId, req.app.get("io"));
-      } catch (error) {
-        if (error.code !== 11000) console.error("Dice payout error:", error);
-      }
+      // Pay winner with automatic retry — up to 5 attempts with exponential back-off
+      await retryPayout(
+        winnerItems.map((item) => ({
+          _id: item._id,
+          owner: winnerId,
+          itemid: item.itemid,
+          locked: false,
+        })),
+        "Dice"
+      );
+      await updateuser(winnerId, req.app.get("io"));
+      await updateuser(loserId, req.app.get("io"));
 
       setTimeout(() => {
         req.app.get("io").emit("DICE_CANCEL", { _id: finalUpdate._id, active: false });
