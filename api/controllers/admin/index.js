@@ -751,8 +751,8 @@ exports.scrapeItems = asyncHandler(async (req, res) => {
       scraped = generatePS99Items();
     }
   } else if (source === "psv") {
-    // Live scrape of petsimulatorvalues.com (all pages, auto-detected) with
-    // images resolved from the Big Games API.
+    // Live scrape of petsimulatorvalues.com (all pages, auto-detected).
+    // Images come directly from the PSV site via the /img-proxy endpoint.
     let result;
     try {
       result = await scrapePetSimulatorValues();
@@ -760,7 +760,6 @@ exports.scrapeItems = asyncHandler(async (req, res) => {
       return res.status(502).json({ message: `Failed to scrape petsimulatorvalues.com: ${e.message}` });
     }
 
-    // All items now have images sourced directly from petsimulatorvalues.com.
     // Items with N/A / SOON / O/C / PRICELESS values legitimately have itemvalue 0.
     const withImages = result.items.filter((it) => it.itemimage);
     skippedNoImage = result.items.length - withImages.length;
