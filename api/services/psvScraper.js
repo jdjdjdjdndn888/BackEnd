@@ -90,13 +90,12 @@ function detectLastPage(html) {
     const m = href.match(/[?&]page=(\d+)/);
     if (m) {
       const p = parseInt(m[1], 10);
-      // page=99 or very high numbers are "last" placeholders — skip them
-      if (p <= 50) maxPage = Math.max(maxPage, p);
+      if (p > 0) maxPage = Math.max(maxPage, p);
     }
     const text = $(el).text().trim();
     if (/^\d+$/.test(text)) {
       const p = parseInt(text, 10);
-      if (p <= 50) maxPage = Math.max(maxPage, p);
+      if (p > 0) maxPage = Math.max(maxPage, p);
     }
   });
   return maxPage;
