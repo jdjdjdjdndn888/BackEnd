@@ -25,17 +25,25 @@ const BROWSER_HEADERS = {
 };
 
 const BASE_URL = "https://petsimulatorvalues.com";
+const API_BASE = "https://api.gemtide.win";
 
 // Values treated as 0
 const ZERO_VALUES = new Set(["N/A", "SOON", "O/C", "PRICELESS"]);
 
 /**
- * Build the direct image URL for an item from petsimulatorvalues.com.
- * Each item has its own image at /Admin/Image/Value/{Item Name}.png
+ * Wrap a petsimulatorvalues.com image URL in our backend proxy so the browser
+ * doesn't get blocked by the site's hotlink protection.
+ */
+function proxyImageUrl(rawUrl) {
+  return `${API_BASE}/img-proxy?url=${encodeURIComponent(rawUrl)}`;
+}
+
+/**
+ * Build the proxy image URL for an item using the site's /Admin/Image/Value/ path.
  */
 function buildImageUrl(itemName) {
-  // Use the proper-cased name directly; the site uses it as-is in the path
-  return `${BASE_URL}/Admin/Image/Value/${encodeURIComponent(itemName)}.png`;
+  const direct = `${BASE_URL}/Admin/Image/Value/${encodeURIComponent(itemName)}.png`;
+  return proxyImageUrl(direct);
 }
 
 /**
@@ -121,11 +129,11 @@ function parseItems(html) {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ");
 
-    // Image directly from the site — each item has its own PNG
+    // Image directly from the site — each item has its own PNG.
+    // Always wrap in the backend proxy so hotlink protection doesn't block the browser.
     const imgSrc = $(el).find("img").first().attr("src") || "";
-    // Prefer the site's own URL; fall back to building it from the name
     const image = imgSrc && imgSrc.includes("petsimulatorvalues.com")
-      ? imgSrc
+      ? proxyImageUrl(imgSrc)
       : buildImageUrl(name);
 
     // Value: last non-separator, non-change-indicator span inside .value-container

@@ -97,6 +97,43 @@ app.use("/sab-images", express.static(path.join(__dirname, "public", "sab-images
   },
 }));
 
+// Image proxy — fetches item images from petsimulatorvalues.com with the
+// correct browser headers to bypass their hotlink protection, then streams
+// the result to the client. Registered before originGuard so the frontend
+// can load images without carrying an auth header.
+app.get("/img-proxy", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl || !targetUrl.startsWith("https://petsimulatorvalues.com/")) {
+    return res.status(400).send("Bad request");
+  }
+  try {
+    const https = require("https");
+    const proxyReq = https.get(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://petsimulatorvalues.com/",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      timeout: 10000,
+    }, (imgRes) => {
+      if (imgRes.statusCode !== 200) {
+        res.status(imgRes.statusCode || 502).send("Upstream error");
+        imgRes.resume();
+        return;
+      }
+      res.setHeader("Content-Type", imgRes.headers["content-type"] || "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      imgRes.pipe(res);
+    });
+    proxyReq.on("error", () => res.status(502).send("Proxy error"));
+    proxyReq.on("timeout", () => { proxyReq.destroy(); res.status(504).send("Proxy timeout"); });
+  } catch {
+    res.status(500).send("Internal error");
+  }
+});
+
 // Hard origin guard — blocks any request that isn't from the approved frontend
 // origin, the Roblox bot scripts (Bearer JWT), or the Discord bot announce path.
 app.use(originGuard);
