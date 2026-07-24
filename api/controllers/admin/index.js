@@ -102,12 +102,15 @@ exports.setRank = asyncHandler(async (req, res) => {
 
 exports.getUserCredits = asyncHandler(async (req, res) => {
   const { userid } = req.params;
-  const user = await users.findOne({
-    $or: [{ userid: Number(userid) }, { username: { $regex: `^${escapeRegex(userid)}$`, $options: "i" } }],
-  }).select("userid username thumbnail rank").lean();
+  const { Wallet } = require("../../modules/normalwallet.js");
+
+  const numId = Number(userid);
+  const conditions = [{ username: { $regex: `^${escapeRegex(userid)}$`, $options: "i" } }];
+  if (Number.isFinite(numId) && numId > 0) conditions.unshift({ userid: numId });
+
+  const user = await users.findOne({ $or: conditions }).select("userid username thumbnail rank").lean();
   if (!user) return res.status(404).json({ message: "User not found." });
 
-  const { Wallet } = require("../../modules/normalwallet.js");
   const wallet = await Wallet.findOne({ owner: user.userid }).lean();
   const balance = Math.max(0, Math.floor(wallet?.balance || 0));
   res.json({ success: true, data: { user, balance } });
@@ -132,9 +135,10 @@ exports.adjustCredits = asyncHandler(async (req, res) => {
   if (isNaN(amount)) return res.status(400).json({ message: "Invalid amount. Use a number or compact form like 1m, 500k, 1b." });
   if (operation !== "set" && amount < 1) return res.status(400).json({ message: "Amount must be at least 1." });
 
-  const user = await users.findOne({
-    $or: [{ userid: Number(userid) }, { username: { $regex: `^${escapeRegex(String(userid))}$`, $options: "i" } }],
-  }).lean();
+  const numId2 = Number(userid);
+  const conditions2 = [{ username: { $regex: `^${escapeRegex(String(userid))}$`, $options: "i" } }];
+  if (Number.isFinite(numId2) && numId2 > 0) conditions2.unshift({ userid: numId2 });
+  const user = await users.findOne({ $or: conditions2 }).lean();
   if (!user) return res.status(404).json({ message: "User not found." });
 
   const { Wallet } = require("../../modules/normalwallet.js");
@@ -756,12 +760,14 @@ exports.scrapeItems = asyncHandler(async (req, res) => {
       return res.status(502).json({ message: `Failed to scrape petsimulatorvalues.com: ${e.message}` });
     }
 
+    // All items now have images sourced directly from petsimulatorvalues.com.
+    // Items with N/A / SOON / O/C / PRICELESS values legitimately have itemvalue 0.
     const withImages = result.items.filter((it) => it.itemimage);
     skippedNoImage = result.items.length - withImages.length;
 
     scraped = withImages.map((it) => ({
       itemname: it.itemname,
-      itemvalue: it.itemvalue || 1,
+      itemvalue: typeof it.itemvalue === "number" ? it.itemvalue : 0,
       itemimage: it.itemimage,
       game: it.game,
     }));
