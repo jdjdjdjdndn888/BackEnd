@@ -1,6 +1,7 @@
 // Auto-generated PS99 pet data with Roblox asset URLs
 // Approximate values; images from Roblox catalog
 const BASE_IMG = (id) => `https://tr.rbxcdn.com/${id}/150/150/Image/Png`;
+const API_IMG = (name) => `https://api.gemtide.win/item-image?name=${encodeURIComponent(name)}`;
 
 const PETS = [
   // -- Titanic Pets --
@@ -133,7 +134,7 @@ function generateItems() {
       itemid: id++,
       itemname: pet.name,
       itemvalue: pet.value,
-      itemimage: BASE_IMG(pet.imageId),
+      itemimage: API_IMG(pet.name),
       game: "PS99",
     });
 
@@ -146,21 +147,21 @@ function generateItems() {
         itemid: id++,
         itemname: `${prefix}Shiny ${baseName}`,
         itemvalue: Math.round(pet.value * 0.6),
-        itemimage: BASE_IMG(pet.imageId),
+        itemimage: API_IMG(`${prefix}Shiny ${baseName}`),
         game: "PS99",
       });
       items.push({
         itemid: id++,
         itemname: `${prefix}Golden ${baseName}`,
         itemvalue: Math.round(pet.value * 0.8),
-        itemimage: BASE_IMG(pet.imageId),
+        itemimage: API_IMG(`${prefix}Golden ${baseName}`),
         game: "PS99",
       });
       items.push({
         itemid: id++,
         itemname: `${prefix}Rainbow ${baseName}`,
         itemvalue: Math.round(pet.value * 1.2),
-        itemimage: BASE_IMG(pet.imageId),
+        itemimage: API_IMG(`${prefix}Rainbow ${baseName}`),
         game: "PS99",
       });
     }

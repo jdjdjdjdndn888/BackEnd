@@ -16,6 +16,10 @@ const {
   globalLimiter,
   speedLimiter,
 } = require("./middleware/security");
+const {
+  itemNameFromPsvUrl,
+  sendItemImage,
+} = require("./services/ps99Images.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -107,11 +111,43 @@ app.use("/sab-images", express.static(path.join(__dirname, "public", "sab-images
 // frontend shows its own fallback rather than the CV brand logo.
 const PSV_LOGO_SIZE_THRESHOLD = 20000;
 
+// Clean, catalog-backed item image endpoint. This is the canonical image URL
+// for scraped PS99 items and applies variant effects without storing thousands
+// of duplicate files.
+app.get("/item-image", async (req, res) => {
+  const itemName = String(req.query.name || "").trim();
+  if (!itemName || itemName.length > 180) {
+    return res.status(400).send("Item name required");
+  }
+
+  try {
+    await sendItemImage(res, itemName);
+  } catch (error) {
+    console.error("[item-image] failed:", error.message);
+    if (!res.headersSent) res.status(502).send("Unable to load item image");
+  }
+});
+
 app.get("/img-proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl || !targetUrl.startsWith("https://petsimulatorvalues.com/")) {
     return res.status(400).send("Bad request");
   }
+
+  // Existing database records contain this legacy proxy URL. Resolve the
+  // embedded name and return the clean catalog image instead of forwarding
+  // the watermarked Cosmic Values asset.
+  const legacyItemName = itemNameFromPsvUrl(targetUrl);
+  if (legacyItemName) {
+    try {
+      await sendItemImage(res, legacyItemName);
+    } catch (error) {
+      console.error("[img-proxy] clean image failed:", error.message);
+      if (!res.headersSent) res.status(502).send("Unable to load item image");
+    }
+    return;
+  }
+
   try {
     const https = require("https");
     const proxyReq = https.get(targetUrl, {

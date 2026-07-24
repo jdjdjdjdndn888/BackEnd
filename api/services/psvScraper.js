@@ -31,19 +31,10 @@ const API_BASE = "https://api.gemtide.win";
 const ZERO_VALUES = new Set(["N/A", "SOON", "O/C", "PRICELESS"]);
 
 /**
- * Wrap a petsimulatorvalues.com image URL in our backend proxy so the browser
- * doesn't get blocked by the site's hotlink protection.
- */
-function proxyImageUrl(rawUrl) {
-  return `${API_BASE}/img-proxy?url=${encodeURIComponent(rawUrl)}`;
-}
-
-/**
- * Build the proxy image URL for an item using the site's /Admin/Image/Value/ path.
+ * Build the clean image URL used by every scraped item.
  */
 function buildImageUrl(itemName) {
-  const direct = `${BASE_URL}/Admin/Image/Value/${encodeURIComponent(itemName)}.png`;
-  return proxyImageUrl(direct);
+  return `${API_BASE}/item-image?name=${encodeURIComponent(itemName)}`;
 }
 
 /**
@@ -129,12 +120,9 @@ function parseItems(html) {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ");
 
-    // Image directly from the site — each item has its own PNG.
-    // Always wrap in the backend proxy so hotlink protection doesn't block the browser.
-    const imgSrc = $(el).find("img").first().attr("src") || "";
-    const image = imgSrc && imgSrc.includes("petsimulatorvalues.com")
-      ? proxyImageUrl(imgSrc)
-      : buildImageUrl(name);
+    // Use the clean catalog-backed endpoint. The old upstream image contains
+    // a repeated third-party watermark, so it must never be stored or served.
+    const image = buildImageUrl(name);
 
     // Value: last non-separator, non-change-indicator span inside .value-container
     let value = 0;
