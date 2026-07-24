@@ -6,7 +6,7 @@ import { getauth } from "../../utils/getauth.js";
 import toast from "react-hot-toast";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 
-const TABS = ["Overview", "Users", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Giveaways", "Affiliates", "Logs", "Danger"];
+const TABS = ["Overview", "Users", "Credits", "Items", "Cases", "Bots", "Inventory", "Withdrawals", "Giveaways", "Affiliates", "Logs", "Danger"];
 const GAMES = ["PS99", "Sab"];
 
 // Assignable ranks, lowest to highest. Must match api/utils/rankTiers.js ALL_RANKS.
@@ -74,6 +74,7 @@ export default function Admin() {
 
         {tab === "Overview"     && <OverviewTab />}
         {tab === "Users"        && <UsersTab />}
+        {tab === "Credits"      && <CreditsTab />}
         {tab === "Items"        && <ItemsTab />}
         {tab === "Bots"         && <BotsTab />}
         {tab === "Inventory"    && <InventoryTab />}
@@ -262,6 +263,208 @@ function UsersTab() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Credits ───────────────────────────────────────────────────────────────────
+function CreditsTab() {
+  const [search, setSearch]       = useState("");
+  const [user, setUser]           = useState(null);   // { user: {userid,username,thumbnail}, balance }
+  const [loading, setLoading]     = useState(false);
+  const [amount, setAmount]       = useState("");
+  const [operation, setOperation] = useState("add");  // add | remove | set
+  const [busy, setBusy]           = useState(false);
+
+  // parse compact notation: 1m, 500k, 1.5b etc.
+  function parseCompact(raw) {
+    const s = String(raw ?? "").trim().toLowerCase().replace(/,/g, "");
+    const m = s.match(/^(\d+(?:\.\d+)?)([kmbt]?)$/);
+    const mults = { "": 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12 };
+    const v = m ? Math.round(Number(m[1]) * (mults[m[2]] ?? 1)) : NaN;
+    return Number.isFinite(v) && v >= 0 ? v : NaN;
+  }
+
+  function fmtCredits(n) {
+    if (n == null || isNaN(n)) return "—";
+    const v = Math.floor(Number(n));
+    if (v >= 1e9) return (v / 1e9).toFixed(2).replace(/\.?0+$/, "") + "B";
+    if (v >= 1e6) return (v / 1e6).toFixed(2).replace(/\.?0+$/, "") + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(1).replace(/\.?0+$/, "") + "K";
+    return v.toLocaleString();
+  }
+
+  const lookupUser = async () => {
+    if (!search.trim()) return;
+    setLoading(true); setUser(null);
+    try {
+      const res = await fetch(`${api}/admin/credits/${encodeURIComponent(search.trim())}`, {
+        headers: { authorization: `Bearer ${getauth()}` },
+      });
+      const d = await res.json();
+      if (res.ok) setUser(d.data);
+      else toast.error(d.message || "User not found.");
+    } catch { toast.error("Failed to look up user."); }
+    finally { setLoading(false); }
+  };
+
+  const submit = async () => {
+    if (!user) return;
+    const parsed = parseCompact(amount);
+    if (isNaN(parsed) || (operation !== "set" && parsed < 1)) {
+      return toast.error("Enter a valid amount (e.g. 1m, 500k, 1b).");
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`${api}/admin/credits/adjust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", authorization: `Bearer ${getauth()}` },
+        body: JSON.stringify({ userid: user.user.userid, amount, operation }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        toast.success(d.message);
+        setUser((prev) => ({ ...prev, balance: d.data.after }));
+        setAmount("");
+      } else {
+        toast.error(d.message || "Failed.");
+      }
+    } catch { toast.error("Request failed."); }
+    finally { setBusy(false); }
+  };
+
+  const parsedAmt  = parseCompact(amount);
+  const previewAmt = !isNaN(parsedAmt) && user
+    ? operation === "add"    ? user.balance + parsedAmt
+    : operation === "remove" ? Math.max(0, user.balance - parsedAmt)
+    :                          parsedAmt
+    : null;
+
+  const opColors = { add: "#4ade80", remove: "#f87171", set: "#60a5fa" };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h2 className="text-lg font-bold text-white mb-1">Normal Wallet Credits</h2>
+        <p className="text-xs text-[#6B7280]">Search a player and add, remove, or set their credit balance.</p>
+      </div>
+
+      {/* Search */}
+      <div className="flex gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && lookupUser()}
+          placeholder="Username or user ID…"
+          className="flex-1 rounded-lg bg-[#13151f] border border-[#1e2035] px-4 py-2.5 text-white placeholder:text-[#6B7280] outline-none focus:border-[#8B5CF6]"
+        />
+        <button
+          onClick={lookupUser}
+          disabled={loading}
+          className="px-5 py-2.5 rounded-lg border-none text-white font-semibold cursor-pointer hover:opacity-90 disabled:opacity-40"
+          style={{ background: "linear-gradient(135deg,#8B5CF6,#7C3AED)" }}
+        >
+          {loading ? "…" : "Search"}
+        </button>
+      </div>
+
+      {/* User card */}
+      {user && (
+        <div className="rounded-xl border border-[#1e2035] bg-[#0d0f1a] overflow-hidden">
+          {/* User info strip */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-[#1e2035]">
+            <img src={user.user.thumbnail} alt="" className="w-10 h-10 rounded-full border border-[#252839]" />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white">{user.user.username}</p>
+              <p className="text-xs text-[#6B7280] font-mono">{user.user.userid} · {user.user.rank}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-[#6B7280] uppercase tracking-wider mb-0.5">Current balance</p>
+              <p className="text-xl font-extrabold" style={{ color: "#a78bfa" }}>
+                {fmtCredits(user.balance)} <span className="text-xs font-normal text-[#6B7280]">credits</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Adjustment form */}
+          <div className="p-5 space-y-4">
+            {/* Operation picker */}
+            <div>
+              <p className="text-xs text-[#6B7280] font-semibold uppercase tracking-wider mb-2">Operation</p>
+              <div className="flex gap-2">
+                {[
+                  { key: "add",    label: "➕ Add",    desc: "Increase balance" },
+                  { key: "remove", label: "➖ Remove",  desc: "Decrease balance" },
+                  { key: "set",    label: "🎯 Set",     desc: "Overwrite balance" },
+                ].map(({ key, label, desc }) => (
+                  <button
+                    key={key}
+                    onClick={() => setOperation(key)}
+                    className="flex-1 rounded-lg py-2.5 px-3 text-sm font-semibold border transition-all cursor-pointer"
+                    style={{
+                      background:   operation === key ? `rgba(${key==="add"?"74,222,128":key==="remove"?"248,113,113":"96,165,250"},0.15)` : "rgba(255,255,255,0.03)",
+                      borderColor:  operation === key ? opColors[key] : "rgba(255,255,255,0.08)",
+                      color:        operation === key ? opColors[key] : "#6B7280",
+                    }}
+                  >
+                    {label}
+                    <span className="block text-[10px] font-normal opacity-70 mt-0.5">{desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Amount input */}
+            <div>
+              <p className="text-xs text-[#6B7280] font-semibold uppercase tracking-wider mb-2">Amount</p>
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submit()}
+                  placeholder="e.g. 1m, 500k, 1.5b"
+                  className="flex-1 min-w-0 rounded-lg bg-[#13151f] border border-[#1e2035] px-4 py-2.5 text-white placeholder:text-[#6B7280] outline-none focus:border-[#8B5CF6]"
+                />
+                {["100k","1m","10m","100m","1b"].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAmount(v)}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold border border-[#1e2035] bg-[#13151f] text-[#6B7280] hover:text-white hover:border-[#8B5CF6] transition-colors cursor-pointer"
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview */}
+            {previewAmt !== null && (
+              <div className="rounded-lg bg-[#13151f] border border-[#1e2035] px-4 py-3 flex items-center justify-between">
+                <span className="text-sm text-[#6B7280]">New balance after {operation}</span>
+                <span className="font-extrabold text-lg" style={{ color: opColors[operation] }}>
+                  {fmtCredits(previewAmt)} credits
+                </span>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              onClick={submit}
+              disabled={busy || !amount.trim() || isNaN(parsedAmt)}
+              className="w-full rounded-xl py-3 text-sm font-bold text-white border-none cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: `linear-gradient(135deg, ${operation==="add"?"#16a34a,#22c55e":operation==="remove"?"#b91c1c,#ef4444":"#1d4ed8,#3b82f6"})` }}
+            >
+              {busy ? "Applying…" : `${operation==="add"?"Add":"remove"==="remove" && operation==="remove"?"Remove":"Set"} ${amount ? fmtCredits(parsedAmt) : ""} credits`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!user && !loading && (
+        <div className="text-center text-[#6B7280] py-16 text-sm">
+          Search for a player to manage their credits.
         </div>
       )}
     </div>

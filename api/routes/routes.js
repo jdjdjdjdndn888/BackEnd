@@ -174,6 +174,8 @@ router.post("/mines/history/me", accountController.verifyToken, minesController.
 router.use("/admin", adminLimiter);
 
 router.get("/admin/stats", accountController.verifyToken, adminController.isAdmin, adminController.stats);
+router.get("/admin/credits/:userid", accountController.verifyToken, adminController.isAdmin, adminController.getUserCredits);
+router.post("/admin/credits/adjust", accountController.verifyToken, adminController.isAdmin, adminController.adjustCredits);
 router.get("/admin/users", accountController.verifyToken, adminController.isAdmin, adminController.getUsers);
 router.post("/admin/ban", accountController.verifyToken, adminController.isAdmin, adminController.banUser);
 router.post("/admin/setrank", accountController.verifyToken, adminController.isAdmin, adminController.setRank);

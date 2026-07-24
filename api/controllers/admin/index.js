@@ -98,6 +98,74 @@ exports.setRank = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Rank set to ${rank}.` });
 });
 
+// ── Normal-wallet credits (admin adjust) ─────────────────────────────────────
+
+exports.getUserCredits = asyncHandler(async (req, res) => {
+  const { userid } = req.params;
+  const user = await users.findOne({
+    $or: [{ userid: Number(userid) }, { username: { $regex: `^${escapeRegex(userid)}$`, $options: "i" } }],
+  }).select("userid username thumbnail rank").lean();
+  if (!user) return res.status(404).json({ message: "User not found." });
+
+  const { Wallet } = require("../../modules/normalwallet.js");
+  const wallet = await Wallet.findOne({ owner: user.userid }).lean();
+  const balance = Math.max(0, Math.floor(wallet?.balance || 0));
+  res.json({ success: true, data: { user, balance } });
+});
+
+exports.adjustCredits = asyncHandler(async (req, res) => {
+  const { userid, amount: rawAmount, operation } = req.body;
+  if (!userid) return res.status(400).json({ message: "userid required." });
+  if (!["add", "remove", "set"].includes(operation)) {
+    return res.status(400).json({ message: "operation must be add, remove, or set." });
+  }
+
+  // parse compact notation: 1m, 500k, 1b, etc.
+  function parseCompact(raw) {
+    const s = String(raw ?? "").trim().toLowerCase().replace(/,/g, "");
+    const match = s.match(/^(\d+(?:\.\d+)?)([kmbt]?)$/);
+    const mults = { "": 1, k: 1_000, m: 1_000_000, b: 1_000_000_000, t: 1_000_000_000_000 };
+    const v = match ? Math.round(Number(match[1]) * (mults[match[2]] ?? 1)) : NaN;
+    return Number.isFinite(v) && v >= 0 ? v : NaN;
+  }
+  const amount = parseCompact(rawAmount);
+  if (isNaN(amount)) return res.status(400).json({ message: "Invalid amount. Use a number or compact form like 1m, 500k, 1b." });
+  if (operation !== "set" && amount < 1) return res.status(400).json({ message: "Amount must be at least 1." });
+
+  const user = await users.findOne({
+    $or: [{ userid: Number(userid) }, { username: { $regex: `^${escapeRegex(String(userid))}$`, $options: "i" } }],
+  }).lean();
+  if (!user) return res.status(404).json({ message: "User not found." });
+
+  const { Wallet } = require("../../modules/normalwallet.js");
+  let wallet = await Wallet.findOne({ owner: user.userid });
+  if (!wallet) wallet = new Wallet({ owner: user.userid, balance: 0 });
+
+  const before = Math.max(0, Math.floor(wallet.balance || 0));
+  let after;
+  if (operation === "add")    after = before + amount;
+  else if (operation === "remove") after = Math.max(0, before - amount);
+  else                        after = amount; // set
+
+  wallet.balance = after;
+  await wallet.save();
+
+  const label = operation === "add" ? `+${amount.toLocaleString()}` : operation === "remove" ? `-${Math.min(before, amount).toLocaleString()}` : `set to ${amount.toLocaleString()}`;
+  logAction(req.adminUser, "Adjust Credits", user.username, `${before.toLocaleString()} → ${after.toLocaleString()} (${label})`);
+
+  const io = req.app.get("io");
+  if (io) {
+    io.emit("NOTIFICATION", {
+      title: "Wallet Updated",
+      message: `Your normal wallet credits were adjusted by an admin. New balance: ${after.toLocaleString()}.`,
+      type: operation === "remove" ? "warning" : "success",
+      target: user.userid,
+    });
+  }
+
+  res.json({ success: true, message: `Credits adjusted. ${user.username}: ${before.toLocaleString()} → ${after.toLocaleString()}.`, data: { before, after } });
+});
+
 // ── Items CRUD ──────────────────────────────────────────────────────────────
 
 exports.listItems = asyncHandler(async (req, res) => {
