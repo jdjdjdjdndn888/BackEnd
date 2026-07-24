@@ -12,7 +12,7 @@ import "./normalmines.css";
 const GRID_SIZE = 25;
 const COMPACT_UNITS = { k: 1_000, m: 1_000_000, b: 1_000_000_000, t: 1_000_000_000_000 };
 const MINE_OPTIONS = [1, 2, 3, 5, 7, 10, 15, 20];
-const HOUSE_EDGE = 0.99;
+const HOUSE_EDGE = 0.80; // must match backend
 
 function operationId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();

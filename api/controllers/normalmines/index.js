@@ -11,7 +11,7 @@ const { httpError } = require("../../utils/httpError.js");
 
 const GRID_SIZE = 25;
 const MAX_BET   = 1_000_000_000;
-const HOUSE_EDGE = 0.91; // 9% house edge — keeps multipliers fair but meaningfully harder to sustain high streaks
+const HOUSE_EDGE = 0.80; // 20% house edge — makes high-reveal streaks genuinely hard to profit from
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

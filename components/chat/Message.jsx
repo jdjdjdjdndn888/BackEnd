@@ -113,8 +113,8 @@ const DropMessage = ({ msg }) => {
         background: "linear-gradient(135deg, rgba(139,92,246,0.14), rgba(124,58,237,0.06))",
         border: claimed ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(139,92,246,0.45)",
         boxShadow: claimed ? "none" : "0 0 14px rgba(139,92,246,0.25)",
-        animation: claimed ? "none" : "dropCardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both",
       }}
+      className={!claimed ? "drop-msg-animate" : ""}
     >
       <div
         style={{
