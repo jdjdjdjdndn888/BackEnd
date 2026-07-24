@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { TrendingUp, WalletCards } from "lucide-react";
+import { TrendingUp, WalletCards, Bomb } from "lucide-react";
 import UserContext from "../../utils/user.js";
 import { api } from "../../config.js";
 import { getauth } from "../../utils/getauth.js";
