@@ -12,7 +12,7 @@ import "./normalmines.css";
 const GRID_SIZE = 25;
 const COMPACT_UNITS = { k: 1_000, m: 1_000_000, b: 1_000_000_000, t: 1_000_000_000_000 };
 const MINE_OPTIONS = [1, 2, 3, 5, 7, 10, 15, 20];
-const HOUSE_EDGE = 0.80; // must match backend
+const HOUSE_EDGE = 0.85; // must match backend
 
 function operationId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -204,7 +204,7 @@ export default function NormalMines() {
           <small>Player vs House</small>
         </div>
         <div className="nm-wallet-mini">
-          <WalletCards size={13} style={{ color: "#8b5cf6" }} />
+          <img src="/mines-gem.png" alt="gem" style={{ width: 22, height: 22, objectFit: "contain", flexShrink: 0 }} />
           <strong>{money(wallet.balance)}</strong>
           <span>credits</span>
           <button className="nm-exchange-btn" onClick={() => navigate("/normal-wallet")}>Exchange</button>
