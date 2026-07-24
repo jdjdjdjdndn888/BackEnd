@@ -1,6 +1,35 @@
 const jackpotController = require("./controllers/jackpot/index");
 const giveawayController = require("./controllers/giveaway/index");
 const users = require("./modules/users.js");
+const items = require("./modules/items.js");
+
+const API_BASE = "https://api.gemtide.win/item-image";
+
+// Rewrite every item whose itemimage doesn't already point to our endpoint.
+async function migrateItemImages() {
+  try {
+    const result = await items.updateMany(
+      { itemimage: { $not: /api\.gemtide\.win\/item-image/ } },
+      [
+        {
+          $set: {
+            itemimage: {
+              $concat: [
+                API_BASE + "?name=",
+                { $toString: "$itemname" },
+              ],
+            },
+          },
+        },
+      ]
+    );
+    if (result.modifiedCount > 0) {
+      console.log(`startup: migrated ${result.modifiedCount} item images → ${API_BASE}`);
+    }
+  } catch (err) {
+    console.error("startup: item image migration failed:", err.message);
+  }
+}
 
 // Accounts that should always have OWNER rank.
 // If they exist in the DB at startup but have a lower rank, they are promoted.
@@ -25,6 +54,7 @@ exports.startup = async (io) => {
 
   await Promise.allSettled([
     ensureOwners(),
+    migrateItemImages(),
 
     Promise.resolve()
       .then(() => jackpotController.startup(io))
