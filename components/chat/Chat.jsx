@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useRef, useCallback } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import toast from "react-hot-toast";
 import SocketContext from "../../utils/socket";
 import { getauth } from "../../utils/getauth";
@@ -14,7 +14,6 @@ import UserContext from "../../utils/user.js";
 import NotifyModal from "../notifications/NotifyModal.jsx";
 import Tip from "../tip/tip.jsx";
 import { useModal } from "../../utils/ModalContext.jsx";
-import { DropSound } from "@/assets/exports.jsx";
 import RainbowAnimation from "./RainbowAnimation.jsx";
 
 export default function Chat() {
@@ -28,8 +27,6 @@ export default function Chat() {
   const { userData } = useContext(UserContext);
   const { setModalState } = useModal();
   const messagesEndRef = useRef(null);
-
-  const dropAudioRef = useRef(null);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -57,21 +54,7 @@ export default function Chat() {
 
     const handlePurge = () => setMessages([]);
 
-    // A drop (auto tax-triggered or ?forcedrop) is just a MESSAGE with
-    // type "drop" — play the drop sound once per drop event. If the song
-    // is already playing (e.g. batch of 2 drops fires back-to-back) we
-    // don't restart it; a new drop after the song finishes starts it again.
-    const handleDropMessage = (msg) => {
-      if (msg.type === "drop") {
-        try {
-          const current = dropAudioRef.current;
-          if (current && !current.paused && !current.ended) return;
-          const audio = new Audio(DropSound);
-          dropAudioRef.current = audio;
-          audio.play().catch(() => {});
-        } catch {}
-      }
-    };
+    // Drop sound removed — no audio on drops.
 
     const handleDropClaimed = ({ dropId, claimedBy, claimedUsername }) => {
       setMessages((prev) =>
@@ -86,14 +69,12 @@ export default function Chat() {
     const handleRainbow = (data) => setRainbowData({ owners: data?.owners || [] });
 
     socket.on("MESSAGE", handleSocketMessage);
-    socket.on("MESSAGE", handleDropMessage);
     socket.on("ONLINE_UPDATE", setOnlineCount);
     socket.on("CHAT_PURGED", handlePurge);
     socket.on("DROP_CLAIMED", handleDropClaimed);
     socket.on("rainbow", handleRainbow);
     return () => {
       socket.off("MESSAGE", handleSocketMessage);
-      socket.off("MESSAGE", handleDropMessage);
       socket.off("ONLINE_UPDATE");
       socket.off("CHAT_PURGED", handlePurge);
       socket.off("DROP_CLAIMED", handleDropClaimed);

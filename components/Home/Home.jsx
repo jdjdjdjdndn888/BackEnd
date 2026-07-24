@@ -73,14 +73,16 @@ const TwitterIcon = ({ className }) => (
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 
 const GAMES = [
-  { name: "Cases",      desc: "Spend gems, spin the reel, win rare PS99 items.",     href: "/cases",     banner: "/bg-cases.jpg",    isNew: true },
-  { name: "Coinflip",   desc: "A 50/50 chance to double your wager.",               href: "/coinflip",  banner: "/bg-coinflip.jpg"  },
-  { name: "Jackpot",    desc: "Deposit items into the pool to win it all.",           href: "/jackpot",   banner: "/bg-jackpot.jpg"   },
-  { name: "Dice Roll",  desc: "Roll the dice to hit your target multiplier.",         href: "/dice",      banner: "/bg-dice.jpg"      },
-  { name: "Blackjack",  desc: "Play against the dealer. Get closer to 21.",           href: "/blackjack", banner: "/bg-blackjack.jpg" },
-  { name: "Mines",      desc: "Navigate the minefield in a 1v1 showdown.",            href: "/mines",     banner: "/bg-mines.jpg"     },
-  { name: "Upgrader",   desc: "Risk your current pets to upgrade to a higher tier.",  href: "/upgrader",  banner: "/bg-upgrader.jpg"  },
-  { name: "Trades",     desc: "P2P betting. Propose a wager and negotiate.",          href: "/trades",    banner: "/bg-trades.jpg"    },
+  { name: "Cases",          desc: "Spend gems, spin the reel, win rare PS99 items.",       href: "/cases",            banner: "/bg-cases.jpg",    isNew: true },
+  { name: "Coinflip",       desc: "A 50/50 chance to double your wager.",                 href: "/coinflip",         banner: "/bg-coinflip.jpg"  },
+  { name: "Jackpot",        desc: "Deposit items into the pool to win it all.",             href: "/jackpot",          banner: "/bg-jackpot.jpg"   },
+  { name: "Dice Roll",      desc: "Roll the dice to hit your target multiplier.",           href: "/dice",             banner: "/bg-dice.jpg"      },
+  { name: "Blackjack",      desc: "Play against the dealer. Get closer to 21.",             href: "/blackjack",        banner: "/bg-blackjack.jpg" },
+  { name: "Normal Mines",   desc: "Solo minesweeper — dodge bombs, cash out big.",         href: "/normal-mines",     banner: "/bg-mines.jpg",    isNew: true },
+  { name: "Normal Blackjack", desc: "Classic blackjack vs the house. Solo, fast, fair.",  href: "/normal-blackjack", banner: "/bg-blackjack.jpg", isNew: true },
+  { name: "Mines",          desc: "Navigate the minefield in a 1v1 showdown.",             href: "/mines",            banner: "/bg-mines.jpg"     },
+  { name: "Upgrader",       desc: "Risk your current pets to upgrade to a higher tier.",   href: "/upgrader",         banner: "/bg-upgrader.jpg"  },
+  { name: "Trades",         desc: "P2P betting. Propose a wager and negotiate.",           href: "/trades",           banner: "/bg-trades.jpg"    },
 ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
