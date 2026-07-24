@@ -28,6 +28,8 @@ import Trades from "../components/trades/Trades.jsx";
 import DicePage from "../components/dice/layout.jsx";
 import BlackjackPage from "../components/blackjack/layout.jsx";
 import NormalBlackjack from "../components/normalblackjack/NormalBlackjack.jsx";
+import NormalMines from "../components/normalmines/NormalMines.jsx";
+import NormalWallet from "../components/normalwallet/NormalWallet.jsx";
 import MinesPage from "../components/mines/layout.jsx";
 import RpsPage      from "../components/rps/layout.jsx";
 import SupportPage  from "../components/support/SupportPage.jsx";
@@ -230,6 +232,8 @@ function App() {
                         <Route path="/dice" element={<DicePage />} />
                         <Route path="/blackjack" element={<BlackjackPage />} />
                         <Route path="/normal-blackjack" element={<NormalBlackjack />} />
+                        <Route path="/normal-mines" element={<NormalMines />} />
+                        <Route path="/normal-wallet" element={<NormalWallet />} />
                         <Route path="/mines" element={<MinesPage />} />
                         <Route path="/rps" element={<RpsPage />} />
                         <Route path="/support" element={<SupportPage />} />

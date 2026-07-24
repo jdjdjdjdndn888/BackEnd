@@ -1,6 +1,7 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Coins, RefreshCw, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
+import { Coins, RefreshCw, ShieldCheck, WalletCards } from "lucide-react";
 import UserContext from "../../utils/user.js";
 import { api } from "../../config.js";
 import { getauth } from "../../utils/getauth.js";
@@ -9,7 +10,6 @@ import { useSeo } from "../../utils/useSeo";
 import tableArt from "../../attached_assets/image_1784821751710.png";
 import "./normalblackjack.css";
 
-const HOUSE_TAX = 0.08;
 const COMPACT_UNITS = { k: 1_000, m: 1_000_000, b: 1_000_000_000, t: 1_000_000_000_000 };
 
 function operationId() {
@@ -28,68 +28,18 @@ function parseCompactAmount(raw) {
   return Number.isSafeInteger(value) && value > 0 ? value : 0;
 }
 
-function autoSelectHouseStock(items, balance) {
-  const limit = Math.max(0, Math.floor(Number(balance) || 0));
-  if (!limit || !items.length) return new Set();
-
-  const usable = items
-    .filter((item) => Number.isSafeInteger(Number(item.itemvalue)) && Number(item.itemvalue) > 0)
-    .slice(0, 100);
-  const total = usable.reduce((sum, item) => sum + Number(item.itemvalue), 0);
-  if (total <= limit) return new Set(usable.map((item) => String(item.inventoryid)));
-
-  const chooseGreedy = (ordered) => {
-    let remaining = limit;
-    const chosen = [];
-    for (const item of ordered) {
-      const value = Number(item.itemvalue);
-      if (value <= remaining) {
-        chosen.push(item);
-        remaining -= value;
-      }
-    }
-    return { chosen, value: limit - remaining };
-  };
-
-  const ascending = chooseGreedy([...usable].sort((a, b) => Number(a.itemvalue) - Number(b.itemvalue)));
-  const descending = chooseGreedy([...usable].sort((a, b) => Number(b.itemvalue) - Number(a.itemvalue)));
-  const best = descending.value > ascending.value ? descending : ascending;
-  return new Set(best.chosen.map((item) => String(item.inventoryid)));
-}
-
 function Card({ card, hidden = false }) {
   if (hidden || card?.hidden) return <div className="normal-bj-card normal-bj-card--hidden"><span>?</span></div>;
   const red = card?.suit === "♥" || card?.suit === "♦";
   return <div className={`normal-bj-card ${red ? "normal-bj-card--red" : ""}`}><strong>{card?.rank}</strong><span>{card?.suit}</span></div>;
 }
 
-function InventoryGrid({ items, selected, onToggle, emptyLabel }) {
-  if (!items.length) return <div className="normal-bj-empty">{emptyLabel}</div>;
-  return (
-    <div className="normal-bj-inventory-grid">
-      {items.map((item) => {
-        const active = selected.has(String(item.inventoryid));
-        return (
-          <button key={item.inventoryid} type="button" onClick={() => onToggle(item)} className={`normal-bj-item ${active ? "normal-bj-item--selected" : ""}`}>
-            <img src={item.itemimage || "/logo-small.png"} alt="" />
-            <span>{item.itemname}</span>
-            <b>{money(item.itemvalue)}</b>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function NormalBlackjack() {
   useSeo({ title: "Normal Blackjack | GemTide", description: "Play GemTide normal blackjack with a separate item-backed wallet.", path: "/normal-blackjack" });
   const { userData } = useContext(UserContext);
+  const navigate = useNavigate();
   const [tab, setTab] = useState("play");
-  const [wallet, setWallet] = useState({ balance: 0, taxRate: HOUSE_TAX });
-  const [inventory, setInventory] = useState([]);
-  const [houseInventory, setHouseInventory] = useState([]);
-  const [sourceSelected, setSourceSelected] = useState(new Set());
-  const [targetSelected, setTargetSelected] = useState(new Set());
+  const [wallet, setWallet] = useState({ balance: 0 });
   const [game, setGame] = useState(null);
   const [history, setHistory] = useState([]);
   const [bet, setBet] = useState("1m");
@@ -108,16 +58,12 @@ export default function NormalBlackjack() {
   const refresh = useCallback(async () => {
     if (!getauth()) { setLoading(false); return; }
     try {
-      const [walletRes, inventoryRes, houseRes, currentRes, historyRes] = await Promise.all([
+      const [walletRes, currentRes, historyRes] = await Promise.all([
         request("/normal-wallet"),
-        request("/normal-wallet/inventory"),
-        request("/normal-wallet/house-inventory"),
         request("/normal-blackjack/current"),
         request("/normal-blackjack/history"),
       ]);
-      setWallet(walletRes.data || { balance: 0, taxRate: HOUSE_TAX });
-      setInventory(inventoryRes.data || []);
-      setHouseInventory(houseRes.data || []);
+      setWallet(walletRes.data || { balance: 0 });
       setGame(currentRes.data || null);
       setHistory(historyRes.data || []);
       if (currentRes.data) setMessage("Your move, player.");
@@ -130,69 +76,9 @@ export default function NormalBlackjack() {
 
   useEffect(() => { refresh(); }, [refresh, userData?.userid]);
 
-  const selectedItems = useMemo(() => inventory.filter((item) => sourceSelected.has(String(item.inventoryid))), [inventory, sourceSelected]);
-  const selectedHouseItems = useMemo(() => houseInventory.filter((item) => targetSelected.has(String(item.inventoryid))), [houseInventory, targetSelected]);
-  const selectedValue = selectedItems.reduce((sum, item) => sum + Number(item.itemvalue || 0), 0);
-  const selectedHouseValue = selectedHouseItems.reduce((sum, item) => sum + Number(item.itemvalue || 0), 0);
   const currentHand = game?.playerHands?.[game.activeHand || 0];
   const betValue = parseCompactAmount(bet);
   const loginPrompt = !getauth();
-
-  useEffect(() => {
-    if (tab === "redeem") {
-      setTargetSelected(autoSelectHouseStock(houseInventory, wallet.balance));
-    }
-  }, [tab, houseInventory, wallet.balance]);
-
-  const toggleSelected = (setter) => (item) => setter((old) => {
-    const next = new Set(old);
-    const id = String(item.inventoryid);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-  const toggleSource = toggleSelected(setSourceSelected);
-  const toggleTarget = toggleSelected(setTargetSelected);
-
-  const clearSelections = () => {
-    setSourceSelected(new Set());
-    setTargetSelected(new Set());
-  };
-
-  const exchange = async () => {
-    if (!selectedItems.length) return toast.error("Select items first.");
-    setBusy(true);
-    try {
-      const result = await request("/normal-wallet/exchange", { method: "POST", body: JSON.stringify({ operationId: operationId(), inventoryIds: selectedItems.map((item) => item.inventoryid) }) });
-      toast.success(result.message); clearSelections(); await refresh();
-    } catch (error) { toast.error(error.message); } finally { setBusy(false); }
-  };
-
-  const redeem = async () => {
-    if (!selectedHouseItems.length) return toast.error("There is no available owner stock within your current wallet balance.");
-    if (selectedHouseValue > wallet.balance) return toast.error("Your normal wallet is too low.");
-    setBusy(true);
-    try {
-      const result = await request("/normal-wallet/redeem", { method: "POST", body: JSON.stringify({ operationId: operationId(), inventoryIds: selectedHouseItems.map((item) => item.inventoryid) }) });
-      toast.success(result.message); clearSelections(); await refresh();
-    } catch (error) { toast.error(error.message); } finally { setBusy(false); }
-  };
-
-  const swap = async () => {
-    if (!selectedItems.length || !selectedHouseItems.length) return toast.error("Choose the items you are breaking and the items you want back.");
-    if (selectedValue !== selectedHouseValue) return toast.error("The two sides must have equal item value.");
-    setBusy(true);
-    try {
-      const result = await request("/normal-wallet/swap", {
-        method: "POST",
-        body: JSON.stringify({
-          operationId: operationId(),
-          sourceInventoryIds: selectedItems.map((item) => item.inventoryid),
-          targetInventoryIds: selectedHouseItems.map((item) => item.inventoryid),
-        }),
-      });
-      toast.success(result.message); clearSelections(); await refresh();
-    } catch (error) { toast.error(error.message); } finally { setBusy(false); }
-  };
 
   const startGame = async () => {
     if (!betValue || betValue > wallet.balance) return toast.error("Enter a valid wager within your normal wallet.");
@@ -216,7 +102,13 @@ export default function NormalBlackjack() {
     <div className="normal-bj-page">
       <header className="normal-bj-topbar">
         <div className="normal-bj-brand"><span className="normal-bj-mark">GT</span><div><b>Normal Blackjack</b><small>Player versus dealer</small></div></div>
-        <div className="normal-bj-wallet-mini"><small>Normal wallet</small><strong>{money(wallet.balance)}</strong><span>credits</span></div>
+        <div className="normal-bj-wallet-mini">
+          <WalletCards size={13} style={{ color: "#8b5cf6" }} />
+          <small>Normal wallet</small>
+          <strong>{money(wallet.balance)}</strong>
+          <span>credits</span>
+          <button className="normal-bj-exchange-btn" onClick={() => navigate("/normal-wallet")}>Exchange</button>
+        </div>
       </header>
 
       <section className="normal-bj-full-table" aria-label="Normal blackjack table">
@@ -250,44 +142,37 @@ export default function NormalBlackjack() {
       <div className="normal-bj-walletbar">
         <div className="normal-bj-wallet-balance"><WalletCards size={17} /><span>Normal wallet</span><strong>{money(wallet.balance)}</strong></div>
         <div className="normal-bj-wallet-note">Separate from your site balance · type 1m, 100m, or a full number to wager</div>
+        <button className="normal-bj-exchange-link" type="button" onClick={() => navigate("/normal-wallet")}>Exchange items</button>
         <button className="normal-bj-refresh" type="button" onClick={refresh} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh</button>
       </div>
 
-      {loginPrompt ? <div className="normal-bj-login">Log in to exchange items and play normal blackjack.</div> : (
+      {loginPrompt ? <div className="normal-bj-login">Log in to play normal blackjack.</div> : (
         <>
           <nav className="normal-bj-tabs">
-            {[["play", "Play blackjack"], ["exchange", "Exchange items"], ["break", "Break / swap items"], ["redeem", "Buy items back"], ["history", "History"]].map(([key, label]) => (
-              <button key={key} type="button" className={tab === key ? "active" : ""} onClick={() => { setTab(key); clearSelections(); }}>{label}</button>
+            {[["play", "Play blackjack"], ["history", "History"]].map(([key, label]) => (
+              <button key={key} type="button" className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
             ))}
           </nav>
 
           {tab === "play" && <section className="normal-bj-rules-row"><ShieldCheck size={15} /><span>Provably fair six-deck shoe</span><span>Blackjack pays 6:5</span><span>No surrender or cancellation after deal</span></section>}
-          {tab === "exchange" && (
+          {tab === "history" && (
             <section className="normal-bj-panel">
-              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">ITEMS → CREDITS</span><h2>Fund your table wallet</h2><p>Selected items move to the house inventory and credit the separate wallet after the 8% exchange tax.</p></div><div className="normal-bj-fee-card"><span>Credited amount</span><b>{money(selectedValue - Math.floor(selectedValue * HOUSE_TAX))}</b><small>8% exchange tax</small></div></div>
-              <InventoryGrid items={inventory} selected={sourceSelected} onToggle={toggleSource} emptyLabel="No unlocked items available." />
-              <div className="normal-bj-panel-footer"><span>{selectedItems.length} items · gross {money(selectedValue)}</span><button type="button" className="normal-bj-primary" onClick={exchange} disabled={busy || !selectedItems.length}>Exchange for {money(selectedValue - Math.floor(selectedValue * HOUSE_TAX))}</button></div>
-            </section>
-          )}
-          {tab === "redeem" && (
-            <section className="normal-bj-panel">
-              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">CREDITS → ITEMS</span><h2>Withdraw available stock</h2><p>Your withdrawal is automatically selected from items the owner currently has. If the owner has less stock than your wallet balance, withdraw what is available now and come back later for the rest.</p></div><div className="normal-bj-fee-card"><span>Auto-selected stock</span><b>{money(selectedHouseValue)}</b><small>Wallet: {money(wallet.balance)}</small></div></div>
-              <InventoryGrid items={houseInventory} selected={targetSelected} onToggle={toggleTarget} emptyLabel="The house inventory has no redeemable items right now." />
-              <div className="normal-bj-panel-footer"><span>{selectedHouseItems.length ? `Auto-selected ${selectedHouseItems.length} item${selectedHouseItems.length === 1 ? "" : "s"} · ${money(selectedHouseValue)} credits${selectedHouseValue < wallet.balance ? ` · ${money(wallet.balance - selectedHouseValue)} remain for later` : ""}` : "No owner stock is currently available within your wallet balance."}</span><button type="button" className="normal-bj-primary" onClick={redeem} disabled={busy || !selectedHouseItems.length || selectedHouseValue > wallet.balance}>Withdraw {money(selectedHouseValue)}</button></div>
-            </section>
-          )}
-          {tab === "break" && (
-            <section className="normal-bj-panel">
-              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">ITEMS ↔ ITEMS</span><h2>Break items into the pieces you want</h2><p>Pick the items to break, then pick the house items you want instead. It swaps ownership directly — no credits are created, removed, or touched.</p></div><div className="normal-bj-fee-card"><span>Value to swap</span><b className={selectedValue === selectedHouseValue && selectedValue > 0 ? "normal-bj-equal" : ""}>{money(selectedValue)} / {money(selectedHouseValue)}</b><small>{selectedValue === selectedHouseValue && selectedValue > 0 ? "Equal value" : "Both sides must match"}</small></div></div>
-              <div className="normal-bj-swap-columns">
-                <div className="normal-bj-swap-side"><div className="normal-bj-swap-heading"><span>1. Items you break</span><b>{selectedItems.length} selected</b></div><InventoryGrid items={inventory} selected={sourceSelected} onToggle={toggleSource} emptyLabel="No unlocked items available." /></div>
-                <div className="normal-bj-swap-arrow">⇄</div>
-                <div className="normal-bj-swap-side"><div className="normal-bj-swap-heading"><span>2. Items you want back</span><b>{selectedHouseItems.length} selected</b></div><InventoryGrid items={houseInventory} selected={targetSelected} onToggle={toggleTarget} emptyLabel="No house items available." /></div>
+              <div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">TABLE LOG</span><h2>Your recent hands</h2></div></div>
+              <div className="normal-bj-history">
+                {history.length
+                  ? history.map((entry) => (
+                      <div key={entry._id}>
+                        <span>{new Date(entry.finishedAt || entry.createdAt).toLocaleString()}</span>
+                        <b>{entry.outcome}</b>
+                        <strong className={entry.payout >= entry.totalBet ? "win" : "loss"}>
+                          {entry.payout >= entry.totalBet ? "+" : "-"}{money(Math.abs(entry.payout - entry.totalBet))}
+                        </strong>
+                      </div>
+                    ))
+                  : <div className="normal-bj-empty">No completed hands yet.</div>}
               </div>
-              <div className="normal-bj-panel-footer"><span>{selectedValue === selectedHouseValue && selectedValue > 0 ? "Ready to swap equal value" : "Select equal total value on both sides"}</span><button type="button" className="normal-bj-primary" onClick={swap} disabled={busy || !selectedItems.length || !selectedHouseItems.length || selectedValue !== selectedHouseValue}>Swap items</button></div>
             </section>
           )}
-          {tab === "history" && <section className="normal-bj-panel"><div className="normal-bj-panel-heading"><div><span className="normal-bj-eyebrow">TABLE LOG</span><h2>Your recent hands</h2></div></div><div className="normal-bj-history">{history.length ? history.map((entry) => <div key={entry._id}><span>{new Date(entry.finishedAt || entry.createdAt).toLocaleString()}</span><b>{entry.outcome}</b><strong className={entry.payout >= entry.totalBet ? "win" : "loss"}>{entry.payout >= entry.totalBet ? "+" : "-"}{money(Math.abs(entry.payout - entry.totalBet))}</strong></div>) : <div className="normal-bj-empty">No completed hands yet.</div>}</div></section>}
         </>
       )}
     </div>

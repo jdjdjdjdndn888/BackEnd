@@ -154,6 +154,14 @@ router.post("/normal-blackjack/create", mutationLimiter, accountController.verif
 router.post("/normal-blackjack/action", mutationLimiter, accountController.verifyToken, normalBlackjackController.action);
 router.post("/normal-blackjack/cancel", mutationLimiter, accountController.verifyToken, normalBlackjackController.cancel);
 
+// ── Normal mines: solo player-vs-house using the normal wallet ───────────────
+const normalMinesController = require("../controllers/normalmines/index.js");
+router.get("/normal-mines/current", accountController.verifyToken, normalMinesController.getCurrent);
+router.get("/normal-mines/history", accountController.verifyToken, normalMinesController.history);
+router.post("/normal-mines/create",  mutationLimiter, accountController.verifyToken, normalMinesController.create);
+router.post("/normal-mines/reveal",  mutationLimiter, accountController.verifyToken, normalMinesController.reveal);
+router.post("/normal-mines/cashout", mutationLimiter, accountController.verifyToken, normalMinesController.cashout);
+
 router.get("/stats/all", gamesController.getvalue);
 
 router.get("/mines/games", minesController.getgames);
