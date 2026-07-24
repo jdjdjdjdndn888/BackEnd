@@ -1,6 +1,8 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Undefinded } from "../../assets/exports.jsx";
+import { api } from "../../config.js";
+import { getauth } from "../../utils/getauth.js";
 import UserContext from "../../utils/user.js";
 import InventoryModal from "../popup/inventory.jsx";
 import GiveawayModal from "../popup/giveaway.jsx";
@@ -43,12 +45,32 @@ export default function Header({ onOpenMobileNav = () => {} }) {
   const { userData, setUserData } = useContext(UserContext);
   const { setModalState } = useModal();
   const [balance, setBalance] = useState("0");
+  const [normalBalance, setNormalBalance] = useState(null);
   const [profileImage, setProfileImage] = useState(userData?.thumbnail || Undefinded);
   const [level, setLevel] = useState(getDisplayLevel(userData?.rank, userData?.level || 0));
   const socket = useContext(SocketContext);
   const Navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
   const { unreadCount } = useNotifications();
+
+  const fetchNormalWallet = useCallback(async () => {
+    const token = getauth();
+    if (!token) return;
+    try {
+      const res = await fetch(`${api}/normal-wallet`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const body = await res.json();
+      if (body?.data?.balance != null) setNormalBalance(body.data.balance);
+    } catch { /* silent — header must never crash */ }
+  }, []);
+
+  useEffect(() => {
+    fetchNormalWallet();
+    const id = setInterval(fetchNormalWallet, 30_000);
+    return () => clearInterval(id);
+  }, [fetchNormalWallet, userData?.userid]);
 
   useEffect(() => {
     if (userData) {
@@ -108,9 +130,12 @@ export default function Header({ onOpenMobileNav = () => {} }) {
 
       {userData ? (
         <>
-          {/* Wallet — centered */}
-          <div className="flex-1 flex justify-center">
+          {/* Wallets — centered */}
+          <div className="flex-1 flex justify-center items-center gap-2">
             <Wallet balance={balance} />
+            {normalBalance !== null && (
+              <NormalWalletChip balance={normalBalance} onClick={() => Navigate("/normal-wallet")} />
+            )}
           </div>
 
           {/* Right cluster */}
@@ -223,6 +248,19 @@ export default function Header({ onOpenMobileNav = () => {} }) {
     </header>
   );
 }
+
+const NormalWalletChip = ({ balance, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="hidden sm:flex items-center gap-1.5 rounded-xl border border-[#2a1f4a] bg-[#13151f] text-xs font-semibold text-white sm:text-sm px-3 py-2 transition-all hover:border-[#8B5CF6] hover:bg-[#1a1630] active:scale-95 cursor-pointer"
+    title="Normal Wallet — click to exchange"
+    style={{ flexShrink: 0 }}
+  >
+    <img src="/mines-gem.png" alt="" style={{ width: 16, height: 16, objectFit: "contain", flexShrink: 0 }} />
+    <span style={{ color: "#a78bfa" }}>{formatLargeNumber(balance)}</span>
+  </button>
+);
 
 const Wallet = ({ balance }) => {
   const { setModalState } = useModal();

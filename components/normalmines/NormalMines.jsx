@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Bomb, Gem, RefreshCw, TrendingUp, WalletCards } from "lucide-react";
+import { TrendingUp, WalletCards } from "lucide-react";
 import UserContext from "../../utils/user.js";
 import { api } from "../../config.js";
 import { getauth } from "../../utils/getauth.js";
@@ -11,8 +11,8 @@ import "./normalmines.css";
 
 const GRID_SIZE = 25;
 const COMPACT_UNITS = { k: 1_000, m: 1_000_000, b: 1_000_000_000, t: 1_000_000_000_000 };
-const MINE_OPTIONS = [1, 3, 5, 7, 10, 15, 20, 24];
-const HOUSE_EDGE = 0.97;
+const MINE_OPTIONS = [1, 2, 3, 5, 7, 10, 15, 20];
+const HOUSE_EDGE = 0.99;
 
 function operationId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -47,7 +47,6 @@ function nextMultiplier(mineCount, safeReveals) {
 }
 
 function Tile({ index, state, onClick, disabled }) {
-  // state: 'hidden' | 'safe' | 'mine' | 'revealed-mine' (others' mine at bust)
   return (
     <button
       className={`nm-tile nm-tile--${state}`}
@@ -56,9 +55,9 @@ function Tile({ index, state, onClick, disabled }) {
       aria-label={`Tile ${index + 1}`}
     >
       <span className="nm-tile-inner">
-        {state === "safe"          && <Gem size={22} />}
-        {state === "mine"          && <Bomb size={22} />}
-        {state === "mine-revealed" && <Bomb size={22} />}
+        {state === "safe"          && <img src="/mines-gem.png"  alt="gem"  className="nm-tile-img" />}
+        {state === "mine"          && <img src="/mines-bomb.png" alt="bomb" className="nm-tile-img nm-tile-img--boom" />}
+        {state === "mine-revealed" && <img src="/mines-bomb.png" alt="bomb" className="nm-tile-img nm-tile-img--dim" />}
       </span>
     </button>
   );
@@ -73,7 +72,7 @@ export default function NormalMines() {
   const [game, setGame]         = useState(null);
   const [history, setHistory]   = useState([]);
   const [bet, setBet]           = useState("1m");
-  const [mineCount, setMineCount] = useState(5);
+  const [mineCount, setMineCount] = useState(3);
   const [loading, setLoading]   = useState(true);
   const [busy, setBusy]         = useState(false);
   const [bustedIdx, setBustedIdx] = useState(null);

@@ -11,7 +11,7 @@ const { httpError } = require("../../utils/httpError.js");
 
 const GRID_SIZE = 25;
 const MAX_BET   = 1_000_000_000;
-const HOUSE_EDGE = 0.97; // 3% house edge
+const HOUSE_EDGE = 0.99; // 1% house edge
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

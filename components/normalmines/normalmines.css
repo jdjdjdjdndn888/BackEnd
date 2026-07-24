@@ -295,6 +295,17 @@
   align-items: center;
   justify-content: center;
 }
+.nm-tile-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  pointer-events: none;
+  transition: transform 0.15s;
+}
+.nm-tile--safe .nm-tile-img { animation: nm-tile-pop 0.22s ease; }
+.nm-tile--mine .nm-tile-img { animation: nm-tile-shake 0.30s ease; filter: drop-shadow(0 0 6px rgba(239,68,68,0.7)); }
+.nm-tile-img--dim { opacity: 0.35; }
+.nm-tile-img--boom { filter: drop-shadow(0 0 8px rgba(239,68,68,0.85)); }
 
 .nm-tile--hidden {
   background: rgba(255,255,255,0.05);
