@@ -101,6 +101,12 @@ app.use("/sab-images", express.static(path.join(__dirname, "public", "sab-images
 // correct browser headers to bypass their hotlink protection, then streams
 // the result to the client. Registered before originGuard so the frontend
 // can load images without carrying an auth header.
+// The Cosmic Values site logo (used as a placeholder when a real item image is
+// missing) is ~11,665 bytes. Real item images are 40KB+. Any response under
+// this threshold is the placeholder logo — we return 404 instead so the
+// frontend shows its own fallback rather than the CV brand logo.
+const PSV_LOGO_SIZE_THRESHOLD = 20000;
+
 app.get("/img-proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl || !targetUrl.startsWith("https://petsimulatorvalues.com/")) {
@@ -122,10 +128,22 @@ app.get("/img-proxy", async (req, res) => {
         imgRes.resume();
         return;
       }
-      res.setHeader("Content-Type", imgRes.headers["content-type"] || "image/png");
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-      imgRes.pipe(res);
+
+      // Collect chunks to check total size before forwarding
+      const chunks = [];
+      imgRes.on("data", (chunk) => chunks.push(chunk));
+      imgRes.on("end", () => {
+        const body = Buffer.concat(chunks);
+        // If the response is suspiciously small it's the CV placeholder logo — reject it
+        if (body.length < PSV_LOGO_SIZE_THRESHOLD) {
+          return res.status(404).send("No item image");
+        }
+        res.setHeader("Content-Type", imgRes.headers["content-type"] || "image/png");
+        res.setHeader("Content-Length", body.length);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        res.send(body);
+      });
     });
     proxyReq.on("error", () => res.status(502).send("Proxy error"));
     proxyReq.on("timeout", () => { proxyReq.destroy(); res.status(504).send("Proxy timeout"); });

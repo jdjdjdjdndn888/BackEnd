@@ -1,7 +1,9 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useSeo } from "@/utils/useSeo";
 
 export default function CasesPage() {
+  const navigate = useNavigate();
   useSeo({
     title: "Cases — Coming Soon | GemTide",
     description: "Cases is coming soon.",
@@ -9,14 +11,17 @@ export default function CasesPage() {
   });
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "#000",
-      overflow: "hidden",
-      userSelect: "none",
-      pointerEvents: "none",
-    }}>
+    <div
+      onClick={() => navigate("/")}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#000",
+        overflow: "hidden",
+        userSelect: "none",
+        cursor: "pointer",
+      }}
+    >
       <img
         src="/coming-soon.png"
         alt="Coming Soon"
@@ -26,6 +31,7 @@ export default function CasesPage() {
           objectFit: "cover",
           objectPosition: "center",
           display: "block",
+          pointerEvents: "none",
         }}
       />
     </div>
