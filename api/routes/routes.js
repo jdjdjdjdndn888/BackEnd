@@ -28,7 +28,7 @@ const {
   adminLimiter,
 } = require("../middleware/security");
 
-router.use(express.json());
+router.use(express.json({ limit: "25kb" }));
 
 router.get("/", (req, res) => res.status(403).json({ message: "Forbidden" }));
 
@@ -164,6 +164,22 @@ router.get("/normal-mines/history", accountController.verifyToken, normalMinesCo
 router.post("/normal-mines/create",  mutationLimiter, accountController.verifyToken, normalMinesController.create);
 router.post("/normal-mines/reveal",  mutationLimiter, accountController.verifyToken, normalMinesController.reveal);
 router.post("/normal-mines/cashout", mutationLimiter, accountController.verifyToken, normalMinesController.cashout);
+
+// ── Towers: solo player-vs-house climb game using the normal wallet ───────────
+const towersController = require("../controllers/towers/index.js");
+router.get("/towers/current", accountController.verifyToken, towersController.getCurrent);
+router.get("/towers/history", accountController.verifyToken, towersController.history);
+router.post("/towers/create",  mutationLimiter, accountController.verifyToken, towersController.create);
+router.post("/towers/pick",    mutationLimiter, accountController.verifyToken, towersController.pick);
+router.post("/towers/cashout", mutationLimiter, accountController.verifyToken, towersController.cashout);
+
+// ── HiLo: solo card prediction game using the normal wallet ──────────────────
+const hiloController = require("../controllers/hilo/index.js");
+router.get("/hilo/current", accountController.verifyToken, hiloController.getCurrent);
+router.get("/hilo/history", accountController.verifyToken, hiloController.history);
+router.post("/hilo/create",  mutationLimiter, accountController.verifyToken, hiloController.create);
+router.post("/hilo/guess",   mutationLimiter, accountController.verifyToken, hiloController.guess);
+router.post("/hilo/cashout", mutationLimiter, accountController.verifyToken, hiloController.cashout);
 
 router.get("/stats/all", gamesController.getvalue);
 

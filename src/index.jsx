@@ -35,6 +35,8 @@ import RpsPage      from "../components/rps/layout.jsx";
 import SupportPage  from "../components/support/SupportPage.jsx";
 import CasesPage    from "../components/cases/layout.jsx";
 import Referral     from "../components/referral/Referral.jsx";
+import TowersPage   from "../components/towers/Towers.jsx";
+import HiLoPage     from "../components/hilo/HiLo.jsx";
 
 // Connect directly to the backend host — the frontend (Cloudflare Pages) is
 // hosted on a different origin from the API (api.gemtide.win), so there is no
@@ -238,6 +240,8 @@ function App() {
                         <Route path="/rps" element={<RpsPage />} />
                         <Route path="/support" element={<SupportPage />} />
                         <Route path="/cases" element={<CasesPage />} />
+                        <Route path="/towers" element={<TowersPage />} />
+                        <Route path="/hilo" element={<HiLoPage />} />
                         <Route path="/refferal/:code" element={<Referral />} />
                         <Route path="/referral/:code" element={<Referral />} />
                       </Routes>

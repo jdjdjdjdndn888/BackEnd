@@ -22,6 +22,8 @@ const NAV_ITEMS = [
   { label: "Upgrader",  href: "/upgrader",  icon: null,            img: "/nav-upgrader.png"   },
   { label: "Trades",    href: "/trades",    icon: null,            img: "/nav-trades.png"     },
   { label: "Cases",     href: "/cases",     icon: null,            img: "/nav-cases.png",   badge: "NEW" },
+  { label: "Towers",    href: "/towers",    icon: null,            img: "/nav-mines.png",   badge: "NEW" },
+  { label: "HiLo",     href: "/hilo",      icon: null,            img: "/nav-blackjack.png", badge: "NEW" },
 ];
 
 function NavIcon({ icon: Icon, img, active, size = 28 }) {

@@ -121,11 +121,11 @@ function makeLimiter({ windowMs, max, message }) {
   });
 }
 
-// Generous global ceiling — catches anything not covered by a more specific
-// limiter below and stops a single IP from hammering the whole API.
+// Global ceiling — catches anything not covered by a more specific limiter.
+// Tightened to 60/min to blunt volumetric floods before they reach route handlers.
 const globalLimiter = makeLimiter({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 60,
   message: "Too many requests. Please wait a moment and try again.",
 });
 
@@ -140,7 +140,7 @@ const authLimiter = makeLimiter({
 // DB and can be spammed to grief matchmaking or exhaust inventory locks.
 const mutationLimiter = makeLimiter({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 20,
   message: "You're doing that too often. Please slow down.",
 });
 
@@ -170,13 +170,13 @@ const readLimiter = makeLimiter({
 
 // ── Progressive slow-down ────────────────────────────────────────────────
 // Adds increasing latency to an IP once it crosses a threshold, before the
-// hard rate-limit kicks in. This blunts automated flooders without
-// inconveniencing normal bursts of legitimate traffic.
+// hard rate-limit kicks in. Lower threshold (40→) means automated flooders
+// feel back-pressure sooner without hurting normal users who burst briefly.
 const speedLimiter = slowDown({
   windowMs: 60 * 1000,
-  delayAfter: 60,
-  delayMs: (hits) => hits * 100,
-  maxDelayMs: 5000,
+  delayAfter: 40,
+  delayMs: (hits) => hits * 120,
+  maxDelayMs: 8000,
 });
 
 module.exports = {
