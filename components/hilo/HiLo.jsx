@@ -46,12 +46,17 @@ function PlayingCard({ card, size = "lg", revealed = true, flipped = false }) {
 // ── Guess Button ──────────────────────────────────────────────────────────────
 function GuessBtn({ label, icon, mult, prob, color, onClick, disabled }) {
   return (
-    <button className="hl-guess-btn" style={{ "--accent": color }} onClick={onClick} disabled={disabled}>
+    <button
+      className="hl-guess-btn"
+      data-guess={label.toLowerCase()}
+      onClick={onClick}
+      disabled={disabled}
+    >
       <span className="hl-guess-icon">{icon}</span>
       <span className="hl-guess-label">{label}</span>
       {mult > 0
         ? <span className="hl-guess-mult">{mult.toFixed(2)}×</span>
-        : <span className="hl-guess-mult" style={{ color: "#444" }}>—</span>
+        : <span className="hl-guess-mult" style={{ color: "#2a2a3a" }}>—</span>
       }
       {prob > 0 && <span className="hl-guess-prob">{(prob * 100).toFixed(1)}%</span>}
     </button>
@@ -290,6 +295,15 @@ export default function HiLo() {
 
         {/* ── Game area ── */}
         <div className="hl-game">
+          {/* Multiplier badge — shown when game active */}
+          {isActive && (
+            <div className="hl-mult-badge">
+              <span className="hl-mult-badge-label">Multiplier</span>
+              <span className="hl-mult-badge-val">{cumMult.toFixed(3)}×</span>
+              <span className="hl-mult-badge-payout">{money(Math.floor(game.bet * cumMult))} cr</span>
+            </div>
+          )}
+
           {/* Card display */}
           <div className="hl-card-stage">
             {game ? (
@@ -301,6 +315,7 @@ export default function HiLo() {
                   </div>
                 )}
                 <div className="hl-current-card">
+                  <div className={`hl-card-glow hl-card-glow--${isRed(game.currentCard) ? "red" : "black"}`} />
                   <PlayingCard card={game.currentCard} size="lg" revealed flipped={newCard} />
                 </div>
                 {/* Suit legend */}

@@ -9,11 +9,11 @@ import { useSeo } from "../../utils/useSeo";
 import "./towers.css";
 
 const TOWER_ROWS = 8;
-const HOUSE_EDGE = 0.97;
+const HOUSE_EDGE = 0.92;
 const DIFFICULTY_CONFIG = {
-  easy:   { cols: 3, bombs: 1, label: "Easy",   color: "#22c55e" },
-  medium: { cols: 3, bombs: 2, label: "Medium",  color: "#f59e0b" },
-  hard:   { cols: 4, bombs: 3, label: "Hard",    color: "#f97316" },
+  easy:   { cols: 4, bombs: 1, label: "Easy",   color: "#22c55e" },
+  medium: { cols: 5, bombs: 2, label: "Medium",  color: "#f59e0b" },
+  hard:   { cols: 5, bombs: 3, label: "Hard",    color: "#f97316" },
   expert: { cols: 5, bombs: 4, label: "Expert",  color: "#ef4444" },
 };
 

@@ -10,14 +10,14 @@ const { addHistory, updateuser, sendwebhook, WEBHOOK_COLORS } = require("../tran
 const { httpError } = require("../../utils/httpError.js");
 
 const TOWER_ROWS  = 8;
-const HOUSE_EDGE  = 0.97; // 3% house edge per row
+const HOUSE_EDGE  = 0.92; // 8% house edge per row
 const MAX_BET     = 1_000_000_000;
 
 const DIFFICULTY_CONFIG = {
-  easy:   { cols: 3, bombs: 1 }, // 2 safe tiles → 1.455× per row
-  medium: { cols: 3, bombs: 2 }, // 1 safe tile  → 2.910× per row
-  hard:   { cols: 4, bombs: 3 }, // 1 safe tile  → 3.880× per row
-  expert: { cols: 5, bombs: 4 }, // 1 safe tile  → 4.850× per row
+  easy:   { cols: 4, bombs: 1 }, // 3 safe tiles → 1.227× per row, max ~5.5×
+  medium: { cols: 5, bombs: 2 }, // 3 safe tiles → 1.533× per row, max ~25×
+  hard:   { cols: 5, bombs: 3 }, // 2 safe tiles → 2.300× per row, max ~1,686×
+  expert: { cols: 5, bombs: 4 }, // 1 safe tile  → 4.600× per row, max ~2M×
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
