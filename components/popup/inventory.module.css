@@ -1,0 +1,18 @@
+.container {
+  width: 100%;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.item {
+  background: #252b3b;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  text-align: center;
+  color: white;
+  font-size: 0.875rem;
+}

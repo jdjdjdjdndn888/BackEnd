@@ -1,0 +1,454 @@
+import React, { useContext, useState, useEffect, useMemo } from "react";
+import inventorystyles from "./inventorycf.module.css";
+import toast from "react-hot-toast";
+import UserContext from "../../../utils/user.js";
+import { useModal } from "../../../utils/ModalContext";
+import { getauth } from "../../../utils/getauth.js";
+import Deposit from "../../popup/deposit.jsx";
+import { api } from "../../../config.js";
+import {
+  Items,
+  Bobux,
+  Search,
+  Trails,
+  Heads,
+} from "../../../assets/exports.jsx";
+import View from "../View/view.jsx";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { formatLargeNumber } from "@/utils/value";
+
+export default function CreateMatch({ onCreate, onClose }) {
+  const { userData, setUserData } = useContext(UserContext);
+  const { setModalState } = useModal();
+  const [loading, setLoading] = useState(false);
+  const [inventory, setInventory] = useState([]);
+  const [totalValue, setTotalValue] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectedValue, setSelectedValue] = useState(0);
+  const [sortOrder, setSortOrder] = useState("highest");
+  const [selectedGame, setSelectedGame] = useState("all");
+  const [coin, setCoin] = useState("heads");
+  const [crazyMode, setCrazyMode] = useState(false);
+  const [create, setCreating] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const loadInventory = async () => {
+    if (!userData) {
+      toast.error("You are not logged in!");
+      return;
+    }
+    setInventory([]);
+    setLoading(true);
+    try {
+      const response = await fetch(`${api}/me/inventory`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${getauth()}`,
+        },
+      });
+      const data = await response.json();
+      setLoading(false);
+      if (response.ok) {
+        setInventory(data.data);
+        const total = data.data.reduce(
+          (sum, item) => sum + (item.itemvalue || 0),
+          0,
+        );
+        setTotalValue(total);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error("Failed to load inventory.");
+      setLoading(false);
+    }
+  };
+
+  const creatematch = async () => {
+    if (selectedItems.length === 0) {
+      toast.error("select items!");
+      return;
+    }
+
+    setCreating(true);
+
+    try {
+      const response = await fetch(`${api}/coinflips/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${getauth()}`,
+        },
+        body: JSON.stringify({
+          items: selectedItems.map((selectedItem) => ({
+            inventoryid: selectedItem.inventoryid,
+          })),
+          coin: coin,
+          crazyMode,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        onCreate(data.data);
+        closeModal();
+        setTimeout(() => {
+          setModalState(<View coinflip={data.data} onClose={onClose} />);
+        }, 500);
+        toast.success("Successfully created the game!");
+      } else {
+        toast.error(data.message);
+      }
+    } catch (err) {
+      toast.error("Something went wrong...");
+    } finally {
+      setCreating(false);
+      setSelectedItems([]);
+      setSelectedValue(0);
+    }
+  };
+
+  useEffect(() => {
+    loadInventory();
+  }, []);
+
+  const toggleItem = (item) => {
+    const isSelected = selectedItems.some(
+      (selected) => selected.inventoryid === item.inventoryid,
+    );
+
+    if (isSelected) {
+      setSelectedItems((prev) =>
+        prev.filter((selected) => selected.inventoryid !== item.inventoryid),
+      );
+      setSelectedValue((prevValue) => prevValue - item.itemvalue);
+    } else {
+      setSelectedItems((prev) => [...prev, item]);
+      setSelectedValue((prevValue) => prevValue + item.itemvalue);
+    }
+  };
+
+  const selectalll = () => {
+    if (inventory.length <= 0) return toast.error("No items to use!");
+
+    if (selectedItems.length === inventory.length) {
+      setSelectedItems([]);
+      setSelectedValue(0);
+    } else {
+      setSelectedItems(inventory);
+      const totalSelectedValue = inventory.reduce(
+        (sum, item) => sum + (item.itemvalue || 0),
+        0,
+      );
+      setSelectedValue(totalSelectedValue);
+    }
+  };
+
+  const closeModal = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setModalState(null);
+    }, 200);
+  };
+
+  const filteredInventory = useMemo(() => {
+    let filteredItems = inventory.filter(
+      (item) =>
+        item.itemname &&
+        typeof item.itemname === "string" &&
+        item.itemname.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+
+    if (selectedGame !== "all") {
+      filteredItems = filteredItems.filter(
+        (item) => item.game === selectedGame,
+      );
+    }
+
+    const selectedItemsSet = new Set(
+      selectedItems.map((item) => item.inventoryid),
+    );
+    const selectedItemsFirst = filteredItems.filter((item) =>
+      selectedItemsSet.has(item.inventoryid),
+    );
+    const otherItems = filteredItems.filter(
+      (item) => !selectedItemsSet.has(item.inventoryid),
+    );
+
+    if (sortOrder === "lowest") {
+      selectedItemsFirst.sort((a, b) => a.itemvalue - b.itemvalue);
+      otherItems.sort((a, b) => a.itemvalue - b.itemvalue);
+    } else {
+      selectedItemsFirst.sort((a, b) => b.itemvalue - a.itemvalue);
+      otherItems.sort((a, b) => b.itemvalue - a.itemvalue);
+    }
+
+    return [...selectedItemsFirst, ...otherItems];
+  }, [inventory, searchTerm, selectedGame, sortOrder, selectedItems]);
+
+  return (
+    <div className={inventorystyles.blurbg} onClick={() => closeModal()}>
+      <div
+        className={`${inventorystyles.modalbackgroundinventory} ${isClosing ? inventorystyles.shrinkOut : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          className={inventorystyles.closeButton}
+          onClick={() => closeModal()}
+        >
+          &times;
+        </button>
+
+        <div className={inventorystyles.headerinventory}>
+          <div className={inventorystyles.searchContainer}>
+            <div className={inventorystyles.inputWrapper}>
+              <input
+                type="text"
+                placeholder="Search for an item..."
+                value={searchTerm}
+                className={inventorystyles.inputv3}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <img
+                src={Search}
+                alt="Search"
+                className={inventorystyles.searchIcon}
+              />
+            </div>
+          </div>
+
+          <div className={inventorystyles.filterContainer}>
+            <Select
+              onValueChange={(value) => setSortOrder(value)}
+              value={sortOrder}
+            >
+              <SelectTrigger className={inventorystyles.selector}>
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent className={inventorystyles.selectContent}>
+                <SelectItem
+                  className={inventorystyles.selectItem}
+                  value="highest"
+                >
+                  Highest to Lowest
+                </SelectItem>
+                <SelectItem
+                  className={inventorystyles.selectItem}
+                  value="lowest"
+                >
+                  Lowest to Highest
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={selectedGame}
+              onValueChange={(value) => setSelectedGame(value)}
+            >
+              <SelectTrigger className={inventorystyles.selector}>
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent className={inventorystyles.selectContent}>
+                {["all", "Sab", "PS99"].map((game) => (
+                  <SelectItem
+                    className={inventorystyles.selectItem}
+                    value={game}
+                    key={game}
+                  >
+                    {game === "all" ? "All Games" : game}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className={inventorystyles.itemsWrapper}>
+          <div className={inventorystyles.stats}>
+            <div className={inventorystyles.statItem}>
+              <img src={Bobux} alt="Bobux" />
+              <p
+                className={`${inventorystyles.statValue} ${inventorystyles.pcvalue}`}
+              >
+                {totalValue.toLocaleString()}R$
+              </p>
+              <p
+                className={`${inventorystyles.statValue} ${inventorystyles.mobilevalue}`}
+              >
+                R${formatLargeNumber(totalValue)}
+              </p>
+            </div>
+            <div className={inventorystyles.statItem}>
+              <img src={Items} alt="Items" />
+              <p className={inventorystyles.statValue}>{inventory.length}</p>
+            </div>
+            <button
+              className={`button ${inventorystyles.plusbutton}`}
+              onClick={() => setModalState(<Deposit />)}
+            >
+              +
+            </button>
+          </div>
+          <div className={inventorystyles.itemsGrid}>
+            {loading && (
+              <div className={inventorystyles.loaderWrapper}>
+                <div className={inventorystyles.loader}></div>
+              </div>
+            )}
+            {filteredInventory.length === 0 && !loading ? (
+              <div className={inventorystyles.emptyState}>
+                <h1>No items!</h1>
+                <p>No items were found...</p>
+                <button
+                  className="button"
+                  onClick={() => setModalState(<Deposit />)}
+                >
+                  Deposit
+                </button>
+              </div>
+            ) : (
+              filteredInventory.map((item) => {
+                const isSelected = selectedItems.some(
+                  (selected) => selected.inventoryid === item.inventoryid,
+                );
+                const variant = (() => {
+                  const n = String(item.itemname || "");
+                  if (/cosmic/i.test(n))   return "cosmic";
+                  if (/rainbow/i.test(n))  return "rainbow";
+                  if (/golden/i.test(n))   return "golden";
+                  if (/\bgold\b/i.test(n)) return "gold";
+                  if (/shiny/i.test(n))    return "shiny";
+                  return null;
+                })();
+                const VSTYLES = {
+                  cosmic:  { borderColor: "rgba(139,92,246,0.7)",  boxShadow: "0 0 12px 2px rgba(139,92,246,0.45)" },
+                  rainbow: { borderColor: "rgba(244,114,182,0.7)", boxShadow: "0 0 12px 2px rgba(244,114,182,0.45)" },
+                  golden:  { borderColor: "rgba(250,204,21,0.8)",  boxShadow: "0 0 14px 3px rgba(250,204,21,0.50)" },
+                  gold:    { borderColor: "rgba(250,204,21,0.8)",  boxShadow: "0 0 14px 3px rgba(250,204,21,0.50)" },
+                  shiny:   { borderColor: "rgba(125,211,252,0.7)", boxShadow: "0 0 10px 2px rgba(125,211,252,0.40)" },
+                };
+                const vs = !isSelected && variant ? VSTYLES[variant] : null;
+
+                return (
+                  <div
+                    key={item.inventoryid}
+                    className={`${inventorystyles.itemBox} ${isSelected ? inventorystyles.selected : ""}`}
+                    onClick={() => toggleItem(item)}
+                    style={vs ? { borderColor: vs.borderColor, boxShadow: vs.boxShadow } : undefined}
+                  >
+                    <div className={inventorystyles.imageWrapper}>
+                      <img
+                        src={item.itemimage}
+                        alt={item.itemname}
+                        className={`${inventorystyles.itemImage} ${inventorystyles.normalImage}`}
+                      />
+                      <img
+                        src={item.itemimage}
+                        alt={item.itemname}
+                        className={`${inventorystyles.itemImage} ${inventorystyles.blurritem}`}
+                      />
+                    </div>
+                    <div className={inventorystyles.itemDetails}>
+                      <p className={inventorystyles.itemName}>
+                        {item.itemname}
+                      </p>
+                      <p className={inventorystyles.itemPrice}>
+                        {item.itemvalue ? `R$${formatLargeNumber(item.itemvalue)}` : "R$0"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className={inventorystyles.buttonWrapper}>
+          <button
+            type="button"
+            onClick={() => setCrazyMode((c) => !c)}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", borderRadius: 8, border: crazyMode ? "1px solid rgba(239,68,68,0.6)" : "1px solid #252839",
+              background: crazyMode ? "rgba(239,68,68,0.1)" : "#1a1d2b",
+              padding: "10px 12px", cursor: "pointer", marginBottom: 8, transition: "all 0.15s"
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: crazyMode ? "#f87171" : "#fff", display: "flex", alignItems: "center", gap: 6 }}>
+                <img src="/crazy-mode.png" alt="crazy" style={{ width: 20, height: 20, objectFit: "contain" }} />
+                Crazy Mode {crazyMode ? "ON" : "OFF"}
+              </p>
+              <p style={{ margin: 0, fontSize: 11, color: "#68749C", marginTop: 2 }}>
+                Flips the rules — whoever normally loses wins instead.
+              </p>
+            </div>
+            <div style={{
+              width: 40, height: 24, borderRadius: 12, display: "flex", alignItems: "center",
+              padding: "0 2px", background: crazyMode ? "#ef4444" : "#252839", transition: "background 0.15s", flexShrink: 0, marginLeft: 8
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: "50%", background: "#fff",
+                transform: crazyMode ? "translateX(16px)" : "translateX(0)", transition: "transform 0.15s"
+              }} />
+            </div>
+          </button>
+          <div className={inventorystyles.coins}>
+            <img
+              className={`${inventorystyles.coin} ${coin === "heads" ? inventorystyles.selectedcoin : ""}`}
+              src={Heads}
+              alt="heads"
+              onClick={() => setCoin("heads")}
+            />
+            <img
+              className={`${inventorystyles.coin} ${coin === "trails" ? inventorystyles.selectedcoin : ""}`}
+              src={Trails}
+              alt="trails"
+              onClick={() => setCoin("trails")}
+            />
+          </div>
+          <button
+            className="buttoncolorful"
+            onClick={selectalll}
+            disabled={!inventory.length || create}
+          >
+            {filteredInventory.filter(
+              (item) => !item.locked && item.itemvalue !== 0,
+            ).length === 0
+              ? "Select All"
+              : selectedItems.length ===
+                  filteredInventory.filter(
+                    (item) => !item.locked && item.itemvalue !== 0,
+                  ).length
+                ? "Unselect All"
+                : "Select All"}
+          </button>
+          <button
+            className={`button ${create ? "loading" : ""}`}
+            onClick={creatematch}
+            disabled={create || !selectedItems.length}
+          >
+            {create && (
+              <div className={inventorystyles.loaderWrapperSmall}>
+                <div className={inventorystyles.loaderSmall}></div>
+              </div>
+            )}
+            <strong className={inventorystyles.pcvalue}>
+              Create R${selectedValue.toLocaleString()}
+            </strong>
+            <strong className={inventorystyles.mobilevalue}>
+              Create R${formatLargeNumber(selectedValue)}
+            </strong>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

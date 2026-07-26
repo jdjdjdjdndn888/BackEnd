@@ -1,0 +1,5 @@
+# Cloudflare Pages — redirects
+# SPA fallback (serving index.html for unmatched paths) is handled by
+# wrangler.jsonc `assets.not_found_handling = "single-page-application"`.
+# No rules needed here — the old "/* /index.html 200" caused an infinite-loop
+# error in Cloudflare's redirect validator (code 100324).

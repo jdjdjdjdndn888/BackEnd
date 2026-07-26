@@ -1,0 +1,14 @@
+- [PS99 Bot Backend](ps99-bot-backend.md) — bot controller auth, userId coercion, game regex matching patterns for PS99 script endpoints
+- [Bot status heartbeat system](bot-status-heartbeat.md) — live in-game status, inventory snapshot, /bots/heartbeat route must come before /bots/:game
+- [GitHub Push Setup](github-push-setup.md) — no origin remote by default; must add with GITHUB_PAT; squashed history to clear old secret leaks
+- [Mongo withTransaction side effects](mongo-transaction-side-effects.md) — never put res.json/io.emit/manual commit inside session.withTransaction() callbacks
+- [Lua file edit pitfalls](lua-edit-pitfalls.md) — Edit tool mangles backslash regex literals; use Python script for those replacements; always verify Lua block nesting after edits
+- [Lookup endpoint auth](lookup-endpoint-auth.md) — all /users/lookup /user/lookup /trading/users/lookup /discord/lookup routes must use bothandler.real middleware; never expose balance or banned fields publicly
+- [Routes file require pattern](routes-require-pattern.md) — all controller requires must be at top of routes.js; never inline require() next to a router.get/post — causes duplicate-const SyntaxError if the same name was already required at top
+- [Mines tileIndex validation](mines-game-integrity.md) — revealtile must strictly coerce tileIndex to integer and check 0 <= idx < GRID_SIZE before any DB ops; un-validated index is exploitable for forced safe-count wins
+- [Item Duplication Audit](item-duplication-audit.md) — all real duplication vectors closed; key patterns: modifiedCount guard on every cancel, Paying state in jackpot, ordered:false+11000 on payout insertMany, depositId idempotency on bot deposit
+- [Rank/permission system](rank-permission-system.md) — canonical rank strings live in api/utils/rankTiers.js; frontend/backend rank casing must match exactly or badges+permissions silently break
+- [Ticket system custom assets](ticket-system-custom-assets.md) — support ticket system uses only custom images, not emoji; Discord side uploads them as application emojis
+- [Mongo update without $set bug](mongo-update-without-set-bug.md) — bare-object updateOne/updateMany (no $set/$inc) is rejected by MongoDB; caused jackpot/upgrader payout failures, check for this after touching game payout code
+- [Normal blackjack wallet](normal-blackjack-wallet.md) — separate item-backed wallet, fixed 8% exchange fee, and transaction-guarded dealer settlement
+- [Clean PS99 images](clean-ps99-images.md) — use the catalog-backed renderer; never store or serve values-site images with embedded Cosmic branding

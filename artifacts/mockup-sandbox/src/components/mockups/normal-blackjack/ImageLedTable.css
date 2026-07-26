@@ -1,0 +1,197 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  font-family: "DM Sans", system-ui, sans-serif;
+  color: #f8f4ff;
+  background: #06050b;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #06050b; }
+button { font: inherit; }
+
+.image-led-page {
+  min-height: 100vh;
+  padding: 22px clamp(16px, 4vw, 60px) 34px;
+  background:
+    radial-gradient(circle at 50% -10%, #5b1fa755, transparent 43%),
+    #06050b;
+}
+
+.image-led-topbar {
+  max-width: 1380px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.image-led-brand, .image-led-wallet { display: flex; align-items: center; gap: 11px; }
+.image-led-mark {
+  display: grid;
+  place-items: center;
+  width: 35px; height: 35px;
+  border: 1px solid #b26bff99;
+  border-radius: 11px;
+  color: #f3d8ff;
+  background: #8d3bdc44;
+  font: 800 11px "Space Grotesk", sans-serif;
+}
+.image-led-brand b { display: block; font: 700 15px "Space Grotesk", sans-serif; }
+.image-led-brand small, .image-led-wallet small, .image-led-wallet span { color: #a8a0b8; font-size: 10px; }
+.image-led-wallet {
+  padding: 9px 13px;
+  border: 1px solid #69418e;
+  border-radius: 12px;
+  background: #15101ecc;
+}
+.image-led-wallet small { margin-right: 2px; }
+.image-led-wallet strong { color: #f0d8ff; font: 700 14px "Space Grotesk", sans-serif; }
+
+.image-led-table {
+  max-width: 1380px;
+  height: min(76vh, 760px);
+  min-height: 500px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #9a57d8;
+  border-radius: 24px;
+  background: #0a0511;
+  box-shadow: 0 30px 90px #000b, 0 0 50px #6d2da733;
+}
+.image-led-art {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(1.08) contrast(1.08) brightness(.78);
+}
+.image-led-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, #05020c55 0%, transparent 32%, #05020ccb 100%),
+    radial-gradient(ellipse at 50% 38%, transparent 35%, #05020c99 100%);
+  pointer-events: none;
+}
+.image-led-no-chip {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 27%;
+  width: 112px;
+  height: 72px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #08050de8 0%, #08050dbd 48%, transparent 76%);
+  filter: blur(4px);
+  pointer-events: none;
+}
+.image-led-status {
+  position: absolute;
+  top: 22px; left: 26px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid #c279ff88;
+  border-radius: 999px;
+  background: #16091fdd;
+  color: #f1d9ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.image-led-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 12px #c084fc; }
+
+.image-led-dealer-hand {
+  position: absolute;
+  top: 37%;
+  left: 50%;
+  display: flex;
+  gap: 6px;
+  transform: translate(-50%, -50%);
+}
+.image-led-player-zone {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 5%;
+  width: min(540px, 70%);
+  padding: 14px 18px 16px;
+  transform: translateX(-50%);
+  border: 1px solid #d79bff99;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #100719 0%, #08050d 100%);
+  box-shadow: 0 18px 40px #000a, 0 0 24px #8e35bd33;
+}
+.image-led-player-heading { display: flex; justify-content: space-between; color: #e6d0f7; font: 700 11px "Space Grotesk", sans-serif; letter-spacing: .13em; text-transform: uppercase; }
+.image-led-player-heading b { color: #fff; font-size: 18px; letter-spacing: 0; }
+.image-led-player-cards { display: flex; justify-content: center; gap: 7px; min-height: 74px; padding: 10px 0 7px; }
+.image-led-card {
+  width: 48px; height: 66px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 7px;
+  border: 1px solid #fff;
+  border-radius: 7px;
+  background: #fdfaff;
+  color: #160d1d;
+  box-shadow: 0 7px 13px #0008;
+  font-size: 13px;
+}
+.image-led-card span { align-self: flex-end; font-size: 18px; }
+.image-led-card .is-red { color: #dc3059; }
+.image-led-card--hidden { align-items: center; justify-content: center; background: linear-gradient(135deg, #4c1d70, #140b22); border-color: #d49bff; color: #f1d9ff; font-size: 23px; }
+.image-led-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.image-led-actions button, .image-led-below button {
+  border: 1px solid #be75ff;
+  border-radius: 9px;
+  padding: 11px;
+  color: #fff;
+  cursor: pointer;
+  font: 800 12px "Space Grotesk", sans-serif;
+}
+.image-led-hit { background: linear-gradient(135deg, #b342ff, #6a1eb6); }
+.image-led-stand { background: #20132eaa; }
+.image-led-actions button:hover, .image-led-below button:hover { filter: brightness(1.18); }
+.image-led-actions button:disabled { opacity: .5; cursor: default; }
+.image-led-footer {
+  position: absolute; left: 26px; right: 26px; bottom: 16px;
+  display: flex; justify-content: space-between;
+  color: #ead7f4; font-size: 11px; text-shadow: 0 2px 5px #000;
+}
+.image-led-below {
+  max-width: 1380px;
+  margin: 14px auto 0;
+  display: flex; align-items: center; gap: 24px;
+  color: #a8a0b8; font-size: 11px;
+}
+.image-led-below div { display: flex; align-items: center; gap: 8px; }
+.image-led-below strong { color: #f2deff; font: 700 13px "Space Grotesk", sans-serif; }
+.image-led-below button { margin-left: auto; padding: 9px 16px; background: #1b1126; }
+
+@media (max-width: 680px) {
+  .image-led-page { padding: 12px 10px 18px; }
+  .image-led-topbar { margin-bottom: 10px; }
+  .image-led-brand b { font-size: 13px; }
+  .image-led-brand small { display: none; }
+  .image-led-wallet { gap: 6px; padding: 8px 9px; }
+  .image-led-wallet small { display: none; }
+  .image-led-wallet strong { font-size: 12px; }
+  .image-led-wallet span { font-size: 9px; }
+  .image-led-table { height: calc(100vh - 116px); min-height: 570px; border-radius: 17px; }
+  .image-led-art { object-position: 50% center; filter: saturate(1.08) contrast(1.08) brightness(.68); }
+  .image-led-status { top: 14px; left: 14px; padding: 7px 10px; font-size: 9px; }
+  .image-led-dealer-hand { top: 31%; }
+  .image-led-no-chip { bottom: 29%; width: 105px; height: 68px; }
+  .image-led-player-zone { bottom: 22px; width: calc(100% - 24px); padding: 12px; border-radius: 15px; }
+  .image-led-player-cards { min-height: 65px; }
+  .image-led-card { width: 43px; height: 60px; }
+  .image-led-footer { display: none; }
+  .image-led-below { margin-top: 10px; gap: 8px; display: grid; grid-template-columns: 1fr 1fr; }
+  .image-led-below div { display: block; }
+  .image-led-below div span, .image-led-below div strong { display: block; }
+  .image-led-below button { grid-column: 1 / -1; width: 100%; margin: 0; }
+}

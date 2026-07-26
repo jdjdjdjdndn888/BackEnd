@@ -1,0 +1,56 @@
+13:49:21.099
+[build] dist/assets/rps-rock-Dvgzugxc.png             1,355.37 kB
+13:49:21.099
+[build] dist/assets/bobux-DnsUVpUn.png                1,593.80 kB
+13:49:21.099
+[build] dist/assets/drop-B4zuT1CG.mp3                 2,917.29 kB
+13:49:21.099
+[build] dist/assets/index-Da9LUfeh.css                  139.07 kB │ gzip:  25.38 kB
+13:49:21.099
+[build] dist/assets/index-Cnx9se8s.js                 1,315.20 kB │ gzip: 365.03 kB
+13:49:21.099
+[build] 
+13:49:21.099
+[build] ✓ built in 7.71s
+13:49:21.099
+[build] 
+13:49:21.200
+Using redirected Wrangler configuration.
+13:49:21.200
+ - Configuration being used: "dist/wrangler.json"
+13:49:21.200
+ - Original user's configuration: "wrangler.jsonc"
+13:49:21.200
+ - Deploy configuration file: ".wrangler/deploy/config.json"
+13:49:21.619
+🌀 Building list of assets...
+13:49:21.623
+✨ Read 126 files from the assets directory /opt/buildhome/repo/dist
+13:49:22.048
+🌀 Starting asset upload...
+13:49:23.608
+No updated asset files to upload. Proceeding with deployment...
+13:49:23.671
+Total Upload: 0.33 KiB / gzip: 0.24 KiB
+13:49:23.799
+13:49:23.799
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+13:49:23.804
+13:49:23.857
+✘ [ERROR] A request to the Cloudflare API (/accounts/8db635ea85a451e83e4368ff1441ef24/workers/scripts/fontend/versions) failed.
+13:49:23.858
+13:49:23.858
+  Invalid _redirects configuration:
+13:49:23.858
+  Line 5: Infinite loop detected in this rule. This would cause a redirect to strip `.html` or `/index` and end up triggering this rule again. [code: 100324]
+13:49:23.858
+13:49:23.858
+  
+13:49:23.858
+  If you think this is a bug, please open an issue at: https://github.com/cloudflare/workers-sdk/issues/new/choose
+13:49:23.858
+13:49:23.858
+13:49:23.867
+🪵  Logs were written to "/opt/buildhome/.config/.wrangler/logs/wrangler-2026-07-26_03-48-46_974.log"
+13:49:23.936
+Failed: error occurred while running deploy comman

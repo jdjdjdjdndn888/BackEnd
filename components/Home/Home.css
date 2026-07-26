@@ -1,0 +1,266 @@
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.home-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker 40s linear infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.home-dot-pulse {
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Games Grid ── */
+
+.home-game-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background-color: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.home-game-cell {
+  background-color: #111111;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.home-game-cell:hover {
+  background-color: #161616;
+}
+
+.home-game-cell:hover .home-game-play {
+  color: #ffffff;
+}
+
+.home-game-cell:hover .home-game-banner {
+  opacity: 1;
+}
+
+.home-game-play {
+  color: #888888;
+  transition: color 0.2s ease;
+}
+
+.home-game-banner {
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.home-game-card-body {
+  padding: 12px 16px 16px;
+}
+
+/* ── Stats Grid ── */
+
+.home-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.home-stat-cell {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 20px;
+}
+
+/* ── How It Works ── */
+
+.home-how-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+}
+
+/* ── Footer ── */
+
+.home-footer-inner {
+  max-width: 1152px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 12px;
+  color: #444;
+}
+
+.home-footer-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #444;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+/* ── Mobile (≤767px) ── */
+
+@media (max-width: 767px) {
+
+  /* Hero: show banner as faded bottom-right decoration */
+  .hero-banner-img {
+    display: block;
+    position: absolute;
+    bottom: 0;
+    right: -10%;
+    height: 55%;
+    width: auto;
+    object-fit: contain;
+    object-position: bottom right;
+    z-index: 0;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+  .hero-gradient {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 10%, #0c0c0c 75%);
+    z-index: 1;
+  }
+  .hero-content {
+    padding: 32px 16px 36px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    z-index: 10;
+  }
+  .hero-stats {
+    justify-content: center;
+  }
+
+  /* Games: 2 columns, tighter padding, shorter banner */
+  .home-game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .home-game-banner {
+    height: 90px !important;
+  }
+  .home-game-card-body {
+    padding: 8px 10px 12px;
+  }
+
+  /* Games section: 16px side padding to match hero */
+  #home-games {
+    padding: 32px 16px 48px !important;
+  }
+
+  /* Stats: 2×2 grid, tighter */
+  .home-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .home-stat-cell {
+    padding: 16px 12px;
+  }
+  .home-stat-cell svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin-bottom: 8px !important;
+  }
+  .home-stat-cell > div:nth-child(2) {
+    font-size: 17px !important;
+  }
+  .home-stat-cell > div:nth-child(3) {
+    font-size: 9px !important;
+  }
+  /* Fix stat border on 2-col layout */
+  .home-stat-cell:nth-child(2) {
+    border-right: none !important;
+  }
+  .home-stat-cell:nth-child(3) {
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+
+  /* Stats wrapper padding to match 16px */
+  .home-stats-wrapper {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* How It Works: 1 column, tighter, clamp number so it doesn't overflow */
+  .home-how-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .home-how-grid svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin-bottom: 8px !important;
+  }
+  /* Stop big number from overflowing its column */
+  .home-how-grid > div {
+    overflow: hidden;
+  }
+  /* How It Works section padding */
+  .home-how-section {
+    padding: 40px 16px !important;
+  }
+
+  /* Ticker: smaller text on mobile */
+  .home-ticker-item {
+    font-size: 12px !important;
+    padding: 0 16px !important;
+  }
+
+  /* Footer */
+  .home-footer-dot {
+    display: none;
+  }
+  .home-footer-outer {
+    padding: 24px 16px !important;
+  }
+}
+
+/* ── Tablet (768–1023px) ── */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .home-game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .home-how-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+}
+
+/* ── Desktop (≥768px) ── */
+
+@media (min-width: 768px) {
+  .hero-banner-img {
+    display: block;
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 55%;
+    object-fit: cover;
+    object-position: center top;
+    z-index: 0;
+  }
+  .hero-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, #0c0c0c 35%, transparent 65%);
+    z-index: 1;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 10;
+    padding: 64px 0 64px 64px;
+    max-width: 520px;
+  }
+}

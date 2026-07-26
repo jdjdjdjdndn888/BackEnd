@@ -1,0 +1,3565 @@
+
+        // SDK client initialized in head as 'supabaseClient'
+
+        const GEM_SVG = '<svg viewBox="0 0 32 32" style="width:0.75em;height:0.75em;vertical-align:middle;margin-right:5px;flex-shrink:0"><polygon points="16,2 28,10 16,30 4,10" fill="#38bdf8" stroke="#1e3a5f" stroke-width="1.5"/><polygon points="16,2 22,10 16,18 10,10" fill="#bae6fd" opacity="0.55"/></svg>';
+
+        /* === MINES AUDIO ENGINE === */
+        const minesSounds = {
+            click: new Audio('../sounds/bet.mp3'),
+            gem: new Audio('../sounds/bet.mp3'),
+            bomb: new Audio('../sounds/bomb.mp3'),
+            cashout: new Audio('../sounds/cf_start.mp3'),
+            start: new Audio('../sounds/bet.mp3')
+        };
+        function playMinesSound(type) {
+            const sound = minesSounds[type];
+            if (sound) {
+                sound.pause();
+                sound.currentTime = 0;
+                sound.volume = 0.5;
+                sound.play().catch(e => console.log('Audio play blocked:', e));
+            }
+        }
+        // Helper to play sound and trigger game
+        function onClickMinesPlay() {
+            // playMinesSound('click'); // Removed to prevent overlap with 'start' sound
+            startMinesGame();
+        }
+
+        // SVG Icons
+        const MINES_ICONS = {
+            gem: `<svg viewBox="0 0 24 24" width="36" height="36" fill="none"><defs><linearGradient id="mnGG" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#67e8f9"/><stop offset="100%" style="stop-color:#0891b2"/></linearGradient></defs><polygon points="12,2 22,10 12,22 2,10" fill="url(#mnGG)" stroke="rgba(255,255,255,0.25)" stroke-width="0.5"/><polygon points="12,2 17,10 12,15 7,10" fill="rgba(255,255,255,0.28)"/></svg>`,
+            bomb: `<svg viewBox="0 0 24 24" width="36" height="36" fill="none"><defs><linearGradient id="mnBG" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fb7185"/><stop offset="100%" style="stop-color:#e11d48"/></linearGradient></defs><circle cx="11" cy="14" r="7" fill="url(#mnBG)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/><path d="M11 7V5M15 8l1.5-1.5" stroke="#fb7185" stroke-width="2" stroke-linecap="round"/><rect x="10" y="3" width="2" height="3" rx="1" fill="#94a3b8"/><circle cx="8.5" cy="12" r="1.8" fill="rgba(255,255,255,0.25)"/></svg>`
+        };
+
+        // ========== GLOBAL CHAT ==========
+        let chatChannel = null;
+
+        function openChatRules() { document.getElementById('chatRulesModal').classList.add('active'); }
+        function closeChatRules() { document.getElementById('chatRulesModal').classList.remove('active'); }
+
+        function initGlobalChat() {
+            document.body.classList.add('chat-open');
+            // Restore the user's desktop hide/show preference.
+            let chatHidden = false;
+            try { chatHidden = localStorage.getItem('petbet_chat_hidden') === '1'; } catch (e) {}
+            applyChatCollapsed(chatHidden);
+
+            const chatMessages = document.getElementById('globalChatMessages');
+            if (chatMessages) chatMessages.innerHTML = '';
+
+            setupChatRealtime();
+            fetchChatMessages();
+            setupChatPresence();
+
+            const chatInput = document.getElementById('globalChatInput');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') sendChatMessage();
+                });
+            }
+        }
+
+        let chatPresenceChannel = null;
+        function setupChatPresence() {
+            if (chatPresenceChannel || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+            chatPresenceChannel = supabaseClient.channel('chat-presence', { config: { presence: { key: Math.random().toString(36).slice(2) } } });
+            chatPresenceChannel
+                .on('presence', { event: 'sync' }, () => {
+                    const count = Object.keys(chatPresenceChannel.presenceState()).length;
+                    const el = document.getElementById('chatOnlineCount');
+                    if (el) el.textContent = count || '—';
+                })
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') await chatPresenceChannel.track({ online_at: new Date().toISOString() });
+                });
+        }
+
+        async function fetchChatMessages() {
+            if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+            const { data, error } = await supabaseClient
+                .from('chat_messages')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+                
+            if (error) {
+                console.error("Error fetching chat:", error);
+                return;
+            }
+            
+            const chatMessages = document.getElementById('globalChatMessages');
+            if (!chatMessages) return;
+            
+            chatMessages.innerHTML = '';
+            // Reverse to show oldest first at top
+            data.reverse().forEach(msg => {
+                appendChatMessage(msg);
+            });
+            scrollChatToBottom();
+        }
+
+        function setupChatRealtime() {
+            if (chatChannel) return;
+            if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+            chatChannel = supabaseClient
+                .channel('public:chat_messages')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+                    appendChatMessage(payload.new);
+                    scrollChatToBottom();
+                })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_messages' }, payload => {
+                    const id = payload.old && payload.old.id;
+                    if (!id) return;
+                    const el = document.querySelector(`.chat-message[data-msg-id="${CSS.escape(String(id))}"]`);
+                    if (el) el.remove();
+                })
+                .subscribe();
+        }
+
+        let _lastChatTime = 0;
+        const _CHAT_COOLDOWN = 5000;   // 1 message per 5 seconds
+        const _CHAT_MAXLEN   = 100;    // max characters per message
+        const _DOMAIN_RE = /(\b(https?:\/\/|www\.)|([\w-]{2,}\.(com|net|org|io|gg|co|tv|me|ru|xyz|to|uk|de|fr|es|pl|sk|cz|hu|lt|lv|ee|app|site|online|store|shop|club|fun|live|pro|info|biz|cc|us|ca|au|nz|jp|cn))(\b|\/|$))/i;
+
+        // ── Chat word filter: blocks site-defamation (scam/rig/...), profanity and slurs ──
+        // Easy to edit: just add/remove words in this list.
+        const _BANNED_WORDS = [
+            // accusations / defaming the site
+            'scam','scammer','scamming','scammed','rig','rigged','rigging','fraud','fraudulent',
+            'fake','fakesite','cheat','cheater','cheating','stole','stolen','steal','stealing',
+            'robbed','ripoff','rippedoff','ponzi','scammy',
+            // english profanity / slurs
+            'fuck','fucker','fucking','fuk','fck','shit','bullshit','bitch','bastard','asshole',
+            'dick','cunt','whore','slut','nigger','nigga','faggot','retard','retarded','pedo','pedophile',
+            // slovak / czech profanity
+            'kokot','kokotina','kurva','kurwa','pica','jebat','jebem','jebo','jebnut','vyjebat',
+            'debil','mrdka','mrdat','chuj','srac','hovno','pojeb','pojebany','curak','zmrd',
+            'svina','vypiceny','dopice','doriti','picus','sviniar',
+            // competitor / other gambling sites (block promo of rival casinos)
+            'psxgems','psxgem','bloxyspin','bloxispin','bloxypet','bloxipet','bloxflip','bloxluck',
+            'bloxroll','bloxmarket','rblxwild','rbxwild','rblxroll','rbxflip','rbxroll','pshype',
+            'petflip','petgamble','gemflip','gembet','psxflip','psxcasino','psxwin','psgg','psxgg',
+            'duelbits','csgoempire','stake','skinclub'
+        ];
+        // Multi-word/spam phrases (matched after spaces are stripped).
+        const _BANNED_PHRASES = [
+            'ilostall','ilosteverything','lostall','losteverything','lostallmy','lostmygems',
+            'lostmymoney','tookmygems','tookallmy','stolemygems','wontpay','wontpayout','wontpayme',
+            'notpaying','doesntpay','dontpay','dontplayhere','dontdeposithere','thissiteisdown',
+            'join.my','usemycode','formycode','forusingmycode','freegems','dmme','dmforgems'
+        ];
+        // Normalize to defeat basic evasion (leetspeak, diacritics, repeated letters) then match whole words.
+        const _BANNED_RE = new RegExp('\\b(' + _BANNED_WORDS.join('|') + ')\\b', 'i');
+        function _cleanChat(s) {
+            return s.toLowerCase()
+                .normalize('NFD').replace(/[̀-ͯ]/g, '')   // strip diacritics: piča -> pica
+                .replace(/0/g,'o').replace(/1/g,'i').replace(/3/g,'e').replace(/4/g,'a')
+                .replace(/5/g,'s').replace(/7/g,'t').replace(/@/g,'a').replace(/\$/g,'s') // leetspeak: sc4m -> scam
+                .replace(/(.)\1{2,}/g, '$1$1');                                   // collapse 3+ repeats: scaaam -> scaam
+        }
+        function _hasBannedPhrase(s) {
+            const squished = _cleanChat(s).replace(/[^a-z.]/g, '');   // strip spaces/symbols: "i lost all" -> "ilostall"
+            return _BANNED_PHRASES.some(p => squished.includes(p));
+        }
+
+        // PetBot: local helper bubble (only the asker sees it — no DB, no spam).
+        function _appendBotMessage(html) {
+            const c = document.getElementById('globalChatMessages');
+            if (!c) return;
+            const d = document.createElement('div');
+            d.className = 'chat-message';
+            d.style.cssText = 'justify-content:flex-start;';
+            d.innerHTML = `<div style="display:flex;gap:8px;align-items:flex-start;width:100%;padding:6px 10px;font-size:12px;line-height:1.5;color:#cbd5e6;">
+                <img src="favicon.svg" alt="" style="width:17px;height:17px;flex:none;margin-top:2px;" onerror="this.outerHTML='💎'">
+                <span><b style="color:#4d7cff;font-size:10.5px;letter-spacing:.3px;">PETBET BOT</b> · ${html}</span>
+            </div>`;
+            c.appendChild(d);
+            c.scrollTop = c.scrollHeight;
+        }
+        function _faqAnswer(raw) {
+            const m = ' ' + String(raw || '').toLowerCase().replace(/[’']/g, "'") + ' ';
+
+            // Why can't I withdraw my 500M / bonus locked — the wager requirement.
+            if ((/(withdraw|cash\s*out|cashout|take\s*out|pay\s*out|payout)/.test(m)
+                    && /(can'?t|cannot|won'?t|wont|unable|not\s*let|not\s*allow|block|lock|wager|why|zero|nothing|\b0\b|available)/.test(m))
+                || (/(lock|locked|wager)/.test(m) && /(bonus|welcome|500|balance|gems|withdraw)/.test(m))) {
+                let _msg = "Your <b>welcome bonus</b> (the free gems you got when you signed up) is <b>locked</b> until you've <b>wagered 1B</b> total in the games. This stops people registering just to cash out free gems. 💡 <b>Deposits are different:</b> any gems you deposit yourself can be withdrawn anytime — only the bonus is held. Once you reach <b>1B wagered</b>, the bonus unlocks permanently.";
+                try {
+                    if (typeof _wagerStatus === 'object' && _wagerStatus && _wagerStatus.found && !_wagerStatus.met) {
+                        const _rem = Math.max(0, Number(_wagerStatus.remaining) || 0);
+                        if (_rem > 0) _msg += ` You still need to wager <b>${formatNumber(_rem)}</b> more.`;
+                    }
+                } catch (e) {}
+                return _msg;
+            }
+
+            // Why only 20M (and friend got 500M) — the anti-alt welcome amount.
+            if ((/\b20\s*m\b/.test(m) && /(500|friend|only|less|why|instead|but|not|difference)/.test(m))
+                || /why.*(only|less|not\s*500|smaller|little)/.test(m)
+                || /(only|just)\s*(got|get|received)?\s*20\s*m/.test(m)
+                || /(friend|he|she|they).*(500|more)/.test(m) && /\b(20|less|only|me)\b/.test(m))
+                return "You got <b>20M</b> instead of 500M because your Roblox account didn't pass the anti-alt check. The full <b>500M</b> welcome bonus needs a real account (roughly 30+ days old with some friends/followers). Newer or low-activity accounts get the reduced amount — it's automatic and can't be changed. You can still earn more by playing, depositing, or inviting real friends.";
+
+            // Scam: someone promising gems for using their code.
+            if (/(code|promo)/.test(m) && /(\d+\s*m|\d+\s*mil|million|500|1\s*b|billion|gems)/.test(m) && /(give|giv|for|pay|get|use|trade|sell|dm|free)/.test(m))
+                return "Nobody can \"give you gems for using their code\" — that's a <b>scam</b>. Real referral rewards are automatic: the invited player gets <b>+50M</b> after verifying, and the inviter earns Battle Pass tiers. <b>Never send gems to anyone.</b>";
+
+            // How to tip.
+            if (/tip/.test(m) && /(how|where|can|do|to|someone|send|give)/.test(m))
+                return "To tip: click a player's <b>name in chat</b> → their profile opens → press the green <b>Tip</b> button, enter the amount. Minimum tip is <b>5M</b>. You must be logged in.";
+
+            // How to redeem / use a promo code.
+            if (/(redeem|use|enter|apply|activate|where).*(code|promo)|(code|promo).*(redeem|use|enter|where|how)|how.*(promo|referral)\s*code/.test(m))
+                return "To redeem a code: open <b>Promo Code</b> from the left menu (or the Earn page) and type your friend's code, then Redeem. It's one-time and only works on real accounts.";
+
+            // Didn't get the welcome bonus at all.
+            if (/(didn'?t|dont|don't|not|never|no|where|missing|lost)/.test(m) && /(500|welcome|bonus|free\s*gems|starting|my\s*gems)/.test(m))
+                return "The <b>500M welcome bonus</b> is credited automatically after you register and verify your Roblox account (real accounts only). If your balance shows 0, refresh the page — it can take a moment. Alt/new accounts get a reduced amount.";
+
+            // How to withdraw.
+            if (/withdraw|cash\s*out|payout|take\s*out.*gems/.test(m) && /(how|where|can|do|to)/.test(m) || /how.*withdraw/.test(m))
+                return "To withdraw: open <b>Withdraw</b>, pick a bot, enter the amount. ⚠️ Make sure your Roblox <b>mailbox is ON</b> — if it's off, the gems are permanently lost.";
+
+            // How to deposit / add gems.
+            if (/(deposit|add\s*gems|put\s*gems|top\s*up|how.*(get|buy).*gems)/.test(m) && /(how|where|can|do|to|i)/.test(m))
+                return "To deposit: open <b>Deposit</b>, pick a bot, and send it the gems in-game (BigGames). Your site balance updates automatically once the bot receives them.";
+
+            // Is it legit / rigged / scam (reassurance).
+            if (/(is\s*this|is\s*it|are\s*you)\s*(legit|real|fake|rigged|scam|safe|trusted)|rigged|scam site/.test(m))
+                return "PetBet99 is a real gems casino for PS99. Games are server-side and provably run. Deposits/withdrawals are handled by bots. Never send gems to random players who promise rewards — those are scammers, not us.";
+
+            // How to earn / get more gems.
+            if (/(how|where).*(earn|get|make|more)\s*(free\s*)?gems|free\s*gems|how.*rich/.test(m))
+                return "Earn gems by: playing the games, inviting <b>real</b> friends (Battle Pass rewards + 50M each), and the chat quiz (100M every 10–30 min for the first correct answer). Free gems from strangers = scam.";
+
+            return null;
+        }
+
+        // ── Chat Quiz (win 100M every 10–30 min) ──
+        let _quizRoundId = null;
+        async function _quizPoll() {
+            if (!window.supabaseClient) return;
+            try {
+                const { data } = await supabaseClient.rpc('get_or_create_quiz_round');
+                _quizRoundId = (data && data.status === 'open') ? data.id : null;
+            } catch (e) {}
+        }
+        (function _startQuiz() {
+            const go = () => { _quizPoll(); setInterval(_quizPoll, 45000); };  // check every 45s
+            if (document.readyState === 'complete') setTimeout(go, 5000);
+            else window.addEventListener('load', () => setTimeout(go, 5000));
+        })();
+
+        async function sendChatMessage() {
+            const input = document.getElementById('globalChatInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+            if (!currentUser) {
+                showToast("Please login to chat!", "error");
+                return;
+            }
+
+            if (message.length > _CHAT_MAXLEN) {
+                showToast(`Message too long — max ${_CHAT_MAXLEN} characters.`, "error");
+                return;
+            }
+
+            const now = Date.now();
+            if (now - _lastChatTime < _CHAT_COOLDOWN) {
+                const left = Math.ceil((_CHAT_COOLDOWN - (now - _lastChatTime)) / 1000);
+                showToast(`Please wait ${left}s before sending again.`, "error");
+                return;
+            }
+
+            if (_DOMAIN_RE.test(message)) {
+                showToast("Links and other sites are not allowed.", "error");
+                return;
+            }
+
+            if (_BANNED_RE.test(_cleanChat(message)) || _hasBannedPhrase(message)) {
+                showToast("That message was blocked (scam / other sites / bad words).", "error");
+                return;
+            }
+
+            _lastChatTime = now;
+            input.value = '';
+
+            const { data: _inserted, error } = await supabaseClient
+                .from('chat_messages')
+                .insert([{
+                    username: currentUser.roblox_username,
+                    message: message,
+                    roblox_user_id: currentUser.roblox_user_id
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                console.error("Error sending message:", error);
+                showToast("Error sending message. Please try again.", "error");
+            } else if (_inserted) {
+                appendChatMessage(_inserted);   // render own message immediately (realtime echo is de-duped by id)
+                scrollChatToBottom();
+            }
+
+            // Auto-answer AFTER the question message (now guaranteed to sit right below it).
+            const _faq = _faqAnswer(message);
+            if (_faq) _appendBotMessage(_faq);
+
+            // Chat quiz: if a round is open, try this message as the answer.
+            if (_quizRoundId && currentUser) {
+                const _rid = _quizRoundId;
+                supabaseClient.rpc('submit_quiz_answer', {
+                    p_username: currentUser.roblox_username, p_round_id: _rid, p_answer: message
+                }).then(({ data }) => {
+                    if (data && data.success) {
+                        _quizRoundId = null;
+                        currentUser.balance = (Number(currentUser.balance) || 0) + Number(data.reward || 0);
+                        if (typeof updateAllBalanceDisplays === 'function') updateAllBalanceDisplays();
+                        showToast(`🏆 Correct! You won ${formatNumber(data.reward)}!`, 'success');
+                    }
+                }).catch(() => {});
+            }
+        }
+
+        function appendChatMessage(msg) {
+            const chatMessages = document.getElementById('globalChatMessages');
+            if (!chatMessages) return;
+            // De-dup: skip if this message id is already on screen (optimistic + realtime echo).
+            if (msg.id && chatMessages.querySelector(`.chat-message[data-msg-id="${CSS.escape(String(msg.id))}"]`)) return;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message';
+            if (msg.id) msgDiv.dataset.msgId = msg.id;
+            const isSelf = currentUser && msg.username.toLowerCase() === currentUser.roblox_username.toLowerCase();
+            if (isSelf) msgDiv.classList.add('self');
+
+            // Tip announcements render as a highlighted, centered system-style line:
+            //   "💸 <sender> tipped <recipient> <amount> gems"
+            if (typeof msg.message === 'string' && msg.message.indexOf('​tipped ') === 0) {
+                // "tipped <recipient> <amount> gems" -> branded PETBET BOT line
+                const _b = msg.message.slice(1).replace(/^tipped\s+/i, '');
+                const _mm = _b.match(/^(.*?)\s+([\d.,]+\s*[kmb]?)\s*gems?\s*$/i);
+                const _recip = escapeHtml(_mm ? _mm[1] : _b);
+                const _amt = _mm ? escapeHtml(_mm[2].replace(/\s/g, '')) : '';
+                msgDiv.style.cssText = 'justify-content:flex-start;';
+                msgDiv.innerHTML = `<div style="display:flex;align-items:center;gap:7px;width:100%;padding:4px 10px;font-size:12px;color:#8b93a7;"><img src="favicon.svg" alt="" style="width:16px;height:16px;flex:none;" onerror="this.outerHTML='💎'"><b style="color:#a855f7;font-size:10.5px;letter-spacing:.3px;">PETBET BOT</b><span><b style="color:#eaf0ff;">${escapeHtml(msg.username)}</b> tipped <b style="color:#eaf0ff;">${_recip}</b>${_amt ? ` <b style="color:#f5c542;">${_amt}</b>` : ''}</span></div>`;
+                chatMessages.appendChild(msgDiv);
+                return;
+            }
+
+            // Branded PETBET BOT system messages (quiz, announcements).
+            if (msg.username === 'PetBot' || msg.username === 'PETBET BOT') {
+                msgDiv.style.cssText = 'justify-content:flex-start;';
+                msgDiv.innerHTML = `<div style="display:flex;align-items:center;gap:7px;width:100%;padding:4px 10px;font-size:12px;color:#cbd5e6;"><img src="favicon.svg" alt="" style="width:16px;height:16px;flex:none;" onerror="this.outerHTML='💎'"><b style="color:#4d7cff;font-size:10.5px;letter-spacing:.3px;">PETBET BOT</b><span>${escapeHtml(msg.message)}</span></div>`;
+                chatMessages.appendChild(msgDiv);
+                return;
+            }
+
+            const avatarUrl = msg.roblox_user_id ? `https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=${msg.roblox_user_id}&size=48x48&format=Png&isCircular=true` : null;
+            const initial = escapeHtml(msg.username.charAt(0).toUpperCase());
+            const msgDate = msg.created_at ? new Date(msg.created_at) : new Date();
+            const timeStr = msgDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+            // Use cached level if available, default to 1, then async-update
+            const cachedLvl = isSelf
+                ? getLevel(currentUser.total_wagered || 0)
+                : (_userLevelCache.get(msg.username) || 1);
+            const _role = isSelf ? (currentUser.role || 'player') : (_userRoleCache.get(msg.username) || 'player');
+            const _roleCls = _roleClass(_role);
+            const _delBtn = (typeof isAdmin === 'function' && isAdmin() && msg.id)
+                ? `<button class="chat-del-btn" onclick="adminDeleteMessage('${msg.id}')" title="Delete message">✕</button>` : '';
+
+            msgDiv.innerHTML = `
+                <div class="chat-avatar-wrap">
+                    <div class="chat-avatar">
+                        ${avatarUrl ? `<img src="${avatarUrl}" alt="" onerror="this.parentElement.innerHTML='${initial}'">` : initial}
+                    </div>
+                </div>
+                <div class="chat-body">
+                    <div class="chat-meta">
+                        <span class="chat-username clickable-user ${_roleCls}" data-u="${escapeHtml(msg.username)}" onclick="openPlayerProfile(this.dataset.u)" title="View profile"><span class="chat-at">@</span>${escapeHtml(msg.username)}<span class="chat-lvl" data-lvl-user="${escapeHtml(msg.username)}">${cachedLvl}</span></span>
+                        <span class="chat-time">${timeStr}</span>
+                        ${_delBtn}
+                    </div>
+                    <p class="chat-text">${escapeHtml(msg.message)}</p>
+                </div>
+            `;
+            chatMessages.appendChild(msgDiv);
+
+            // Async-fill level if not cached
+            if (!isSelf && !_userLevelCache.has(msg.username)) {
+                getUserLevel(msg.username).then(lvl => {
+                    // Update all badges for this user in chat (may appear multiple times)
+                    chatMessages.querySelectorAll(`[data-lvl-user="${CSS.escape(msg.username)}"]`).forEach(el => {
+                        el.textContent = lvl;
+                    });
+                });
+            }
+        }
+
+        // The "become a Content Creator" promo is now a PERMANENT banner above the
+        // chat input (.chat-cc-banner) instead of a message spammed into the chat.
+
+        // Admin: delete a chat message (removes it for everyone via realtime)
+        async function adminDeleteMessage(id) {
+            if (typeof isAdmin !== 'function' || !isAdmin() || !id) return;
+            try {
+                const { data, error } = await window.supabaseClient.rpc('admin_delete_chat_message', {
+                    p_admin: currentUser.roblox_username, p_message_id: String(id)
+                });
+                if (error || (data && data.success === false)) {
+                    if (typeof showToast === 'function') showToast('Could not delete message.', 'error');
+                    return;
+                }
+                const el = document.querySelector(`.chat-message[data-msg-id="${CSS.escape(String(id))}"]`);
+                if (el) el.remove();
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('Could not delete message.', 'error');
+            }
+        }
+
+        function scrollChatToBottom() {
+            const chatMessages = document.getElementById('globalChatMessages');
+            if (chatMessages) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        function toggleEmojiPicker(e) {
+            e.stopPropagation();
+            document.getElementById('emojiPicker').classList.toggle('active');
+        }
+
+        function addEmoji(emoji) {
+            const input = document.getElementById('globalChatInput');
+            input.value += emoji;
+            input.focus();
+            document.getElementById('emojiPicker').classList.remove('active');
+        }
+
+        // Close emoji picker when clicking outside
+        document.addEventListener('click', () => {
+            const picker = document.getElementById('emojiPicker');
+            if (picker) picker.classList.remove('active');
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Desktop: hide/show the chat sidebar. Preference is remembered.
+        function applyChatCollapsed(collapsed) {
+            document.body.classList.toggle('chat-collapsed', collapsed);
+            const btn = document.getElementById('chatCollapseBtn');
+            if (btn) {
+                btn.textContent = collapsed ? '💬' : '❯';
+                btn.title = collapsed ? 'Show chat' : 'Hide chat';
+            }
+        }
+        function toggleGlobalChat() {
+            const collapsed = !document.body.classList.contains('chat-collapsed');
+            applyChatCollapsed(collapsed);
+            try { localStorage.setItem('petbet_chat_hidden', collapsed ? '1' : '0'); } catch (e) {}
+        }
+
+        // ── Level system ─────────────────────────────────────
+        // Level formula: level = floor(cbrt(total_wagered / 10_000_000)) + 1
+        // Wagered needed for level N: (N-1)^3 * 10_000_000
+        // Level 1=0, 2=10M, 5=640M, 10=7.3B, 20=68.6B, 25=138B, 50=1.17T, 100=9.7T
+        // 100B wagered ≈ Level 22 — Level 100 is basically unreachable
+        const _LVL_BASE = 10_000_000;
+        function getLevel(totalWagered) {
+            return Math.floor(Math.cbrt((totalWagered || 0) / _LVL_BASE)) + 1;
+        }
+        function getLevelProgress(totalWagered) {
+            const w = totalWagered || 0;
+            const lvl = getLevel(w);
+            const curr = Math.pow(lvl - 1, 3) * _LVL_BASE;
+            const next = Math.pow(lvl, 3) * _LVL_BASE;
+            return Math.min(100, Math.round((w - curr) / (next - curr) * 100));
+        }
+        function getLevelThresholds(totalWagered) {
+            const w = totalWagered || 0;
+            const lvl = getLevel(w);
+            return { curr: Math.pow(lvl - 1, 3) * _LVL_BASE, next: Math.pow(lvl, 3) * _LVL_BASE };
+        }
+
+        const _userLevelCache = new Map();
+        const _userRoleCache = new Map();
+        function _roleClass(role) {
+            if (role === 'admin') return 'role-admin';
+            if (role === 'content_creator') return 'role-cc';
+            return '';
+        }
+        function _applyChatRole(username, role) {
+            const cls = _roleClass(role);
+            if (!cls) return;
+            document.querySelectorAll(`.clickable-user[data-u="${CSS.escape(username)}"]`).forEach(el => {
+                el.classList.remove('role-admin', 'role-cc');
+                el.classList.add(cls);
+            });
+        }
+        async function getUserLevel(username) {
+            if (_userLevelCache.has(username)) return _userLevelCache.get(username);
+            try {
+                const { data } = await window.supabaseClient.from('users').select('total_wagered, role').eq('roblox_username', username).single();
+                const lvl = getLevel(data?.total_wagered);
+                _userLevelCache.set(username, lvl);
+                _userRoleCache.set(username, data?.role || 'player');
+                _applyChatRole(username, data?.role);
+                return lvl;
+            } catch(e) { return 1; }
+        }
+        // ─────────────────────────────────────────────────────
+
+        // ── Player profile popup (click a username in chat) ──
+        function closePlayerProfile() {
+            const m = document.getElementById('playerProfileModal');
+            if (m) m.classList.remove('active');
+        }
+        async function openPlayerProfile(username) {
+            if (!username) return;
+            const modal = document.getElementById('playerProfileModal');
+            const box   = document.getElementById('playerProfileBox');
+            if (!modal || !box) return;
+            box.innerHTML = '<div class="pp-empty">Loading…</div>';
+            modal.classList.add('active');
+            try {
+                const { data, error } = await window.supabaseClient.rpc('get_player_profile', { p_username: username });
+                if (error || !data) { box.innerHTML = '<div class="pp-empty">Could not load profile.</div>'; return; }
+                renderPlayerProfile(data);
+            } catch (e) {
+                box.innerHTML = '<div class="pp-empty">Could not load profile.</div>';
+            }
+        }
+        function renderPlayerProfile(d) {
+            const box = document.getElementById('playerProfileBox');
+            if (!box) return;
+            const uname  = d.username || 'Player';
+            const lvl    = getLevel(Number(d.wagered) || 0);
+            const net    = Number(d.net) || 0;
+            const wins   = Number(d.wins) || 0, losses = Number(d.losses) || 0;
+            const avatar = d.roblox_user_id
+                ? `https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=${d.roblox_user_id}&size=48x48&format=Png&isCircular=true`
+                : null;
+            const netCls = net >= 0 ? 'pp-up' : 'pp-down';
+            const netTxt = (net >= 0 ? '▲ +' : '▼ −') + formatNumber(Math.abs(net));
+            const initial = escapeHtml(uname.charAt(0).toUpperCase());
+            // Tip requires a valid session token now (tip_gems_secure.sql) — safe to enable.
+            const TIP_ENABLED = true;
+            const canTip = TIP_ENABLED && currentUser && currentUser.roblox_username &&
+                           String(uname).toLowerCase() !== String(currentUser.roblox_username).toLowerCase();
+
+            // Graph: net profit per bet across the last 10 bets (green up = won, red down = lost)
+            const recent = Array.isArray(d.recent) ? d.recent : [];
+            let graphHtml;
+            if (!recent.length) {
+                graphHtml = '<div class="pp-empty">No bets yet.</div>';
+            } else {
+                const nets   = recent.map(b => (Number(b.win_amount) || 0) - (Number(b.bet_amount) || 0));
+                const maxAbs = Math.max(1, ...nets.map(n => Math.abs(n)));
+                const slotW  = 100 / recent.length;
+                const bars = nets.map((v, i) => {
+                    const h    = Math.max(4, Math.round(Math.abs(v) / maxAbs * 42));
+                    const left = (i * slotW + slotW / 2 - 3).toFixed(2);
+                    const up   = v >= 0;
+                    const pos  = up ? 'bottom:50%;' : 'top:50%;';
+                    const g    = escapeHtml(recent[i].game_type || '');
+                    return `<div class="pp-bar ${up ? 'up' : 'down'}" style="left:${left}%;height:${h}%;${pos}" title="${g}: ${up ? '+' : '−'}${formatNumber(Math.abs(v))}"></div>`;
+                }).join('');
+                graphHtml = `<div class="pp-graph"><div class="pp-baseline"></div>${bars}</div>`;
+            }
+
+            box.innerHTML = `
+                <div class="pp-head">
+                    <div class="pp-avatar">${avatar ? `<img src="${avatar}" onerror="this.parentElement.textContent='${initial}'">` : initial}</div>
+                    <div>
+                        <div class="pp-name">${escapeHtml(uname)}</div>
+                        <span class="pp-lvl">LVL ${lvl}</span>
+                    </div>
+                    ${canTip ? `<button data-u="${escapeHtml(uname)}" onclick="tipPlayer(this.dataset.u)" title="Send a tip" style="margin-left:auto;background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;font-weight:800;border-radius:9px;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:14px;">Tip</button>` : ''}
+                    <button class="pp-close" onclick="closePlayerProfile()">&times;</button>
+                </div>
+                <div class="pp-stats">
+                    <div class="pp-tile"><div class="pp-tile-lbl">Wagered</div><div class="pp-tile-val">${formatNumber(Number(d.wagered) || 0)}</div></div>
+                    <div class="pp-tile"><div class="pp-tile-lbl">Wins / Losses</div><div class="pp-tile-val">${wins} / ${losses}</div></div>
+                    <div class="pp-tile"><div class="pp-tile-lbl">Biggest win</div><div class="pp-tile-val">${formatNumber(Number(d.biggest_win) || 0)}</div></div>
+                </div>
+                <div class="pp-graph-lbl">Last ${recent.length} bets (green = won, red = lost)</div>
+                ${graphHtml}
+            `;
+        }
+
+        // ── Tipping ──
+        function _parseGems(raw) {
+            if (raw === null || raw === undefined) return null;
+            let s = String(raw).trim().toLowerCase().replace(/,/g, '').replace(/\s/g, '');
+            if (!s) return null;
+            let mult = 1;
+            const last = s.slice(-1);
+            if (last === 'k') mult = 1e3; else if (last === 'm') mult = 1e6; else if (last === 'b') mult = 1e9;
+            if (mult > 1) s = s.slice(0, -1);
+            const v = parseFloat(s);
+            if (isNaN(v) || v <= 0) return null;
+            return Math.floor(v * mult);
+        }
+
+        let _tipTarget = null;
+        function tipPlayer(toUsername) {
+            if (!currentUser || !currentUser.roblox_username) { showToast('Please login first.', 'error'); return; }
+            if (!toUsername) return;
+            if (String(toUsername).toLowerCase() === currentUser.roblox_username.toLowerCase()) {
+                showToast("You can't tip yourself.", 'error'); return;
+            }
+            _tipTarget = toUsername;
+            document.getElementById('tipTargetName').textContent = toUsername;
+            document.getElementById('tipBalance').textContent = formatNumber(Number(currentUser.balance) || 0);
+            const inp = document.getElementById('tipAmountInput');
+            inp.value = '';
+            document.getElementById('tipModal').classList.add('active');
+            setTimeout(() => inp.focus(), 50);
+        }
+        function closeTipModal() {
+            document.getElementById('tipModal').classList.remove('active');
+            _tipTarget = null;
+        }
+        async function confirmTip() {
+            if (!_tipTarget || !currentUser) { closeTipModal(); return; }
+            const toUsername = _tipTarget;
+            const amount = _parseGems(document.getElementById('tipAmountInput').value);
+            if (!amount) { showToast('Invalid amount.', 'error'); return; }
+            if (amount < 5000000) { showToast('Minimum tip is 5M.', 'error'); return; }
+            if (amount > (Number(currentUser.balance) || 0)) { showToast('Not enough gems.', 'error'); return; }
+            const btn = document.getElementById('tipSendBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+            try {
+                const { data, error } = await supabaseClient.rpc('tip_gems', {
+                    p_from: currentUser.roblox_username, p_to: toUsername, p_amount: amount,
+                    p_token: currentUser.sessionToken || ''
+                });
+                if (error || !data || data.success === false) {
+                    const _msg = (data && data.error) || 'Tip failed.';
+                    showToast(_msg, 'error');
+                    if (/session|log in/i.test(_msg)) { closeTipModal(); closePlayerProfile(); if (typeof openModal === 'function') openModal(); }
+                    return;
+                }
+                currentUser.balance = Number(data.new_balance);
+                updateAllBalanceDisplays();
+                // Announce in chat for everyone (zero-width marker => rendered as a tip line).
+                await supabaseClient.from('chat_messages').insert([{
+                    username: currentUser.roblox_username,
+                    message: '​tipped ' + (data.to || toUsername) + ' ' + formatNumber(amount) + ' gems',
+                    roblox_user_id: currentUser.roblox_user_id
+                }]);
+                showToast(`Tipped ${formatNumber(amount)} to ${data.to || toUsername}!`, 'success');
+                closeTipModal();
+                closePlayerProfile();
+            } catch (e) {
+                showToast('Tip failed.', 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Send Tip'; }
+            }
+        }
+
+        // ── Admin panel (role = 'admin' only) ──
+        function isAdmin() { return !!(currentUser && currentUser.role === 'admin'); }
+
+        // Owner-only Coinflip preview: turns the "SOON" Coinflip buttons into working ones
+        // for admins only. Everyone else keeps the "coming soon" placeholder. UI-only gate
+        // (backend RPCs are unchanged) — enough to preview before a public release.
+        function enableOwnerCoinflip() {
+            if (!isAdmin()) return;
+            const sb = document.getElementById('cfSidebarBtn');
+            if (sb && !sb.dataset.ownerReady) {
+                sb.dataset.ownerReady = '1';
+                sb.classList.remove('l-soon');
+                sb.title = 'Coinflip (owner preview)';
+                sb.onclick = function () { if (typeof closeAllGames === 'function') closeAllGames(); openCoinflipGame(); };
+                const b = sb.querySelector('.l-sb-badge');
+                if (b) { b.textContent = 'OWNER'; b.classList.remove('soon'); b.classList.add('live'); }
+            }
+            const db = document.getElementById('cfDrawerBtn');
+            if (db && !db.dataset.ownerReady) {
+                db.dataset.ownerReady = '1';
+                db.classList.remove('m-soon');
+                db.onclick = function () { if (typeof closeMobileMenu === 'function') closeMobileMenu(); openCoinflipGame(); };
+                const b = db.querySelector('.m-soon-badge');
+                if (b) { b.textContent = 'OWNER'; }
+            }
+        }
+        function _apEsc(s) { return String(s == null ? '' : s).replace(/['"\\<>]/g, ''); }
+        function applyRoleUI() {
+            const show = isAdmin();
+            document.querySelectorAll('.admin-only').forEach(el => { el.style.display = show ? '' : 'none'; });
+        }
+        function _apWhen(ts) {
+            try {
+                const dt = new Date(ts);
+                return dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) + ' ' +
+                       dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            } catch (e) { return ''; }
+        }
+        function openAdminPanel() {
+            if (!isAdmin()) return;
+            document.getElementById('adminPanelModal').classList.add('active');
+            adminSearchUsers();
+        }
+        function closeAdminPanel() {
+            document.getElementById('adminPanelModal').classList.remove('active');
+        }
+        async function adminSearchUsers() {
+            if (!isAdmin()) return;
+            const box = document.getElementById('apResults');
+            const q = (document.getElementById('apSearchInput').value || '').trim();
+            box.innerHTML = '<div class="ap-empty">Loading…</div>';
+            try {
+                const { data, error } = await window.supabaseClient.rpc('admin_list_users', {
+                    p_admin: currentUser.roblox_username, p_token: currentUser.sessionToken || '',
+                    p_search: q || null, p_limit: 50
+                });
+                if (error || !data || data.error) { box.innerHTML = '<div class="ap-empty">Could not load.</div>'; return; }
+                if (!data.length) { box.innerHTML = '<div class="ap-empty">No users found.</div>'; return; }
+                box.innerHTML = data.map(u => `
+                    <div class="ap-row" onclick="adminOpenUser('${_apEsc(u.roblox_username)}')">
+                        <span class="ap-u">${escapeHtml(u.roblox_username)}</span>
+                        <span class="ap-role ${_apEsc(u.role)}">${escapeHtml(u.role)}</span>
+                        <span class="ap-bal">💎 ${formatNumber(Number(u.balance) || 0)}</span>
+                    </div>`).join('');
+            } catch (e) { box.innerHTML = '<div class="ap-empty">Could not load.</div>'; }
+        }
+        async function adminOpenUser(username) {
+            const box = document.getElementById('apResults');
+            box.innerHTML = '<div class="ap-empty">Loading…</div>';
+            try {
+                const { data, error } = await window.supabaseClient.rpc('admin_user_detail', {
+                    p_admin: currentUser.roblox_username, p_token: currentUser.sessionToken || '',
+                    p_username: username
+                });
+                if (error || !data || data.error || !data.user) { box.innerHTML = '<div class="ap-empty">Could not load user.</div>'; return; }
+                // Lifetime deposit-vs-withdraw P/L — computed from the FULL transactions table
+                // (not the RPC's "last N" slice) so the number is accurate.
+                data._depwd = await adminDepositWithdrawNet(data.user.roblox_username || username);
+                renderAdminUser(data);
+            } catch (e) { box.innerHTML = '<div class="ap-empty">Could not load user.</div>'; }
+        }
+        // Σ withdrawn − Σ deposited for a user.
+        // net > 0  → player withdrew more than they deposited = in profit (most gems come from rewards).
+        // Deposits: type 'deposit', only 'completed'. Withdrawals: type 'withdraw' OR 'withdrawal'
+        // (both are used), counted at any status EXCEPT rejected/failed/cancelled — because on
+        // request the balance is already deducted (statuses are usually 'processing'/'pending').
+        // 'reward' and 'cashback' are intentionally ignored — those are free gems, not deposits.
+        async function adminDepositWithdrawNet(username) {
+            try {
+                const { data } = await window.supabaseClient
+                    .from('transactions')
+                    .select('type,status,amount')
+                    .eq('username', username)
+                    .in('type', ['deposit', 'withdraw', 'withdrawal']);
+                let dep = 0, wd = 0;
+                const dead = ['rejected', 'failed', 'cancelled', 'canceled', 'declined', 'error', 'refunded'];
+                (data || []).forEach(t => {
+                    const amt = Number(t.amount) || 0;
+                    const st = String(t.status || '').toLowerCase();
+                    if (t.type === 'deposit') {
+                        if (st === 'completed') dep += amt;
+                    } else if (!dead.includes(st)) {
+                        wd += amt;
+                    }
+                });
+                return { dep, wd, net: wd - dep };
+            } catch (e) { return { dep: 0, wd: 0, net: 0 }; }
+        }
+        function renderAdminUser(d) {
+            const box = document.getElementById('apResults');
+            const u = d.user;
+            const games = Array.isArray(d.games) ? d.games : [];
+            const txs   = Array.isArray(d.transactions) ? d.transactions : [];
+            const totalWon = games.reduce((a, g) => a + (Number(g.win_amount) || 0), 0);
+            const totalBet = games.reduce((a, g) => a + (Number(g.bet_amount) || 0), 0);
+            const net = totalWon - totalBet;
+            // Deposit-vs-withdraw P/L (withdrawn − deposited). Positive = player in profit.
+            const dw = d._depwd || { dep: 0, wd: 0, net: 0 };
+            const dwCls = dw.net >= 0 ? 'ap-win' : 'ap-loss';
+            const dwTxt = (dw.net >= 0 ? '+' : '−') + formatNumber(Math.abs(dw.net));
+            const gamesRows = games.length ? games.map(g => {
+                const w = !!g.is_win;
+                return `<tr><td>${escapeHtml(g.game_type || '')}</td><td>${formatNumber(Number(g.bet_amount) || 0)}</td>
+                    <td class="${w ? 'ap-win' : 'ap-loss'}">${w ? '+' + formatNumber(Number(g.win_amount) || 0) : '−' + formatNumber(Number(g.bet_amount) || 0)}</td>
+                    <td>${_apWhen(g.created_at)}</td></tr>`;
+            }).join('') : '<tr><td colspan="4" class="ap-empty">No games yet.</td></tr>';
+            const txRows = txs.length ? txs.map(t =>
+                `<tr><td>${escapeHtml(t.type || '')}</td><td>${formatNumber(Number(t.amount) || 0)}</td><td>${escapeHtml(t.status || '')}</td><td>${_apWhen(t.created_at)}</td></tr>`
+            ).join('') : '<tr><td colspan="4" class="ap-empty">No transactions.</td></tr>';
+            box.innerHTML = `
+                <button class="ap-back" onclick="adminSearchUsers()">← Back to list</button>
+                <div class="ap-top" style="margin-bottom:6px;">
+                    <span class="ap-title">${escapeHtml(u.roblox_username)}</span>
+                    <span class="ap-role ${_apEsc(u.role)}">${escapeHtml(u.role)}</span>
+                </div>
+                <div class="ap-stat-grid">
+                    <div class="ap-stat"><div class="l">Balance</div><div class="v">${formatNumber(Number(u.balance) || 0)}</div></div>
+                    <div class="ap-stat"><div class="l">Wagered</div><div class="v">${formatNumber(Number(u.total_wagered) || 0)}</div></div>
+                    <div class="ap-stat"><div class="l">Net (logged)</div><div class="v ${net >= 0 ? 'ap-win' : 'ap-loss'}">${net >= 0 ? '+' : '−'}${formatNumber(Math.abs(net))}</div></div>
+                    <div class="ap-stat"><div class="l">Deposited</div><div class="v">${formatNumber(dw.dep)}</div></div>
+                    <div class="ap-stat"><div class="l">Withdrawn</div><div class="v">${formatNumber(dw.wd)}</div></div>
+                    <div class="ap-stat"><div class="l">Deposit P/L</div><div class="v ${dwCls}">${dwTxt}</div></div>
+                </div>
+                <div class="ap-sec">Game history (last ${games.length})</div>
+                <table class="ap-table"><thead><tr><th>Game</th><th>Bet</th><th>Result</th><th>When</th></tr></thead><tbody>${gamesRows}</tbody></table>
+                <div class="ap-sec">Transactions (last ${txs.length})</div>
+                <table class="ap-table"><thead><tr><th>Type</th><th>Amount</th><th>Status</th><th>When</th></tr></thead><tbody>${txRows}</tbody></table>
+            `;
+        }
+
+        // ── Notification system ──────────────────────────────
+        let _notifications = [];
+
+        function loadNotifications() {
+            if (!currentUser) return;
+            const key = `petbet_notifs_${currentUser.roblox_username}`;
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                try { _notifications = JSON.parse(stored); } catch(e) { _notifications = []; }
+            } else {
+                _notifications = [];
+            }
+            // Show the Earn battle-pass notification once to EVERY user (old + new).
+            const earnKey = `petbet_earn_notif_v2_${currentUser.roblox_username}`;
+            if (!localStorage.getItem(earnKey) && !_notifications.some(n => n.id === 'earn_battlepass')) {
+                _notifications.unshift({
+                    id: 'earn_battlepass',
+                    title: '💎 Check out the Earn section!',
+                    body: 'Invite friends & climb the battle pass — make up to 20B Gems!',
+                    action: 'openEarnOverlay',
+                    actionLabel: 'Open Earn →',
+                    read: false,
+                    createdAt: Date.now()
+                });
+                localStorage.setItem(earnKey, '1');
+                localStorage.setItem(key, JSON.stringify(_notifications));
+            }
+            renderNotifications();
+        }
+
+        function saveNotifications() {
+            if (!currentUser) return;
+            localStorage.setItem(`petbet_notifs_${currentUser.roblox_username}`, JSON.stringify(_notifications));
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notif-list');
+            const badge = document.getElementById('notif-count');
+            if (!list) return;
+            const unread = _notifications.filter(n => !n.read).length;
+            if (badge) {
+                badge.textContent = unread > 9 ? '9+' : unread;
+                badge.classList.toggle('hidden', unread === 0);
+            }
+            // Sync mobile bell badge
+            const mBadge = document.getElementById('mNotifBadge');
+            if (mBadge) {
+                mBadge.textContent = unread > 9 ? '9+' : unread;
+                mBadge.classList.toggle('hidden', unread === 0);
+            }
+            const notifItemsHtml = _notifications.length === 0
+                ? '<div class="h-notif-empty">No notifications</div>'
+                : _notifications.map(n => `
+                <div class="h-notif-item${n.read ? ' read' : ''}">
+                    <div class="h-notif-dot${n.read ? ' invisible' : ''}"></div>
+                    <div class="h-notif-body">
+                        <div class="h-notif-title">${escapeHtml(n.title)}</div>
+                        <div class="h-notif-text">${escapeHtml(n.body)}</div>
+                        <div class="h-notif-actions">
+                            ${n.action ? `<button class="h-notif-action-btn" onclick="${n.action}();closeMobileNotifs();closeNotifications();">${escapeHtml(n.actionLabel || 'Open')}</button>` : ''}
+                            ${!n.read
+                                ? `<button class="h-notif-read-btn" onclick="markNotifRead('${escapeHtml(n.id)}')">Mark as read</button>`
+                                : '<span class="h-notif-read-label">✓ Read</span>'}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            list.innerHTML = notifItemsHtml;
+            // Sync mobile notification sheet
+            const mBody = document.getElementById('mNotifSheetBody');
+            if (mBody) mBody.innerHTML = notifItemsHtml;
+        }
+
+        function markNotifRead(id) {
+            const n = _notifications.find(x => x.id === id);
+            if (n) { n.read = true; saveNotifications(); renderNotifications(); }
+        }
+
+        function markAllNotifRead() {
+            _notifications.forEach(n => n.read = true);
+            saveNotifications(); renderNotifications();
+        }
+
+        function toggleNotifications(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('notifDrop')?.classList.toggle('open');
+            document.getElementById('profile-dropdown')?.classList.remove('active');
+        }
+
+        function closeNotifications() {
+            document.getElementById('notifDrop')?.classList.remove('open');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.h-notif-wrap')) closeNotifications();
+        });
+        // ─────────────────────────────────────────────────────
+
+        // Balance pill dropdown
+        function toggleBalMenu(e) {
+            e.stopPropagation();
+            const drop = document.getElementById('hBalDrop');
+            if (!drop) return;
+            drop.classList.toggle('open');
+        }
+        function closeBalMenu() {
+            const drop = document.getElementById('hBalDrop');
+            if (drop) drop.classList.remove('open');
+        }
+        document.addEventListener('click', function(e) {
+            const pill = document.getElementById('hBalPill');
+            const drop = document.getElementById('hBalDrop');
+            if (drop && drop.classList.contains('open') && pill && !pill.contains(e.target) && !drop.contains(e.target)) {
+                drop.classList.remove('open');
+            }
+        });
+
+        // Initialize chat on page load + auto-open roulette
+        document.addEventListener('DOMContentLoaded', function() {
+            initGlobalChat();
+            openRouletteGame();
+        });
+
+        let verifyToken = '', robloxUserId = '', pendingUser = '';
+        let currentUser = null;
+        // All user columns EXCEPT password_hash / verification_code (which anon must not read).
+        // Used instead of select('*') so hiding those columns doesn't break login.
+        const USER_COLS = 'id,roblox_user_id,roblox_username,created_at,last_login_at,balance,verified,total_wagered,welcome_claimed,welcome_verified,role,wd_ratio,referral_code,referred_by,referral_validated,referral_count,referral_earnings,referral_bonus_paid,referral_code_set,locked_bonus';
+
+        // Check if user is logged in on page load
+        // Check if user is logged in on page load
+        (async function initUser() {
+            const stored = localStorage.getItem('petbet_user');
+            if (stored) {
+                try {
+                    const tempUser = JSON.parse(stored);
+                    // Fetch fresh data from DB to ensure up-to-date balance and verified status
+                    const { data: users, error } = await window.supabaseClient
+                        .from('users')
+                        .select(USER_COLS)
+                        .eq('roblox_username', tempUser.roblox_username)
+                        .single();
+
+                    if (!error && users) {
+                        currentUser = users;
+                        // Ensure balance is parsed correctly from numeric
+                        currentUser.balance = parseFloat(currentUser.balance) || 0;
+                        localStorage.setItem('petbet_user', JSON.stringify(users));
+                        updateUI();
+                        // Update local storage
+                        localStorage.setItem('petbet_user', JSON.stringify(currentUser));
+
+                        // Refresh chat to show 'self' messages on the right
+                        if (typeof fetchChatMessages === 'function') fetchChatMessages();
+
+                        // Welcome gift pre nový účet (20M iba raz + malá animácia)
+                        checkWelcomeBonus();
+
+                        // Auto-resume an unfinished Mines game after a refresh/crash
+                        autoResumeActiveGame();
+                    } else {
+                        logout();
+                    }
+                } catch (e) {
+                    console.error("Init user error:", e);
+                    logout();
+                }
+            }
+            dismissLoading();
+        })();
+
+        // ===== WELCOME GIFT: pripíše 20M iba raz na nový účet + malá "+20M" animácia =====
+        async function checkWelcomeBonus() {
+            if (!currentUser) return;
+            if (currentUser.welcome_seen) return; // animáciu už videl -> neotravuj server
+            try {
+                const { data, error } = await window.supabaseClient.rpc('claim_welcome_gift', {
+                    p_username: currentUser.roblox_username
+                });
+                if (error) { console.error('welcome bonus error:', error); return; }
+
+                currentUser.welcome_seen = true;
+                currentUser.welcome_claimed = true;
+                if (data && data.new_balance !== undefined && data.new_balance !== null) {
+                    currentUser.balance = parseFloat(data.new_balance) || currentUser.balance;
+                }
+                try { localStorage.setItem('petbet_user', JSON.stringify(currentUser)); } catch (e) {}
+
+                if (data && data.success) {
+                    updateAllBalanceDisplays();
+                    // animácia sa ukáže raz: novým účtom (už majú 20M) aj starším (práve dostali)
+                    if (data.show_animation) {
+                        showWelcomeGift(data.amount || 20000000);
+                    }
+                }
+            } catch (e) {
+                console.error('welcome bonus exception:', e);
+            }
+        }
+
+        // malá "+20M" čo vyletí spod balance pillu
+        function showWelcomeGift(amount) {
+            const anchor = document.getElementById('hBalPill')
+                || document.getElementById('header-balance')
+                || document.getElementById('mBalanceWrap');
+            const txt = (typeof formatNumber === 'function') ? formatNumber(amount) : amount;
+
+            const el = document.createElement('div');
+            el.className = 'wg-float';
+            el.innerHTML = '<span class="wg-amt">+' + txt + ' &#128142;</span>'
+                         + '<span class="wg-msg">Welcome gift &#127881;</span>';
+
+            let left = window.innerWidth / 2, top = 64;
+            if (anchor) {
+                const r = anchor.getBoundingClientRect();
+                left = r.left + r.width / 2;
+                top = r.bottom + 6;
+            }
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 2500);
+        }
+
+        // This function is now redundant but kept for compatibility if called elsewhere,
+        // now simply refreshing from 'users' table.
+        async function loadUserBalance() {
+            if (!currentUser) return;
+            try {
+                const users = await dbFetch('GET', `/rest/v1/users?roblox_username=eq.${currentUser.roblox_username}`);
+                if (users?.length) {
+                    currentUser.balance = parseFloat(users[0].balance) || 0;
+                    updateAllBalanceDisplays();
+                }
+            } catch (e) {
+                console.error("Load balance error:", e);
+            }
+        }
+
+        function updateUI() {
+            const guestBtns = document.getElementById('guest-btns');
+            const userBtns = document.getElementById('user-btns');
+            const balCenter = document.getElementById('h-balance-center');
+
+            if (currentUser) {
+                guestBtns.classList.add('hidden');
+                userBtns.classList.remove('hidden');
+                if (balCenter) balCenter.classList.remove('hidden');
+
+                // Update balance displays
+                document.getElementById('header-balance').textContent = formatNumber(currentUser.balance);
+                document.getElementById('profile-balance').textContent = formatNumber(currentUser.balance);
+                document.getElementById('profile-name').textContent = currentUser.roblox_username;
+
+                // Update level elements
+                const lvl = getLevel(currentUser.total_wagered || 0);
+                const lvlProgress = getLevelProgress(currentUser.total_wagered || 0);
+                const lvlBadge = document.getElementById('user-level-badge');
+                if (lvlBadge) lvlBadge.textContent = lvl;
+                _userLevelCache.set(currentUser.roblox_username, lvl);
+
+                // Load notifications (adds earn notification on first login)
+                if (typeof loadNotifications === 'function') loadNotifications();
+
+                // Show/hide admin-only UI based on role
+                if (typeof applyRoleUI === 'function') applyRoleUI();
+
+                // Owner-only preview: unlock Coinflip for admins (others still see "SOON").
+                if (typeof enableOwnerCoinflip === 'function') enableOwnerCoinflip();
+
+                // Load Roblox avatar — len ak ešte nie je zobrazená (zabraňuje blikaniu pri balance update)
+                const _avatarImg = document.getElementById('profile-avatar');
+                if (!_avatarImg || _avatarImg.classList.contains('hidden')) {
+                    loadRobloxAvatar(currentUser.roblox_username, currentUser.roblox_user_id);
+                }
+            } else {
+                guestBtns.classList.remove('hidden');
+                userBtns.classList.add('hidden');
+                if (balCenter) balCenter.classList.add('hidden');
+            }
+
+            // Sync mobile nav
+            if (typeof updateMobileNav === 'function') updateMobileNav();
+        }
+
+        
+        async function fetchUserBalance() {
+            const { data, error } = await window.supabaseClient.from('users').select('balance').eq('roblox_username', currentUser.roblox_username).single();
+            if (data) {
+                currentUser.balance = data.balance;
+                updateAllBalanceDisplays();
+            }
+        }
+    
+        function updateAllBalanceDisplays() {
+            if (!currentUser) return;
+            updateUI(); // Updates header and profile
+
+
+            // Update Mines balance if element exists (checking ID from memory/context, usually it's just shared or specific)
+            // Mines uses 'minesBet' input which might optionally show balance? No, mines usually has a balance display too?
+            // Checking mines HTML... it usually just uses the header balance.
+            // But if there is a specific balance display for mines, add it here.
+            // Based on previous reads, Mines might not have a dedicated large balance display other than the header/profile.
+        }
+
+        async function loadRobloxAvatar(username, userId = null) {
+            const avatarImg = document.getElementById('profile-avatar');
+            const defaultIcon = document.getElementById('default-avatar');
+            if (!avatarImg || !defaultIcon) return;
+
+            const finalUserId = userId || 0;
+            if (!finalUserId) {
+                avatarImg.classList.add('hidden');
+                defaultIcon.classList.remove('hidden');
+                return;
+            }
+
+            // List of proxies to try. If one fails, the next one in line is called via onerror.
+            const proxies = [
+                `https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=${finalUserId}&size=150x150&format=Png&isCircular=true`,
+                `https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${finalUserId}&size=150x150&format=Png&isCircular=true`
+            ];
+
+            let currentProxyIndex = 0;
+
+            const tryNextProxy = () => {
+                if (currentProxyIndex < proxies.length) {
+                    const url = proxies[currentProxyIndex];
+                    currentProxyIndex++;
+                    
+                    // If it's a direct image proxy (like newstargeted), we set it to src
+                    if (url.includes('api.newstargeted.com')) {
+                        avatarImg.src = url;
+                    } else {
+                        // If it's a JSON proxy (like roproxy), we need to fetch the URL first
+                        fetch(url)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.data?.[0]?.imageUrl) {
+                                    avatarImg.src = data.data[0].imageUrl;
+                                } else {
+                                    tryNextProxy();
+                                }
+                            })
+                            .catch(() => tryNextProxy());
+                    }
+                } else {
+                    // All proxies failed
+                    avatarImg.classList.add('hidden');
+                    defaultIcon.classList.remove('hidden');
+                }
+            };
+
+            avatarImg.onload = () => {
+                avatarImg.classList.remove('hidden');
+                defaultIcon.classList.add('hidden');
+            };
+
+            avatarImg.onerror = () => {
+                tryNextProxy();
+            };
+
+            tryNextProxy();
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000000000) return (num / 1000000000000).toFixed(1) + 'T';
+            if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        function formatAmount(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function parseAmount(str) {
+            if (!str) return 0;
+            const s = str.toString().trim().replace(/,/g, '');
+            const l = s.toLowerCase();
+            if (l.endsWith('t')) return Math.floor(parseFloat(l) * 1e12);
+            if (l.endsWith('b')) return Math.floor(parseFloat(l) * 1e9);
+            if (l.endsWith('m')) return Math.floor(parseFloat(l) * 1e6);
+            if (l.endsWith('k')) return Math.floor(parseFloat(l) * 1e3);
+            return parseInt(s) || 0;
+        }
+
+        function formatBetInput(num) {
+            if (num >= 1e12) return (num / 1e12).toFixed(num % 1e12 === 0 ? 0 : 1).replace(/\.0$/, '') + 'T';
+            if (num >= 1e9)  return (num / 1e9) .toFixed(num % 1e9  === 0 ? 0 : 1).replace(/\.0$/, '') + 'B';
+            if (num >= 1e6)  return (num / 1e6) .toFixed(num % 1e6  === 0 ? 0 : 1).replace(/\.0$/, '') + 'M';
+            if (num >= 1e3)  return (num / 1e3) .toFixed(num % 1e3  === 0 ? 0 : 1).replace(/\.0$/, '') + 'K';
+            return num.toString();
+        }
+
+        function toggleProfile(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('profile-dropdown').classList.toggle('active');
+        }
+
+        // Close profile dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#profile-btn') && !e.target.closest('.profile-dropdown')) {
+                document.getElementById('profile-dropdown')?.classList.remove('active');
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('petbet_user');
+            currentUser = null;
+            updateUI();
+            document.getElementById('profile-dropdown').classList.remove('active');
+        }
+
+        function openModal() {
+            const modal = document.getElementById('loginModal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+        function closeModal() {
+            const modal = document.getElementById('loginModal');
+            modal.classList.remove('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setTimeout(() => {
+                if (!modal.classList.contains('active')) modal.style.display = 'none';
+            }, 600);
+        }
+
+        document.getElementById('loginModal').addEventListener('click', (e) => {
+            if (e.target.id === 'loginModal') closeModal();
+        });
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (tab === 'login' ? i === 0 : (tab === 'register' ? i === 1 : false))));
+            document.getElementById('login-tab').classList.toggle('hidden', tab !== 'login');
+            document.getElementById('register-tab').classList.toggle('hidden', tab !== 'register');
+            document.getElementById('forgot-tab').classList.toggle('hidden', tab !== 'forgot');
+        }
+
+        function showError(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
+        function hideError(id) { document.getElementById(id).style.display = 'none'; }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+
+            // De-dupe: if an identical toast is already on screen, just refresh its
+            // timer instead of stacking a new one (e.g. spamming a closed roulette).
+            const existing = container.querySelector(`.toast[data-msg="${CSS.escape(message)}"]`);
+            if (existing) {
+                clearTimeout(existing._hideTimer);
+                existing._hideTimer = setTimeout(() => {
+                    existing.classList.remove('active');
+                    setTimeout(() => existing.remove(), 400);
+                }, 4000);
+                return;
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.dataset.msg = message;
+
+            let icon = 'ℹ️';
+            if (type === 'error') icon = '⚠️';
+            if (type === 'success') icon = '✅';
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icon}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => toast.classList.add('active'), 10);
+
+            // Auto remove (store handle so a repeat can refresh it)
+            toast._hideTimer = setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        function hash(str) { let h = 0; for (let i = 0; i < str.length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h |= 0; } return 'h' + Math.abs(h).toString(16); }
+        function genCode() { return 'PETBET-' + Math.random().toString(36).substring(2, 8).toUpperCase(); }
+
+        // LOGIN
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); hideError('login-error');
+            const u = document.getElementById('loginUsername').value.trim();
+            const p = document.getElementById('loginPassword').value;
+            const btn = document.querySelector('#loginForm button[type="submit"]');
+
+            btn.textContent = 'Logging in...'; btn.disabled = true;
+
+            try {
+                // Resolve the REAL stored casing so "francesco" logs into "Francesco".
+                // ilike can wildcard on _/%, so verify with an exact lowercase compare.
+                let canonicalU = u;
+                try {
+                    const { data: cand } = await window.supabaseClient
+                        .from('users').select('roblox_username').ilike('roblox_username', u);
+                    const match = (cand || []).find(r => (r.roblox_username || '').toLowerCase() === u.toLowerCase());
+                    if (match) canonicalU = match.roblox_username;
+                } catch (_) {}
+
+                const _r = await fetch(`${SUPABASE_URL}/functions/v1/auth-login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                    body: JSON.stringify({ robloxUsername: canonicalU, password: p })
+                });
+                const result = await _r.json();
+
+                if (!_r.ok || !result.success) {
+                    throw new Error(result.error || 'Invalid username or password');
+                }
+
+                // Fetch fresh user data from DB for local state
+                const { data: users, error: userError } = await window.supabaseClient
+                    .from('users')
+                    .select(USER_COLS)
+                    .eq('roblox_username', canonicalU)
+                    .single();
+
+                if (userError) throw userError;
+
+                users.sessionToken = result.sessionToken || null;   // session token from auth-login (for money RPCs)
+                localStorage.setItem('petbet_user', JSON.stringify(users));
+                currentUser = users;
+                currentUser.balance = parseFloat(currentUser.balance) || 0;
+                updateUI();
+                
+                // Refresh chat to show 'self' messages on the right
+                if (typeof fetchChatMessages === 'function') fetchChatMessages();
+
+                // Welcome gift pre nový účet (20M iba raz + malá animácia)
+                checkWelcomeBonus();
+
+                closeModal();
+            } catch (err) {
+                console.error('Login error:', err);
+                showError('login-error', err.message);
+            } finally {
+                btn.textContent = 'SIGN IN'; btn.disabled = false;
+            }
+        });
+
+        // REGISTER
+        let pendingPassword = '';
+        let registerStep = 1; // 1: Start, 2: Verify & Finish
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); hideError('register-error');
+            const u = document.getElementById('regUsername').value.trim();
+            const p = document.getElementById('regPassword').value;
+            const p2 = document.getElementById('regPassword2').value;
+            const btn = document.getElementById('registerBtn');
+
+            if (p !== p2) { showError('register-error', 'Passwords do not match'); return; }
+            if (p.length < 6) { showError('register-error', 'Password must be at least 6 characters'); return; }
+
+            // Step 2 & 3: Verify bio and COMPLETE registration
+            if (registerStep === 2 && pendingUser === u) {
+                btn.textContent = 'Verifying Bio...'; btn.disabled = true;
+
+                try {
+                    // Step 2: Verify bio
+                    const _rv = await fetch(`${SUPABASE_URL}/functions/v1/auth-register-verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                        body: JSON.stringify({ robloxUserId: robloxUserId, token: verifyToken })
+                    });
+                    const vData = await _rv.json();
+                    if (!_rv.ok || !vData.verified) throw new Error(vData.error || 'Verification failed. Code not found in bio.');
+
+                    // Step 3: Finish (Create account)
+                    btn.textContent = 'Finalizing...';
+                    const _rf = await fetch(`${SUPABASE_URL}/functions/v1/auth-register-finish`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                        body: JSON.stringify({ robloxUserId: robloxUserId, token: verifyToken, password: pendingPassword })
+                    });
+                    const fData = await _rf.json();
+                    if (!_rf.ok || !fData.success) throw new Error(fData.error || 'Failed to create account.');
+
+                    // Bind a referral code if the visitor arrived via someone's link (permanent, one-time).
+                    try {
+                        const refCode = localStorage.getItem('petbet_ref');
+                        if (refCode) {
+                            await window.supabaseClient.rpc('bind_referral', { p_username: u, p_ref_code: refCode });
+                            localStorage.removeItem('petbet_ref');
+                        }
+                    } catch (e) { console.warn('referral bind failed', e); }
+
+                    document.getElementById('register-success').textContent = '✓ Verified! Account created! Redirecting...';
+                    document.getElementById('register-success').style.display = 'block';
+                    setTimeout(() => {
+                        location.reload(); // Reload to clear states or show tab
+                    }, 1500);
+
+                } catch (err) {
+                    btn.textContent = 'VERIFY & COMPLETE'; btn.disabled = false;
+                    showError('register-error', err.message);
+                }
+                return;
+            }
+
+            // Step 1: Request verification code
+            try {
+                btn.textContent = 'Processing...'; btn.disabled = true;
+
+                // Reject case-insensitive duplicates ("Francesco" vs "francesco").
+                try {
+                    const { data: cand } = await window.supabaseClient
+                        .from('users').select('roblox_username').ilike('roblox_username', u);
+                    if ((cand || []).some(r => (r.roblox_username || '').toLowerCase() === u.toLowerCase())) {
+                        throw new Error('That username is already taken.');
+                    }
+                } catch (dupErr) {
+                    if (dupErr.message === 'That username is already taken.') {
+                        btn.textContent = 'CREATE ACCOUNT'; btn.disabled = false;
+                        showError('register-error', dupErr.message);
+                        return;
+                    }
+                    // lookup failed for another reason — let the server be the final judge
+                }
+
+                const _r = await fetch(`${SUPABASE_URL}/functions/v1/auth-register-start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                    body: JSON.stringify({ robloxUsername: u })
+                });
+                const data = await _r.json();
+                if (!_r.ok || !data.token) throw new Error(data.error || 'Failed to start registration');
+
+                verifyToken = data.token;
+                robloxUserId = data.robloxUserId;
+                pendingUser = u;
+                pendingPassword = p;
+                registerStep = 2;
+
+                document.getElementById('verify-code').textContent = verifyToken;
+                document.getElementById('verify-box').style.display = 'block';
+                btn.textContent = 'VERIFY & COMPLETE';
+                btn.disabled = false;
+            } catch (err) {
+                btn.textContent = 'REGISTER'; btn.disabled = false;
+                showError('register-error', err.message);
+            }
+        });
+
+        // FORGOT PASSWORD
+        let forgotToken = '', forgotUserId = '', forgotUser = '';
+        let forgotStep = 1; // 1: Start, 2: Verify, 3: Finish
+
+        document.getElementById('forgotForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); hideError('forgot-error');
+            const u = document.getElementById('forgotUsername').value.trim();
+            const btn = document.getElementById('forgotBtn');
+
+            // Step 3: Reset with code
+            if (forgotStep === 3 && forgotUser === u) {
+                const p = document.getElementById('forgotNewPassword').value;
+                const p2 = document.getElementById('forgotNewPassword2').value;
+
+                if (p !== p2) { showError('forgot-error', 'Passwords do not match'); return; }
+                if (p.length < 6) { showError('forgot-error', 'Password must be at least 6 characters'); return; }
+
+                btn.textContent = 'Resetting...'; btn.disabled = true;
+                try {
+                    const _r = await fetch(`${SUPABASE_URL}/functions/v1/password-reset-finish`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                        body: JSON.stringify({ robloxUserId: forgotUserId, token: forgotToken, newPassword: p })
+                    });
+                    const result = await _r.json();
+                    if (!_r.ok || !result.success) throw new Error(result.error || 'Reset failed');
+
+                    document.getElementById('forgot-success').textContent = '✓ Password reset! Redirecting to login...';
+                    document.getElementById('forgot-success').style.display = 'block';
+                    setTimeout(() => { location.reload(); }, 2000);
+                } catch (err) {
+                    btn.textContent = 'RESET PASSWORD'; btn.disabled = false;
+                    showError('forgot-error', err.message);
+                }
+                return;
+            }
+
+            // Step 2: Verify Bio
+            if (forgotStep === 2 && forgotUser === u) {
+                btn.textContent = 'Verifying Bio...'; btn.disabled = true;
+                try {
+                    const _r = await fetch(`${SUPABASE_URL}/functions/v1/password-reset-verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                        body: JSON.stringify({ robloxUserId: forgotUserId, token: forgotToken })
+                    });
+                    const data = await _r.json();
+                    if (!_r.ok || !data.success) throw new Error(data.error || 'Verification failed. Code not found in bio.');
+
+                    forgotStep = 3;
+                    document.getElementById('forgot-verify-box').style.display = 'none';
+                    document.getElementById('newPasswordGroup').style.display = 'block';
+                    document.getElementById('confirmPasswordGroup').style.display = 'block';
+                    btn.textContent = 'RESET PASSWORD';
+                    btn.disabled = false;
+                } catch (err) {
+                    btn.textContent = 'VERIFY BIO'; btn.disabled = false;
+                    showError('forgot-error', err.message);
+                }
+                return;
+            }
+
+            // Step 1: Request verification code
+            try {
+                btn.textContent = 'Processing...'; btn.disabled = true;
+                const _r = await fetch(`${SUPABASE_URL}/functions/v1/password-reset-start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                    body: JSON.stringify({ robloxUsername: u })
+                });
+                const data = await _r.json();
+                if (!_r.ok || !data.token) throw new Error(data.error || 'Failed to start password reset');
+
+                forgotToken = data.token; forgotUserId = data.robloxUserId; forgotUser = u;
+                forgotStep = 2;
+
+                document.getElementById('forgot-verify-code').textContent = forgotToken;
+                document.getElementById('forgot-verify-box').style.display = 'block';
+                btn.textContent = 'VERIFY BIO';
+                btn.disabled = false;
+            } catch (err) {
+                btn.textContent = 'REQUEST RESET'; btn.disabled = false;
+                showError('forgot-error', err.message);
+            }
+        });
+
+        // ========== WAGER REWARDS LOGIC ==========
+        async function openWagerRewardsModal() {
+            if (!currentUser) { openModal(); return; }
+            openNavOverlay('wagerRewardsModal', updateWagerRewardsDisplay);
+            const btn = document.getElementById('claimRewardBtn');
+            const statusEl = document.getElementById('rewardStatusMsg');
+            if (btn) { btn.textContent = 'CLAIM REWARD'; btn.style.background = ''; btn.style.boxShadow = ''; }
+            if (statusEl) { statusEl.style.display = 'none'; statusEl.innerHTML = ''; }
+        }
+
+        function closeWagerRewardsModal() {
+            const modal = document.getElementById('wagerRewardsModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        let cashbackTimerInterval = null;
+
+        async function updateWagerRewardsDisplay() {
+            if (!currentUser) return;
+            try {
+                const { data, error } = await window.supabaseClient.rpc('get_claimable_wager_reward', {
+                    p_username: currentUser.roblox_username
+                });
+                
+                if (error) throw error;
+                
+                // Handle both old (number) and new (object) response formats
+                let claimable = 0;
+                let totalPendingLosses = 0;
+                let nextClaimSeconds = 0;
+
+                if (typeof data === 'object' && data !== null) {
+                    claimable = Number(data.claimable) || 0;
+                    totalPendingLosses = Number(data.total_pending_losses) || 0;
+                    nextClaimSeconds = Number(data.next_claim_seconds) || 0;
+                } else {
+                    // Fallback for old numeric return
+                    claimable = Number(data) || 0;
+                    totalPendingLosses = Math.floor(claimable / 0.02);
+                }
+                
+                document.getElementById('claimableRewardAmount').textContent = formatAmount(claimable);
+                document.getElementById('wagerWindowTotal').textContent = formatAmount(totalPendingLosses);
+                
+                const btn = document.getElementById('claimRewardBtn');
+                const timerEl = document.getElementById('cashbackTimerDisplay');
+                
+                // Clear existing interval
+                if (cashbackTimerInterval) clearInterval(cashbackTimerInterval);
+                
+                if (nextClaimSeconds > 0) {
+                    btn.disabled = true;
+                    if (timerEl) {
+                        timerEl.style.display = 'block';
+                        timerEl.style.color = '#f87171'; // Red for cooldown
+                    }
+                    
+                    const updateTimer = () => {
+                        if (nextClaimSeconds <= 0) {
+                            clearInterval(cashbackTimerInterval);
+                            btn.disabled = (claimable <= 0);
+                            btn.textContent = 'CLAIM CASHBACK';
+                            if (timerEl) timerEl.style.display = 'none';
+                            return;
+                        }
+                        
+                        const h = Math.floor(nextClaimSeconds / 3600);
+                        const m = Math.floor((nextClaimSeconds % 3600) / 60);
+                        const s = nextClaimSeconds % 60;
+                        btn.textContent = `NEXT CLAIM IN ${h}h ${m}m ${s}s`;
+                        nextClaimSeconds--;
+                    };
+                    
+                    updateTimer();
+                    cashbackTimerInterval = setInterval(updateTimer, 1000);
+                } else {
+                    btn.disabled = (claimable <= 0);
+                    btn.textContent = 'CLAIM CASHBACK';
+                    if (timerEl) timerEl.style.display = 'none';
+                    // If we have claimable, make the button pop
+                    if (claimable > 0) {
+                        btn.style.background = 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)';
+                        btn.style.boxShadow = '0 8px 25px rgba(99, 102, 241, 0.4)';
+                    }
+                }
+
+            } catch (err) {
+                console.error("Error updating rewards display:", err);
+            }
+        }
+
+        async function submitClaimWagerReward() {
+            if (!currentUser) return;
+            const btn = document.getElementById('claimRewardBtn');
+            const statusEl = document.getElementById('rewardStatusMsg');
+            btn.disabled = true;
+            btn.textContent = 'Claiming...';
+            
+            try {
+                const { data, error } = await window.supabaseClient.rpc('claim_wager_reward', {
+                    p_username: currentUser.roblox_username
+                });
+                
+                if (error) throw error;
+                if (!data.success) throw new Error(data.error || 'Failed to claim');
+                
+                // Play sound
+                if (typeof playCashoutSound === 'function') playCashoutSound();
+                
+                // Update balance
+                currentUser.balance = data.new_balance;
+                updateAllBalanceDisplays();
+                
+                // Update UI locally
+                document.getElementById('claimableRewardAmount').textContent = '0';
+                document.getElementById('wagerWindowTotal').textContent = '0';
+                
+                // Show success status
+                btn.textContent = 'REWARD CLAIMED!';
+                btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                btn.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.4)';
+                
+                if (statusEl) {
+                    statusEl.innerHTML = `<span style="color:#10b981; font-weight:800;">✓ ${formatAmount(data.amount)} gems added to your balance!</span>`;
+                    statusEl.style.display = 'block';
+                }
+
+            } catch (err) {
+                showToast(err.message, "error");
+                btn.textContent = 'CLAIM REWARD';
+                btn.disabled = false;
+            }
+        }
+
+        // ========== DEPOSIT / WITHDRAW (bot selector) ==========
+        const WITHDRAW_FEE = 5000000; // 5M fee
+        const MAX_BOT_GEMS = 1000000000000; // 1T per bot
+        const BOT_OFFLINE_AFTER_MS = 10000; // 10s without heartbeat = offline
+        let depositPolling = null;
+        let selectedDepositBot = null;
+        let selectedWithdrawBot = null;
+
+        // Content-creator withdrawable helpers
+        function isContentCreator() { return !!(currentUser && currentUser.role === 'content_creator'); }
+        // Locked welcome bonus (can't be withdrawn until 1B wagered). 0 for CC / unlocked / grandfathered.
+        function getBonusLock() {
+            if (!currentUser || isContentCreator()) return 0;
+            if (!_wagerStatus || !_wagerStatus.found || _wagerStatus.unlocked) return 0;
+            const raw = Math.floor(Number(_wagerStatus.bonus) || 0);
+            return Math.min(raw, Math.floor(Number(currentUser.balance) || 0));
+        }
+        function getWithdrawableAmount() {
+            if (!currentUser) return 0;
+            const bal = Math.floor(Number(currentUser.balance) || 0);
+            if (currentUser.role === 'content_creator') {
+                let r = Number(currentUser.wd_ratio);
+                if (!isFinite(r) || r < 0) r = 0;
+                return Math.floor(bal * r);
+            }
+            return Math.max(0, bal - getBonusLock());
+        }
+
+        function formatGemsBots(n) {
+            n = Math.floor(n || 0);
+            if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
+            if (n >= 1e9)  return (n / 1e9).toFixed(2) + 'B';
+            if (n >= 1e6)  return (n / 1e6).toFixed(2) + 'M';
+            if (n >= 1e3)  return (n / 1e3).toFixed(1) + 'K';
+            return n.toString();
+        }
+
+        async function fetchOnlineBots() {
+            const cutoff = new Date(Date.now() - BOT_OFFLINE_AFTER_MS).toISOString();
+            const { data, error } = await window.supabaseClient
+                .from('bot_status').select('*').gte('last_heartbeat', cutoff)
+                .order('gems', { ascending: false });
+            return error ? [] : (data || []);
+        }
+
+        async function openDepositModal() {
+            if (!currentUser) { openModal(); return; }
+            if (isContentCreator()) { if (typeof showToast === 'function') showToast('Content creators can only bet — deposits are disabled.', 'error'); return; }
+            selectedDepositBot = null;
+            document.getElementById('depositModal').classList.add('active');
+            document.getElementById('deposit-balance').textContent = formatNumber(currentUser.balance);
+            document.getElementById('deposit-selected-row').style.display = 'none';
+            document.getElementById('deposit-bot-list').innerHTML = '<div class="bw-loading">Loading bots…</div>';
+            const bots = await fetchOnlineBots();
+            renderDepositBots(bots);
+            startDepositPolling();
+        }
+
+        function renderDepositBots(bots) {
+            const list = document.getElementById('deposit-bot-list');
+            if (!bots.length) { list.innerHTML = '<div class="bw-no-bots">⚠ No bots are currently online</div>'; return; }
+            list.innerHTML = bots.map(bot => {
+                const maxDep = Math.max(0, MAX_BOT_GEMS - (bot.gems || 0));
+                return `<div class="bw-bot-option" onclick="selectDepositBot(this,'${bot.bot_name}',${maxDep})">
+                    <div class="bw-bo-left"><div class="bw-bo-dot"></div><span class="bw-bo-name">${bot.bot_name}</span></div>
+                    <div class="bw-bo-right"><div class="bw-bo-gems">💎 ${formatGemsBots(bot.gems || 0)}</div><div class="bw-bo-max">Max dep: ${formatGemsBots(maxDep)}</div></div>
+                </div>`;
+            }).join('');
+        }
+
+        function selectDepositBot(el, botName, maxDeposit) {
+            selectedDepositBot = { name: botName, maxDeposit };
+            document.querySelectorAll('#deposit-bot-list .bw-bot-option').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('deposit-selected-name').textContent = botName;
+            document.getElementById('deposit-max-label').textContent = `Max deposit: ${formatGemsBots(maxDeposit)}`;
+            document.getElementById('deposit-selected-row').style.display = 'block';
+        }
+
+        function copyDepositBotName() {
+            if (!selectedDepositBot) return;
+            navigator.clipboard.writeText(selectedDepositBot.name);
+            const btn = document.querySelector('#deposit-selected-row .copy-btn-small');
+            if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '📋 Copy', 2000); }
+        }
+
+        function closeDepositModal() {
+            document.getElementById('depositModal').classList.remove('active');
+            stopDepositPolling();
+            selectedDepositBot = null;
+        }
+
+        async function openWithdrawModal() {
+            if (!currentUser) { openModal(); return; }
+            selectedWithdrawBot = null;
+            document.getElementById('withdrawModal').classList.add('active');
+            document.getElementById('withdraw-balance').textContent = formatNumber(getWithdrawableAmount());
+            document.getElementById('withdraw-error').style.display = 'none';
+            document.getElementById('withdraw-success').style.display = 'none';
+            document.getElementById('withdrawAmount').value = '';
+            const rp = document.getElementById('receive-preview'); if (rp) rp.textContent = '';
+            document.getElementById('withdraw-bot-list').innerHTML = '<div class="bw-loading">Loading bots…</div>';
+            renderWagerNotice();            // show cached state instantly, then refresh
+            refreshWagerStatus();
+            const bots = await fetchOnlineBots();
+            renderWithdrawBots(bots);
+        }
+
+        // === WITHDRAW WAGER REQUIREMENT (must wager 1B before withdrawing free balance) ===
+        const WAGER_REQUIREMENT = 1000000000; // 1B — keep in sync with submit_withdrawal SQL
+        let _wagerStatus = null;              // { met, remaining, wagered, required, has_deposit }
+
+        async function refreshWagerStatus() {
+            if (!currentUser) return;
+            try {
+                const { data } = await window.supabaseClient.rpc('withdraw_wager_status', {
+                    p_username: currentUser.roblox_username
+                });
+                if (data && data.found) {
+                    _wagerStatus = data;
+                    renderWagerNotice();
+                    // Reflect the locked bonus in the "Available" figure shown in the modal.
+                    const balEl = document.getElementById('withdraw-balance');
+                    if (balEl) balEl.textContent = formatNumber(getWithdrawableAmount());
+                }
+            } catch (e) { /* SQL not deployed yet -> fall back to open withdrawals */ }
+        }
+
+        function renderWagerNotice() {
+            const box = document.getElementById('withdraw-wager-notice');
+            if (!box) return;
+            // Content creators use their own ratio system; unlocked/grandfathered accounts see nothing.
+            if (!_wagerStatus || _wagerStatus.met || (typeof isContentCreator === 'function' && isContentCreator())) {
+                box.style.display = 'none';
+                return;
+            }
+            const req    = Number(_wagerStatus.required) || WAGER_REQUIREMENT;
+            const done   = Number(_wagerStatus.wagered) || 0;
+            const rem    = Math.max(0, Number(_wagerStatus.remaining) || (req - done));
+            const locked = getBonusLock();
+            const pct    = Math.min(100, Math.floor((done / req) * 100));
+            box.style.display = 'block';
+            const titleEl = document.getElementById('wager-notice-title');
+            if (titleEl) titleEl.textContent = `${formatNumber(locked)} bonus locked`;
+            document.getElementById('wager-notice-bar').style.width = pct + '%';
+            document.getElementById('wager-notice-text').innerHTML =
+                `Your welcome bonus of <b>${formatNumber(locked)}</b> gems is locked until you wager <b>${formatNumber(req)}</b>. ` +
+                `Deposits can be withdrawn anytime.<br>` +
+                `Wager progress: <b>${formatNumber(done)}</b> / ${formatNumber(req)} &nbsp;·&nbsp; <b style="color:#c4b5fd">${formatNumber(rem)} to go</b>`;
+        }
+
+        function renderWithdrawBots(bots) {
+            const list = document.getElementById('withdraw-bot-list');
+            const available = bots.filter(b => (b.gems || 0) > 0);
+            if (!available.length) { list.innerHTML = '<div class="bw-no-bots">⚠ No bots with gems are online</div>'; return; }
+            list.innerHTML = available.map(bot => {
+                return `<div class="bw-bot-option" onclick="selectWithdrawBot(this,'${bot.bot_name}',${bot.gems || 0})">
+                    <div class="bw-bo-left"><div class="bw-bo-dot"></div><span class="bw-bo-name">${bot.bot_name}</span></div>
+                    <div class="bw-bo-right"><div class="bw-bo-gems">💎 ${formatGemsBots(bot.gems || 0)}</div><div class="bw-bo-max">Max withdraw</div></div>
+                </div>`;
+            }).join('');
+        }
+
+        function selectWithdrawBot(el, botName, maxGems) {
+            selectedWithdrawBot = { name: botName, maxGems };
+            document.querySelectorAll('#withdraw-bot-list .bw-bot-option').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        function closeWithdrawModal() {
+            document.getElementById('withdrawModal').classList.remove('active');
+            selectedWithdrawBot = null;
+        }
+
+        // Polling for deposits
+        async function startDepositPolling() {
+            stopDepositPolling();
+            await checkForNewDeposits();
+            depositPolling = setInterval(checkForNewDeposits, 5000); // Every 5 seconds
+        }
+
+        function stopDepositPolling() {
+            if (depositPolling) {
+                clearInterval(depositPolling);
+                depositPolling = null;
+            }
+        }
+
+        async function checkForNewDeposits() {
+            if (!currentUser) return;
+            try {
+                // Get user's current balance from users table (Unified System)
+                const { data: users, error } = await window.supabaseClient
+                    .from('users')
+                    .select('balance')
+                    .eq('roblox_username', currentUser.roblox_username)
+                    .single();
+
+                if (error) throw error;
+
+                if (users) {
+                    const newBalance = parseFloat(users.balance);
+                    if (newBalance !== currentUser.balance) {
+                        currentUser.balance = newBalance;
+                        updateAllBalanceDisplays();
+
+                        // If deposit modal is open, show status
+                        const statusText = document.querySelector('.status-row span');
+                        if (statusText) {
+                            statusText.textContent = '✓ Balance updated!';
+                            statusText.style.color = '#22c55e';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('Polling error:', e);
+            }
+        }
+
+        
+        async function fetchUserBalance() {
+            const { data, error } = await window.supabaseClient.from('users').select('balance').eq('roblox_username', currentUser.roblox_username).single();
+            if (data) {
+                currentUser.balance = data.balance;
+                updateAllBalanceDisplays();
+            }
+        }
+    
+        function updateAllBalanceDisplays() {
+            const formatted = formatNumber(currentUser.balance);
+            document.getElementById('header-balance').textContent = formatted;
+            document.getElementById('profile-balance').textContent = formatted;
+            document.getElementById('deposit-balance').textContent = formatted;
+            document.getElementById('withdraw-balance').textContent = formatted;
+            const mob = document.getElementById('mobileHeaderBalance');
+            if (mob) mob.textContent = formatted;
+        }
+
+        // ===== LOADING SCREEN =====
+        let _ldDismissed = false;
+        function dismissLoading() {
+            if (_ldDismissed) return;
+            _ldDismissed = true;
+            const el = document.getElementById('loadingScreen');
+            if (!el) return;
+            el.classList.add('fade-out');
+            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 600);
+        }
+        // Failsafe: always hide after 4 seconds even if init fails
+        setTimeout(dismissLoading, 4000);
+
+        // ===== MOBILE BOTTOM NAV =====
+        let _mActiveTab = 'game';
+
+        // ===== MOBILE NOTIFICATIONS =====
+        function toggleMobileNotifs(e) {
+            if (e) e.stopPropagation();
+            const sheet = document.getElementById('mNotifSheet');
+            const overlay = document.getElementById('mNotifOverlay');
+            if (!sheet) return;
+            const opening = !sheet.classList.contains('open');
+            if (opening) {
+                renderNotifications();
+                sheet.classList.add('open');
+                if (overlay) overlay.classList.add('open');
+            } else {
+                closeMobileNotifs();
+            }
+        }
+        function closeMobileNotifs() {
+            document.getElementById('mNotifSheet')?.classList.remove('open');
+            document.getElementById('mNotifOverlay')?.classList.remove('open');
+        }
+
+        function mTabClick(tab) {
+            const chat = document.getElementById('globalChat');
+            if (tab === 'home') {
+                openMobileMenu();
+                // Don't change active tab — Home is a shortcut, not a view
+                return;
+            }
+            _mActiveTab = tab;
+            _updateMTabUI();
+            if (tab === 'chat') {
+                if (chat) chat.classList.add('m-chat-open');
+                requestAnimationFrame(() => {
+                    if (typeof scrollChatToBottom === 'function') scrollChatToBottom();
+                });
+            } else {
+                if (chat) chat.classList.remove('m-chat-open');
+            }
+        }
+
+        function _updateMTabUI() {
+            ['home','game','chat'].forEach(t => {
+                const btn = document.getElementById('mTab' + t.charAt(0).toUpperCase() + t.slice(1));
+                if (btn) btn.classList.toggle('active', t === _mActiveTab);
+            });
+            _updateMTabIndicator(_mActiveTab);
+        }
+
+        function _updateMTabIndicator(tab) {
+            const indicator = document.getElementById('mTabIndicator');
+            const nav = document.getElementById('mBottomNav');
+            if (!indicator || !nav) return;
+            const tabOrder = ['home','game','chat'];
+            const idx = tabOrder.indexOf(tab);
+            const tabW = nav.offsetWidth / 3;
+            indicator.style.left = (idx * tabW) + 'px';
+            indicator.style.width = tabW + 'px';
+        }
+
+        // When drawer closes, restore game/chat tab highlight
+        function _onDrawerClose() {
+            _updateMTabUI();
+        }
+
+        window.addEventListener('resize', () => { if (window.innerWidth <= 600) _updateMTabUI(); });
+        window.addEventListener('DOMContentLoaded', () => { setTimeout(_updateMTabUI, 50); });
+
+        // ===== MOBILE NAV JS =====
+        function openMobileMenu() {
+            document.getElementById('mDrawer').classList.add('open');
+            document.getElementById('mDrawerOverlay').classList.add('open');
+        }
+        function closeMobileMenu() {
+            document.getElementById('mDrawer').classList.remove('open');
+            document.getElementById('mDrawerOverlay').classList.remove('open');
+            _onDrawerClose();
+        }
+        function toggleMobileBalMenu(e) {
+            e.stopPropagation();
+            document.getElementById('mBalDropdown').classList.toggle('open');
+        }
+        function closeMobileBalMenu() {
+            document.getElementById('mBalDropdown').classList.remove('open');
+        }
+        document.addEventListener('click', function() { closeMobileBalMenu(); });
+
+        function updateMobileNav() {
+            const topAvBtn       = document.getElementById('mTopAvBtn');
+            const topAvImg       = document.getElementById('mTopAvImg');
+            const topAvInit      = document.getElementById('mTopAvInitial');
+            const notifWrap      = document.getElementById('mNotifWrap');
+            const guestSignInBtn = document.getElementById('mGuestSignInBtn');
+
+            if (!currentUser) {
+                document.getElementById('mBalanceWrap').classList.add('hidden');
+                document.getElementById('mDrawerProfile').classList.add('hidden');
+                document.getElementById('mDrawerGuest').classList.remove('hidden');
+                document.getElementById('mDrawerLogout').classList.add('hidden');
+                if (topAvBtn)       topAvBtn.classList.add('hidden');
+                if (notifWrap)      notifWrap.classList.add('hidden');
+                if (guestSignInBtn) guestSignInBtn.classList.remove('hidden');
+                return;
+            }
+            document.getElementById('mBalanceWrap').classList.remove('hidden');
+            document.getElementById('mDrawerProfile').classList.remove('hidden');
+            document.getElementById('mDrawerGuest').classList.add('hidden');
+            document.getElementById('mDrawerLogout').classList.remove('hidden');
+
+            // Show bell + avatar on right, hide sign-in button
+            if (topAvBtn)       topAvBtn.classList.remove('hidden');
+            if (notifWrap)      notifWrap.classList.remove('hidden');
+            if (guestSignInBtn) guestSignInBtn.classList.add('hidden');
+
+            document.getElementById('mDrawerUsername').textContent = currentUser.roblox_username || 'Player';
+            const lvl = getLevel(currentUser.total_wagered || 0);
+            document.getElementById('mDrawerLevel').textContent = lvl;
+            const avatarEl = document.getElementById('mDrawerAvatar');
+            const avatarContainer = document.querySelector('.m-drawer-avatar');
+            const initial = (currentUser.roblox_username || 'U').charAt(0).toUpperCase();
+            if (currentUser.roblox_user_id) {
+                avatarEl.style.display = 'block';
+                avatarEl.src = `https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=${currentUser.roblox_user_id}&size=48x48&format=Png&isCircular=true`;
+                avatarEl.onerror = () => {
+                    avatarEl.style.display = 'none';
+                    if (avatarContainer && !avatarContainer.querySelector('.m-av-initial')) {
+                        const span = document.createElement('span');
+                        span.className = 'm-av-initial';
+                        span.style.cssText = 'color:#fff;font-size:20px;font-weight:800;';
+                        span.textContent = initial;
+                        avatarContainer.appendChild(span);
+                    }
+                };
+            } else {
+                avatarEl.style.display = 'none';
+                if (avatarContainer && !avatarContainer.querySelector('.m-av-initial')) {
+                    const span = document.createElement('span');
+                    span.className = 'm-av-initial';
+                    span.style.cssText = 'color:#fff;font-size:20px;font-weight:800;';
+                    span.textContent = initial;
+                    avatarContainer.appendChild(span);
+                }
+            }
+            // Set top-bar avatar
+            if (topAvImg && topAvInit) {
+                const initial = (currentUser.roblox_username || 'U').charAt(0).toUpperCase();
+                if (currentUser.roblox_user_id) {
+                    topAvImg.src = `https://api.newstargeted.com/roblox/users/v1/avatar-headshot?userid=${currentUser.roblox_user_id}&size=48x48&format=Png&isCircular=true`;
+                    topAvImg.style.display = 'block';
+                    topAvInit.style.display = 'none';
+                    topAvImg.onerror = () => {
+                        topAvImg.style.display = 'none';
+                        topAvInit.style.display = 'block';
+                        topAvInit.textContent = initial;
+                    };
+                } else {
+                    topAvImg.style.display = 'none';
+                    topAvInit.style.display = 'block';
+                    topAvInit.textContent = initial;
+                }
+            }
+
+            const mob = document.getElementById('mobileHeaderBalance');
+            if (mob) mob.textContent = formatNumber(currentUser.balance);
+        }
+
+        // Parse amount with M/B suffixes (1M = 1000000, 1B = 1000000000)
+        function parseAmount(input) {
+            if (!input) return 0;
+            const str = input.toString().trim().toUpperCase();
+            const match = str.match(/^([\d.]+)\s*([MBK]?)$/);
+            if (!match) return parseInt(str.replace(/[^0-9]/g, '')) || 0;
+
+            const num = parseFloat(match[1]);
+            const suffix = match[2];
+
+            if (suffix === 'B') return Math.floor(num * 1000000000);
+            if (suffix === 'M') return Math.floor(num * 1000000);
+            if (suffix === 'K') return Math.floor(num * 1000);
+            return Math.floor(num);
+        }
+
+        // Live receive preview
+        document.getElementById('withdrawAmount').addEventListener('input', function () {
+            const amount = parseAmount(this.value);
+            const previewEl = document.getElementById('receive-preview');
+
+            if (amount >= 5000000) {
+                const receive = amount - WITHDRAW_FEE;
+                previewEl.textContent = `You will receive: ${formatNumber(receive)}`;
+                previewEl.classList.add('visible');
+            } else {
+                previewEl.classList.remove('visible');
+            }
+        });
+
+        // Live receive preview (amount entered = deducted; you receive amount - fee)
+        document.getElementById('withdrawAmount').addEventListener('input', function () {
+            const amount = parseAmount(this.value);
+            const previewEl = document.getElementById('receive-preview');
+            if (!previewEl) return;
+            if (amount > WITHDRAW_FEE) {
+                const receive = amount - WITHDRAW_FEE;
+                previewEl.innerHTML =
+                    `💸 Deducted from balance: <b>${formatNumber(amount)}</b><br>` +
+                    `✅ You will receive: <b>${formatNumber(receive)}</b> <span style="color:#475569;font-size:12px">(5M fee)</span>`;
+                previewEl.classList.add('visible');
+            } else if (amount > 0) {
+                previewEl.innerHTML = `<span style="color:#ef4444">Minimum: more than 5M (fee)</span>`;
+                previewEl.classList.add('visible');
+            } else {
+                previewEl.classList.remove('visible');
+            }
+        });
+
+        // Withdraw form
+        document.getElementById('withdrawForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const rawInput = document.getElementById('withdrawAmount').value;
+            const amount = parseAmount(rawInput);            // what the user enters = what leaves the balance
+            const errorEl = document.getElementById('withdraw-error');
+            const successEl = document.getElementById('withdraw-success');
+            const btn = document.getElementById('withdrawBtn');
+
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+
+            const receiveAmount = amount - WITHDRAW_FEE;       // what the bot actually sends (amount - fee)
+
+            if (receiveAmount <= 0) {
+                errorEl.textContent = `Minimum withdraw: ${formatNumber(WITHDRAW_FEE + 1)} gems (fee is 5M)`;
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (amount > currentUser.balance) {
+                errorEl.textContent = `Insufficient balance! You have ${formatNumber(currentUser.balance)} gems.`;
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (!selectedWithdrawBot) {
+                errorEl.textContent = 'Please select a bot to withdraw from!';
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (amount > selectedWithdrawBot.maxGems) {
+                errorEl.textContent = `Bot only has ${formatGemsBots(selectedWithdrawBot.maxGems)} gems. Enter a lower amount.`;
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            if (isContentCreator() && amount > getWithdrawableAmount()) {
+                errorEl.textContent = `Withdrawable limit: you can withdraw up to ${formatNumber(getWithdrawableAmount())} gems right now.`;
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            // Locked welcome bonus: allow withdrawing deposits/unlocked gems, block the locked bonus (server enforces too).
+            if (!isContentCreator() && _wagerStatus && !_wagerStatus.met && amount > getWithdrawableAmount()) {
+                const rem = Math.max(0, Number(_wagerStatus.remaining) || 0);
+                errorEl.innerHTML = `Your welcome bonus (<b>${formatNumber(getBonusLock())}</b>) is locked until you wager ${formatNumber(rem)} more. ` +
+                    `You can withdraw up to <b>${formatNumber(getWithdrawableAmount())}</b> right now.`;
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.classList.add('loading');
+
+            try {
+                // Content creators use the capped withdraw RPC (balance is charged amount/ratio); everyone else the normal one.
+                const isCC = isContentCreator();
+                const rpcName = isCC ? 'cc_withdraw' : 'submit_withdrawal';
+                const { data: result, error: rpcError } = await window.supabaseClient.rpc(rpcName, {
+                    p_username:     currentUser.roblox_username,
+                    p_amount:       isCC ? amount : receiveAmount,
+                    p_assigned_bot: selectedWithdrawBot.name,
+                    p_fee:          WITHDRAW_FEE
+                });
+
+                if (rpcError) throw new Error(rpcError.message);
+                if (result && !result.success && result.code === 'WAGER_REQUIRED') {
+                    // Sync local status from the server's authoritative numbers and show the friendly notice.
+                    _wagerStatus = { found: true, met: false, unlocked: false,
+                                     required: result.wager_required, wagered: result.wager_done,
+                                     remaining: result.wager_remaining, locked: result.locked,
+                                     bonus: result.locked, withdrawable: result.withdrawable };
+                    renderWagerNotice();
+                    const balEl = document.getElementById('withdraw-balance');
+                    if (balEl) balEl.textContent = formatNumber(getWithdrawableAmount());
+                    errorEl.textContent = result.error;
+                    errorEl.style.display = 'block';
+                    btn.disabled = false; btn.classList.remove('loading');
+                    return;
+                }
+                if (!result || !result.success) throw new Error(result ? result.error : 'Withdraw failed');
+
+                const { data: userData } = await window.supabaseClient
+                    .from('users').select('balance,wd_ratio').eq('roblox_username', currentUser.roblox_username).single();
+                if (userData) {
+                    currentUser.balance = Math.floor(parseFloat(userData.balance) || 0);
+                    if (userData.wd_ratio !== undefined && userData.wd_ratio !== null) currentUser.wd_ratio = Number(userData.wd_ratio);
+                    updateAllBalanceDisplays();
+                }
+
+                successEl.innerHTML = `✓ Withdraw requested! You will receive <b>${formatNumber(receiveAmount)}</b> gems within 3 minutes.<br><small style="color:#64748b">If the bot goes offline, your balance is automatically refunded.</small>`;
+                successEl.style.display = 'block';
+                document.getElementById('withdrawAmount').value = '';
+                selectedWithdrawBot = null;
+
+                btn.disabled = false;
+                btn.classList.remove('loading');
+            } catch (err) {
+                errorEl.textContent = 'Error: ' + err.message;
+                errorEl.style.display = 'block';
+                btn.disabled = false;
+                btn.classList.remove('loading');
+            }
+        });
+
+        // Close modals when clicking overlay
+        document.getElementById('depositModal').addEventListener('click', (e) => {
+            if (e.target.id === 'depositModal') closeDepositModal();
+        });
+        document.getElementById('withdrawModal').addEventListener('click', (e) => {
+            if (e.target.id === 'withdrawModal') closeWithdrawModal();
+        });
+
+        // ========== BLACKJACK GAME ==========
+        let bjGame = {
+            gameId: null,
+            active: false,
+            betAmount: 0,
+            playerHands: [{ cards: [], status: 'playing', bet: 0 }],
+            dealerHand: { cards: [], status: 'playing' },
+            currentHandIdx: 0,
+            isDealing: false,
+            dealerRevealed: false,
+            isProcessing: false,
+            isEnding: false
+        };
+
+        const BJ_WIN_MULT = 2;
+        const BJ_NATURAL_MULT = 2.5;
+        const BJ_PUSH_MULT = 1;
+
+        // Enhanced sounds for Blackjack
+        function playBJCardSound() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playBJWinSound() {
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.1));
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime + (i * 0.1));
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (i * 0.1) + 0.3);
+                osc.start(audioCtx.currentTime + (i * 0.1));
+                osc.stop(audioCtx.currentTime + (i * 0.1) + 0.3);
+            });
+        }
+
+        function playBJLossSound() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        const SUITS = ['♠', '♣', '♥', '♦'];
+        const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+        function createDeck() {
+            let deck = [];
+            for (let s of SUITS) {
+                for (let v of VALUES) {
+                    deck.push({ suit: s, value: v, color: (s === '♥' || s === '♦') ? 'red' : 'black' });
+                }
+            }
+            return deck.sort(() => Math.random() - 0.5);
+        }
+
+        function getCardValue(val) {
+            if (['J', 'Q', 'K'].includes(val)) return 10;
+            if (val === 'A') return 11;
+            return parseInt(val);
+        }
+
+        function calculateHand(cards) {
+            let sum = 0;
+            let aces = 0;
+            for (let c of cards) {
+                let v = getCardValue(c.value);
+                sum += v;
+                if (c.value === 'A') aces++;
+            }
+            while (sum > 21 && aces > 0) {
+                sum -= 10;
+                aces--;
+            }
+            return sum;
+        }
+
+        function renderCard(card, isHidden = false) {
+            const newClass = card.isNew       ? 'new-card'    : '';
+            const revClass = card.isRevealing ? 'reveal-card' : '';
+            const color = (card.suit === '♥' || card.suit === '♦') ? 'red' : 'black';
+            if (isHidden || card.isPlaceholder) {
+                return `<div class="card-container ${newClass}">
+                    <div class="card-face card-back">
+                        <div class="card-back-inner"><span class="card-back-logo">PB99</span></div>
+                    </div>
+                </div>`;
+            }
+            return `<div class="card-container ${newClass} ${revClass}">
+                <div class="card-face card-front ${color}">
+                    <div class="card-corner">
+                        <span class="cv">${card.value}</span>
+                        <span class="cs">${card.suit}</span>
+                    </div>
+                    <div class="card-suit-center">${card.suit}</div>
+                    <div class="card-corner bottom">
+                        <span class="cv">${card.value}</span>
+                        <span class="cs">${card.suit}</span>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        async function openBlackjackGame() {
+            closeAllGames();
+            if (!currentUser) { openModal(); return; }
+            document.getElementById('blackjackOverlay').classList.add('active');
+            document.body.style.overflow = 'hidden'; // lock page scroll like the other game overlays
+            const _mChatBj = document.getElementById('globalChat');
+            if (_mChatBj && _mChatBj.classList.contains('m-chat-open')) {
+                _mChatBj.classList.remove('m-chat-open');
+                if (typeof _mActiveTab !== 'undefined') { _mActiveTab = 'game'; if (typeof _updateMTabUI === 'function') _updateMTabUI(); }
+            }
+            resetBlackjackState();
+        }
+
+        function closeBlackjackGame() {
+            if (bjGame.active || bjGame.isDealing || bjGame.isProcessing || bjGame.isEnding) {
+                showToast('Finish or let the round end first', 'error');
+                return;
+            }
+            document.getElementById('blackjackOverlay').classList.remove('active');
+            document.body.style.overflow = ''; // restore page scroll
+        }
+
+        function resetBlackjackState() {
+            bjGame.active = false;
+            bjGame.isDealing = false;
+            bjGame.isProcessing = false;
+            bjGame.isEnding = false;
+            bjGame.dealerRevealed = false;
+            bjGame.gameId = null;
+            bjGame.playerHands = [{ cards: [], status: 'playing', bet: 0 }];
+            bjGame.dealerHand = { cards: [], status: 'playing' };
+            bjGame.currentHandIdx = 0;
+            const banner = document.getElementById('bjStatusBanner');
+            if (banner) { banner.style.display = 'none'; banner.textContent = ''; banner.style.color = '#fff'; }
+            updateBJUI();
+        }
+
+        function updateBJUI() {
+            const dCards = document.getElementById('dealerCards');
+            const pArea = document.getElementById('playerHandsArea');
+            // Trieda pre mobile CSS — skryje/ukáže action grid podľa stavu hry
+            const overlay = document.getElementById('blackjackOverlay');
+            if (overlay) overlay.classList.toggle('bj-playing', bjGame.active || bjGame.isDealing || bjGame.isEnding);
+            const PLACEHOLDER = '<div class="bj-card-placeholder"></div>';
+
+            // Dealer
+            if (bjGame.dealerHand.cards.length === 0) {
+                dCards.innerHTML = PLACEHOLDER + PLACEHOLDER;
+            } else {
+                dCards.innerHTML = bjGame.dealerHand.cards.map((c, i) =>
+                    renderCard(c, i > 0 && !bjGame.dealerRevealed)
+                ).join('');
+            }
+            let dSum = 0;
+            if (bjGame.dealerHand.cards.length > 0) {
+                const realCards = bjGame.dealerHand.cards.filter(c => !c.isPlaceholder);
+                dSum = bjGame.dealerRevealed
+                    ? calculateHand(realCards)
+                    : (realCards.length > 0 ? getCardValue(realCards[0].value) : 0);
+            }
+            document.getElementById('dealerSum').textContent =
+                bjGame.dealerHand.cards.length === 0 ? '?' :
+                bjGame.dealerRevealed ? dSum : dSum + '+?';
+
+            // Player hands
+            pArea.innerHTML = bjGame.playerHands.map((h, i) => {
+                const sum = calculateHand(h.cards);
+                const label = h.status === 'bust' ? 'BUST' : h.status === 'stood' ? 'STAND' : sum;
+                const isActive = i === bjGame.currentHandIdx && bjGame.active;
+                const cardsHtml = h.cards.length === 0
+                    ? (PLACEHOLDER + PLACEHOLDER)
+                    : h.cards.map(c => renderCard(c)).join('');
+                return `<div class="split-hand ${isActive ? 'active' : ''}">
+                    <div class="cards-row">${cardsHtml}</div>
+                    <div class="hand-info-badge">${bjGame.playerHands.length > 1 ? `HAND ${i+1}: ` : ''}${label}</div>
+                </div>`;
+            }).join('');
+
+            const busy = bjGame.isProcessing || bjGame.isDealing;
+            const activeHand = bjGame.playerHands[bjGame.currentHandIdx];
+            const canAct = bjGame.active && !busy && activeHand?.status === 'playing' && (activeHand?.cards?.length ?? 0) >= 2;
+
+            const playBtn = document.getElementById('bjPlayBtn');
+            const hitBtn  = document.getElementById('bjHitBtn');
+            const standBtn = document.getElementById('bjStandBtn');
+            const splitBtn = document.getElementById('bjSplitBtn');
+            const doubleBtn = document.getElementById('bjDoubleBtn');
+
+            if (playBtn) { playBtn.style.display = (!bjGame.active && !bjGame.isDealing && !bjGame.isEnding) ? 'block' : 'none'; playBtn.disabled = busy; }
+            if (hitBtn)   hitBtn.disabled   = !canAct;
+            if (standBtn) standBtn.disabled = !canAct;
+            if (splitBtn) splitBtn.disabled = !canAct || (activeHand?.cards?.length !== 2) ||
+                (getCardValue(activeHand.cards[0].value) !== getCardValue(activeHand.cards[1].value)) ||
+                !(currentUser?.balance >= (activeHand?.bet || 0));
+            if (doubleBtn) doubleBtn.disabled = !canAct || (activeHand?.cards?.length !== 2) ||
+                !(currentUser?.balance >= (activeHand?.bet || 0));
+
+            bjGame.dealerHand.cards.forEach(c => { c.isNew = false; c.isRevealing = false; });
+            bjGame.playerHands.forEach(h => h.cards.forEach(c => { c.isNew = false; c.isRevealing = false; }));
+        }
+
+        async function startBlackjackGame() {
+            if (bjGame.isEnding) resetBlackjackState();
+            if (bjGame.active || bjGame.isDealing || bjGame.isProcessing) return;
+            if (!currentUser) { openModal(); return; }
+
+            const bet = parseAmount(document.getElementById('blackjackBet').value);
+            const errEl = document.getElementById('bjCreateError');
+            if (errEl) errEl.style.display = 'none';
+            if (bet < 20000000) { if (errEl) { errEl.textContent = 'Minimum 20M'; errEl.style.display = 'block'; } return; }
+            if (bet > currentUser.balance) { showToast('Insufficient balance', 'error'); return; }
+
+            bjGame.isProcessing = true;
+            bjGame.isDealing = true;
+            bjGame.isEnding = false;
+            document.getElementById('dealerCards').innerHTML = '';
+            document.getElementById('playerHandsArea').innerHTML = '';
+            document.getElementById('bjStatusBanner').style.display = 'none';
+            updateBJUI();
+            await new Promise(r => setTimeout(r, 300));
+
+            try {
+                const { data, error } = await window.supabaseClient.rpc('blackjack_rpc', {
+                    p_username: currentUser.roblox_username,
+                    p_action: 'start',
+                    p_bet_amount: bet
+                });
+                if (error) throw error;
+
+                bjGame.gameId = data.game_id;
+                bjGame.active = true;
+                bjGame.dealerRevealed = false;
+                bjGame.currentHandIdx = data.current_hand_index ?? 0;
+
+                const p0Cards = data.player_hands[0].cards;
+                // Server returns only 1 dealer card during active game (hole card is hidden for security)
+                const visibleDealerCard = data.dealer_hand.cards[0];
+                const holePlaceholder = { value: '?', suit: '?', color: 'black', isPlaceholder: true };
+
+                // Deal animation: player → dealer face-up → dealer face-down → player
+                bjGame.playerHands = [{ ...data.player_hands[0], cards: [{ ...p0Cards[0], isNew: true }] }];
+                bjGame.dealerHand = { cards: [], status: 'playing' };
+                playBJCardSound(); updateBJUI();
+                await new Promise(r => setTimeout(r, 500));
+
+                bjGame.dealerHand.cards = [{ ...visibleDealerCard, isNew: true }];
+                playBJCardSound(); updateBJUI();
+                await new Promise(r => setTimeout(r, 500));
+
+                // Add placeholder for the face-down hole card (actual value never sent to client)
+                bjGame.dealerHand.cards = [visibleDealerCard, { ...holePlaceholder, isNew: true }];
+                playBJCardSound(); updateBJUI();
+                await new Promise(r => setTimeout(r, 500));
+
+                bjGame.playerHands[0].cards = [p0Cards[0], { ...p0Cards[1], isNew: true }];
+                playBJCardSound(); updateBJUI();
+                await new Promise(r => setTimeout(r, 500));
+
+                // Check if game already ended (natural BJ or auto-stand on 21)
+                if (data.is_active === false) {
+                    const hand = data.player_hands[0];
+                    const sum = calculateHand(hand.cards);
+                    if (sum === 21 && hand.cards.length === 2) {
+                        bjShowBanner('BLACKJACK! 🎉', '#f59e0b');
+                        await new Promise(r => setTimeout(r, 800));
+                    }
+                    await syncAndFinishBJ(data);
+                } else {
+                    bjGame.playerHands = data.player_hands;
+                    // Don't update dealer hand from response — keep placeholder, real cards come at settlement
+                    updateBJUI();
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+                resetBlackjackState();
+            } finally {
+                bjGame.isDealing = false;
+                if (!bjGame.isEnding) {
+                    await fetchUserBalance(); // Refresh balance so double/split buttons show correctly
+                    bjGame.isProcessing = false;
+                }
+                updateBJUI();
+            }
+        }
+
+        async function blackjackHit() {
+            if (!bjGame.active || bjGame.isDealing || bjGame.isProcessing) return;
+            bjGame.isProcessing = true;
+            try {
+                const { data, error } = await window.supabaseClient.rpc('blackjack_rpc', { p_username: currentUser.roblox_username, p_action: 'hit' });
+                if (error) throw error;
+                const idx = data.current_hand_index ?? bjGame.currentHandIdx;
+                if (data.player_hands[idx]?.cards?.length > 0) data.player_hands[idx].cards[data.player_hands[idx].cards.length - 1].isNew = true;
+                bjGame.playerHands = data.player_hands;
+                bjGame.currentHandIdx = idx;
+                // Don't update dealer hand during active play — placeholder stays until settlement
+                playBJCardSound(); updateBJUI();
+                if (data.is_active === false) {
+                    if (data.player_hands.every(h => h.status === 'bust')) { bjShowBanner('BUST!', '#ef4444'); await new Promise(r => setTimeout(r, 900)); }
+                    await syncAndFinishBJ(data);
+                }
+            } catch (err) { showToast(err.message, 'error'); }
+            finally { if (!bjGame.isEnding) { bjGame.isProcessing = false; updateBJUI(); } }
+        }
+
+        async function blackjackStand() {
+            if (!bjGame.active || bjGame.isDealing || bjGame.isProcessing) return;
+            bjGame.isProcessing = true;
+            try {
+                const { data, error } = await window.supabaseClient.rpc('blackjack_rpc', { p_username: currentUser.roblox_username, p_action: 'stand' });
+                if (error) throw error;
+                bjGame.playerHands = data.player_hands;
+                bjGame.currentHandIdx = data.current_hand_index ?? bjGame.currentHandIdx;
+                // Don't update dealer hand during active play
+                updateBJUI();
+                if (data.is_active === false) await syncAndFinishBJ(data);
+            } catch (err) { showToast(err.message, 'error'); }
+            finally { if (!bjGame.isEnding) { bjGame.isProcessing = false; updateBJUI(); updateAllBalanceDisplays(); } }
+        }
+
+        async function blackjackDouble() {
+            if (!bjGame.active || bjGame.isDealing || bjGame.isProcessing) return;
+            bjGame.isProcessing = true;
+            try {
+                const { data, error } = await window.supabaseClient.rpc('blackjack_rpc', { p_username: currentUser.roblox_username, p_action: 'double' });
+                if (error) throw error;
+                const idx = data.current_hand_index ?? bjGame.currentHandIdx;
+                if (data.player_hands[idx]?.cards?.length > 0) data.player_hands[idx].cards[data.player_hands[idx].cards.length - 1].isNew = true;
+                bjGame.playerHands = data.player_hands;
+                bjGame.currentHandIdx = idx;
+                // Don't update dealer hand during active play
+                playBJCardSound(); updateBJUI();
+                if (data.is_active === false) await syncAndFinishBJ(data);
+            } catch (err) { showToast(err.message, 'error'); }
+            finally { if (!bjGame.isEnding) { bjGame.isProcessing = false; updateBJUI(); updateAllBalanceDisplays(); } }
+        }
+
+        async function blackjackSplit() {
+            if (!bjGame.active || bjGame.isDealing || bjGame.isProcessing) return;
+            bjGame.isProcessing = true;
+            try {
+                const { data, error } = await window.supabaseClient.rpc('blackjack_rpc', { p_username: currentUser.roblox_username, p_action: 'split' });
+                if (error) throw error;
+                data.player_hands.forEach(h => { if (h.cards.length > 0) h.cards[h.cards.length - 1].isNew = true; });
+                bjGame.playerHands = data.player_hands;
+                bjGame.currentHandIdx = data.current_hand_index ?? 0;
+                // Don't update dealer hand during active play
+                playBJCardSound(); updateBJUI();
+                if (data.is_active === false) await syncAndFinishBJ(data);
+            } catch (err) { showToast(err.message, 'error'); }
+            finally {
+                if (!bjGame.isEnding) {
+                    await fetchUserBalance(); // Refresh so next split/double check is accurate
+                    bjGame.isProcessing = false;
+                    updateBJUI();
+                }
+                updateAllBalanceDisplays();
+            }
+        }
+
+        function bjShowBanner(text, color) {
+            const banner = document.getElementById('bjStatusBanner');
+            banner.textContent = text;
+            banner.style.color = color || '#fff';
+            banner.style.display = 'inline-block';
+        }
+
+        async function syncAndFinishBJ(data) {
+            bjGame.active = false;
+            bjGame.isEnding = true;
+            bjGame.playerHands = data.player_hands;
+            trackWager(currentUser.roblox_username, (data.player_hands || []).reduce((a, h) => a + (parseInt(h.bet) || 0), 0));
+
+            try {
+                // At settlement, server returns the full dealer hand (all cards including hole card)
+                const finalDealer = data.dealer_hand;
+                bjShowBanner('DEALER REVEALING...', '#94a3b8');
+
+                // Show face-up card + hidden hole card (before reveal)
+                bjGame.dealerHand.cards = [finalDealer.cards[0], finalDealer.cards[1]];
+                bjGame.dealerRevealed = false;
+                updateBJUI();
+                await new Promise(r => setTimeout(r, 900));
+
+                // Flip hole card (reveal animation)
+                bjGame.dealerHand.cards[1].isRevealing = true;
+                bjGame.dealerRevealed = true;
+                playBJCardSound();
+                updateBJUI();
+                bjGame.dealerHand.cards[1].isRevealing = false;
+                const twoCardSum = calculateHand([finalDealer.cards[0], finalDealer.cards[1]]);
+                bjShowBanner(`DEALER: ${twoCardSum}`, '#94a3b8');
+                await new Promise(r => setTimeout(r, 900));
+
+                // Show dealer hitting cards one by one
+                for (let i = 2; i < finalDealer.cards.length; i++) {
+                    bjGame.dealerHand.cards = finalDealer.cards.slice(0, i + 1);
+                    bjGame.dealerHand.cards[i] = { ...bjGame.dealerHand.cards[i], isNew: true };
+                    playBJCardSound();
+                    updateBJUI();
+                    const runningSum = calculateHand(bjGame.dealerHand.cards);
+                    bjShowBanner(`DEALER HITS: ${runningSum}`, '#f59e0b');
+                    await new Promise(r => setTimeout(r, 900));
+                }
+
+                bjGame.dealerHand = finalDealer;
+                bjGame.dealerRevealed = true;
+                updateBJUI();
+                const finalSum = calculateHand(finalDealer.cards);
+                if (finalDealer.cards.length === 2) {
+                    bjShowBanner(`DEALER STANDS: ${finalSum}`, '#94a3b8');
+                    await new Promise(r => setTimeout(r, 600));
+                }
+
+                const payout   = data.payout ?? 0;
+                const totalBet = (data.player_hands || []).reduce((a, h) => a + (parseInt(h.bet) || 0), 0);
+                const net      = payout - totalBet;
+                logGameResult('blackjack', totalBet, payout, net > 0, totalBet > 0 ? payout / totalBet : null);
+
+                if (net > 0) {
+                    bjShowBanner(`WIN! +${formatNumber(net)} 💎`, '#22c55e');
+                    playBJWinSound();
+                    logWinToDiscord(currentUser.roblox_username, payout, 'Blackjack');
+                } else if (payout === totalBet && totalBet > 0) {
+                    bjShowBanner('PUSH — BET RETURNED', '#94a3b8');
+                } else {
+                    bjShowBanner(`LOSS −${formatNumber(totalBet)} 💎`, '#ef4444');
+                    playBJLossSound();
+                    if (totalBet > payout) trackLoss(currentUser.roblox_username, totalBet - payout);
+                }
+
+                await fetchUserBalance();
+                updateAllBalanceDisplays();
+                await new Promise(r => setTimeout(r, 2500));
+                resetBlackjackState();
+            } catch (err) {
+                console.error('BJ finish error', err);
+                resetBlackjackState();
+            } finally {
+                bjGame.isEnding = false;
+                updateBJUI();
+            }
+        }
+
+        function setBlackjackBetMult(m) {
+            const input = document.getElementById('blackjackBet');
+            let val = parseAmount(input.value);
+            let newVal = Math.floor(val * m);
+            const max = currentUser?.balance ?? newVal;
+            input.value = formatBetInput(Math.min(Math.max(newVal, 20000000), max));
+        }
+
+        // Initialize chat on page load
+        let minesGame = {
+            gameId: null,
+            active: false,
+            gridSize: 5,
+            minesCount: 5,
+            betAmount: 0,
+            // bombPositions removed — generated server-side, never sent to client
+            revealed: 0,
+            revealedTiles: [],
+            multiplier: 1.00,
+            nextMultiplier: 1.00,
+            hasHitMine: false,
+            cashingOut: false
+        };
+
+        const HOUSE_EDGE = 0.00; // Multipliers are full; the house edge lives in a hidden extra bomb (server-side). This is only a fallback estimate.
+
+        // Cache of the server's first-tile multiplier per mines_count, so the pre-game
+        // "NEXT PAYOUT" preview uses the EXACT same house edge as real payouts.
+        const minesPreviewCache = {};
+        async function ensureMinesPreviewMult(minesCount) {
+            if (minesPreviewCache[minesCount] != null) return minesPreviewCache[minesCount];
+            try {
+                const { data, error } = await window.supabaseClient.rpc('mines_mult_preview', {
+                    p_mines_count: minesCount, p_revealed: 1
+                });
+                if (!error && data != null) {
+                    minesPreviewCache[minesCount] = Number(data);
+                    if (!minesGame.active) updateMinesPreviewPayout();
+                    return minesPreviewCache[minesCount];
+                }
+            } catch (_) {}
+            return null;
+        }
+
+        // Calculate multiplier based on revealed count, mines, and grid
+        function calculateMultiplier(revealedCount, minesCount, totalTiles) {
+            if (revealedCount === 0) return 1.00;
+            let mult = 1.0;
+            for (let i = 0; i < revealedCount; i++) {
+                mult *= (totalTiles - i) / (totalTiles - minesCount - i);
+            }
+            return Math.round(mult * (1 - HOUSE_EDGE) * 100) / 100;
+        }
+
+        // generateBombPositions removed — positions generated server-side only
+
+        // Sound effects using Web Audio API
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Simple coin clink sound
+        function playGemSound() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(2800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1400, audioCtx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // Explosion boom sound for bombs
+        function playBombSound() {
+            // Deep rumble
+            const noise = audioCtx.createOscillator();
+            const noiseGain = audioCtx.createGain();
+            noise.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noise.type = 'sawtooth';
+            noise.frequency.setValueAtTime(150, audioCtx.currentTime);
+            noise.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.4);
+            noiseGain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            noise.start(audioCtx.currentTime);
+            noise.stop(audioCtx.currentTime + 0.5);
+
+            // Impact thud
+            const thud = audioCtx.createOscillator();
+            const thudGain = audioCtx.createGain();
+            thud.connect(thudGain);
+            thudGain.connect(audioCtx.destination);
+            thud.type = 'sine';
+            thud.frequency.setValueAtTime(80, audioCtx.currentTime);
+            thud.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.3);
+            thudGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+            thudGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+            thud.start(audioCtx.currentTime);
+            thud.stop(audioCtx.currentTime + 0.4);
+        }
+
+        // Celebratory win jingle for cashout
+        function playCashoutSound() {
+            const notes = [523, 659, 784, 1047, 1318, 1568]; // C5, E5, G5, C6, E6, G6
+            notes.forEach((freq, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+                    osc.start(audioCtx.currentTime);
+                    osc.stop(audioCtx.currentTime + 0.8);
+                }, i * 100);
+            });
+        }
+
+        // Check if user has an active game (for page refresh)
+        async function checkActiveGame() {
+            if (!currentUser) return null;
+            try {
+                // Use safe view — bomb_positions are NULL for active games
+                const { data: games, error } = await window.supabaseClient
+                    .from('mines_games_safe')
+                    .select('id,username,bet_amount,mines_count,grid_size,revealed_tiles,multiplier,is_active,won,payout,created_at')
+                    .eq('username', currentUser.roblox_username)
+                    .eq('is_active', true)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (error) throw error;
+                if (games && games.length > 0) return games[0];
+            } catch (e) {
+                console.log('Error checking active game:', e);
+            }
+            return null;
+        }
+
+        // Restore game state from database
+        async function restoreGameState(game) {
+            minesGame.gameId = game.id;
+            minesGame.active = true;
+            minesGame.betAmount = game.bet_amount;
+            minesGame.minesCount = game.mines_count;
+            minesGame.gridSize = game.grid_size || 5;
+            minesGame.revealedTiles = game.revealed_tiles || [];
+            minesGame.revealed = minesGame.revealedTiles.length;
+            // bombPositions not restored — server-side only
+            const totalTiles = minesGame.gridSize * minesGame.gridSize;
+            minesGame.multiplier = calculateMultiplier(minesGame.revealed, minesGame.minesCount, totalTiles);
+            minesGame.hasHitMine = false;
+            minesGame.cashingOut = false;
+
+            // Generate grid and mark revealed tiles
+            generateGrid();
+
+            // Mark previously revealed tiles as gems
+            if (minesGame.revealedTiles.length > 0) {
+                minesGame.revealedTiles.forEach(pos => {
+                    const tile = document.querySelector(`.mn-tile[data-index="${pos}"]`);
+                    if (tile) {
+                        tile.innerHTML = MINES_ICONS.gem;
+                        tile.classList.add('mn-gem', 'mn-revealed');
+                    }
+                });
+            }
+
+            // Update UI for active game
+            updateMinesButtonState();
+            const slider = document.getElementById('minesSlider');
+            if (slider) slider.disabled = true;
+            const betInput = document.getElementById('minesBet');
+            if (betInput) {
+                betInput.disabled = true;
+                betInput.value = formatNumber(game.bet_amount);
+            }
+
+            updateMultiplierDisplay();
+        }
+
+        // ===== AUTO-RESUME =====
+        // After a page refresh or crash the server still holds the unfinished Mines
+        // game (is_active=true), so the bet is never actually lost. This reopens the
+        // Mines overlay on load so the in-progress game is restored automatically
+        // instead of the user landing on Roulette and thinking the bet vanished.
+        async function autoResumeActiveGame() {
+            if (!currentUser || minesGame.active) return;
+            try {
+                const activeGame = await checkActiveGame();
+                if (activeGame) {
+                    // openMinesGame() restores the game state internally via checkActiveGame/restoreGameState
+                    openMinesGame();
+                }
+            } catch (e) {
+                console.log('Auto-resume check failed:', e);
+            }
+        }
+
+        function toggleSidebar() {
+            const sb = document.getElementById('lSidebar');
+            if (!sb) return;
+            sb.classList.toggle('open');
+            document.body.classList.toggle('sidebar-open');
+        }
+
+        function closeAllGames(exceptId) {
+            // Call specific close handlers for each game
+            if (typeof closeMinesGame === 'function') closeMinesGame();
+            if (typeof closeRouletteGame === 'function') closeRouletteGame();
+            if (typeof closeTowerGame === 'function') closeTowerGame();
+            if (typeof closeColorDice === 'function') closeColorDice();
+            if (typeof closeBlackjackGame === 'function') closeBlackjackGame();
+            if (typeof closeWagerRewardsModal === 'function' && exceptId !== 'wagerRewardsModal') closeWagerRewardsModal();
+
+            // Coinflip logic
+            if (document.getElementById('coinflipOverlay') && exceptId !== 'coinflipOverlay') document.getElementById('coinflipOverlay').classList.remove('active');
+
+            // Clear 'active' class from all overlays — CSS transitions handle the rest
+            document.querySelectorAll('.mines-overlay, .tower-overlay, .roulette-overlay, .colordice-overlay, .blackjack-overlay, .coinflip-overlay, .leaderboard-overlay, .earn-overlay, .rewards-overlay').forEach(el => {
+                if (exceptId && el.id === exceptId) return;
+                el.classList.remove('active');
+            });
+
+            // Restore body scroll when no overlay is open
+            if (!exceptId) document.body.style.overflow = '';
+        }
+
+        // ── NAV OVERLAY SWITCHER ──────────────────────────────────────────
+        // When switching between nav overlays, use instant swap (no fade) to
+        // prevent the flicker caused by two semi-transparent layers being
+        // visible at the same time. When opening from the main page, keep the
+        // smooth fade-in.
+        const NAV_OVERLAY_SELECTOR = '.mines-overlay,.tower-overlay,.roulette-overlay,.colordice-overlay,.blackjack-overlay,.coinflip-overlay,.leaderboard-overlay,.earn-overlay,.rewards-overlay';
+
+        function openNavOverlay(targetId, callback) {
+            const allOverlays = document.querySelectorAll(NAV_OVERLAY_SELECTOR);
+            const anyActive = Array.from(allOverlays).some(el => el.classList.contains('active'));
+            const target = document.getElementById(targetId);
+            if (!target) return;
+
+            // Always run game-specific cleanup
+            if (typeof closeMinesGame === 'function') closeMinesGame();
+            if (typeof closeRouletteGame === 'function') closeRouletteGame();
+            if (typeof closeTowerGame === 'function') closeTowerGame();
+            if (typeof closeColorDice === 'function') closeColorDice();
+            if (typeof closeBlackjackGame === 'function') closeBlackjackGame();
+            if (document.getElementById('coinflipOverlay')) document.getElementById('coinflipOverlay').classList.remove('active');
+
+            // Lock body scroll when any overlay is open
+            document.body.style.overflow = 'hidden';
+
+            // Mobile: if the full-screen chat is open, close it so the game shows on top.
+            const _mChat = document.getElementById('globalChat');
+            if (_mChat && _mChat.classList.contains('m-chat-open')) {
+                _mChat.classList.remove('m-chat-open');
+                if (typeof _mActiveTab !== 'undefined') { _mActiveTab = 'game'; if (typeof _updateMTabUI === 'function') _updateMTabUI(); }
+            }
+
+            if (anyActive) {
+                // Instant swap — freeze all transitions for one frame so nothing blinks
+                allOverlays.forEach(el => { el.style.transition = 'none'; });
+                allOverlays.forEach(el => { el.classList.remove('active'); });
+                target.classList.add('active');
+                requestAnimationFrame(() => {
+                    allOverlays.forEach(el => { el.style.transition = ''; });
+                });
+            } else {
+                // Opening from the homepage — smooth fade in
+                allOverlays.forEach(el => { el.classList.remove('active'); });
+                target.classList.add('active');
+            }
+
+            if (callback) callback();
+        }
+        window.openNavOverlay = openNavOverlay;
+        // ─────────────────────────────────────────────────────────────────
+        // === DISCORD WIN LOGGING ===
+        async function logWinToDiscord(username, payout, gameName, isBot = false) {
+            const WINS_WEBHOOK_URL = window.PETBET_CONFIG?.winsWebhook || '';
+            if (!WINS_WEBHOOK_URL) return;
+
+            const gameEmojis = {
+                "Mines": "💣", "Roulette": "🎰", "Coinflip": "🪙",
+                "Tower": "🗼", "Towers": "🗼", "Blackjack": "🃏",
+                "ColorDice": "🎲"
+            };
+            const emoji = gameEmojis[gameName] || "🎉";
+            const payoutStr = formatNumber(payout);
+
+            // Tier-based title (rovnaký štýl ako fake_wins_poster v bot.py)
+            const gems_B = payout / 1e9;
+            let title;
+            if (gems_B >= 500)     title = `💥  JACKPOT — ${gameName}!!`;
+            else if (gems_B >= 100) title = `🔥  Huge Win — ${gameName}!`;
+            else if (gems_B >= 10)  title = `${emoji}  Big Win — ${gameName}!`;
+            else                    title = `${emoji}  Win — ${gameName}`;
+
+            const embed = {
+                title,
+                description: `Someone just won **${payoutStr} Gems** on **${gameName}**! 🎉\n\n💡 Want to win like this too?\n[**Play now on www.petbet99.com**](https://www.petbet99.com)`,
+                color: 0x021B55,
+                image: { url: "https://cdn.discordapp.com/attachments/1496065731211563164/1496248678053314650/image.png" },
+                footer: { text: "www.petbet99.com  •  Play & Win Big" },
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                await fetch(WINS_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ embeds: [embed] })
+                });
+            } catch (e) {
+                console.warn("Failed to send win to Discord:", e);
+            }
+        }
+
+        async function trackLoss(username, amount) {
+            // Losses are now recorded SERVER-SIDE (DB triggers on mines/tower).
+            // The client-side record_loss RPC was removed — it was an unlimited
+            // cashback mint (anyone could report any loss amount from the console).
+        }
+
+        // === WAGER TRACKING (for leaderboard + levels) ===
+        async function trackWager(username, amount) {
+            try {
+                amount = Number(amount) || 0;
+                if (amount <= 0) return;
+
+                // Track level-up: snapshot old level
+                const oldLevel = currentUser ? getLevel(currentUser.total_wagered || 0) : 1;
+
+                // Wager is now tracked SERVER-SIDE (DB triggers on the game tables) —
+                // the client no longer writes total_wagered (that RPC was a wager-lock
+                // bypass). We only update the local copy below for instant level/UI feedback.
+
+                // Update local total_wagered + check level up
+                if (currentUser && currentUser.roblox_username === username) {
+                    currentUser.total_wagered = (Number(currentUser.total_wagered) || 0) + amount;
+                    const newLevel = getLevel(currentUser.total_wagered);
+                    _userLevelCache.set(username, newLevel);
+                    // Live-refresh the level UI (avatar badge + mobile drawer) after every bet
+                    const _lb = document.getElementById('user-level-badge');
+                    if (_lb) _lb.textContent = newLevel;
+                    const _ml = document.getElementById('mDrawerLevel');
+                    if (_ml) _ml.textContent = newLevel;
+                    if (newLevel > oldLevel) {
+                        showToast(`Level Up! You reached Level ${newLevel}!`, 'success');
+                        updateAllBalanceDisplays();
+                    }
+                }
+            } catch (e) { console.error('trackWager error:', e); }
+        }
+
+        // === GAME RESULT LOGGING (per-bet history for player profile graph + admin) ===
+        async function logGameResult(gameType, betAmount, winAmount, isWin, multiplier) {
+            try {
+                if (!currentUser) return;
+                betAmount = Math.floor(Number(betAmount) || 0);
+                winAmount = Math.floor(Number(winAmount) || 0);
+                if (betAmount <= 0) return;
+                await window.supabaseClient.rpc('log_game_result', {
+                    p_username:       currentUser.roblox_username,
+                    p_roblox_user_id: currentUser.roblox_user_id ? String(currentUser.roblox_user_id) : null,
+                    p_game_type:      gameType,
+                    p_bet_amount:     betAmount,
+                    p_win_amount:     winAmount,
+                    p_is_win:         !!isWin,
+                    p_multiplier:     (multiplier != null && isFinite(multiplier)) ? Number(multiplier) : null
+                });
+            } catch (e) { /* logging must never break gameplay */ }
+        }
+
+        async function openMinesGame() {
+            closeAllGames();
+
+            const overlay = document.getElementById('minesOverlay');
+            if (!overlay) return;
+
+            // Generate initial UI synchronously so DOM is ready
+            updateMinesCount();
+            generateGrid();
+            updateMinesButtonState();
+
+            // Give browser time to layout the hidden elements, then start animation
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    overlay.classList.add('active');
+                });
+            });
+
+            // Check for active game (reconnect after refresh)
+            if (currentUser && !minesGame.active) {
+                const activeGame = await checkActiveGame();
+                if (activeGame) {
+                    await restoreGameState(activeGame);
+                    updateMinesButtonState();
+                }
+            }
+        }
+        async function closeMinesGame() {
+            if (minesGame.active && !minesGame.cashingOut && !minesGame.cleaningUp) {
+                if (minesGame.revealed === 0) {
+                    // No tiles revealed — refund bet
+                    minesGame.active = false;
+                    minesGame.cleaningUp = true;
+                    try {
+                        const { data } = await window.supabaseClient.rpc('cashout_mines_game', {
+                            p_game_id:  minesGame.gameId,
+                            p_username: currentUser.roblox_username
+                        });
+                        if (data?.success) { await fetchUserBalance(); updateAllBalanceDisplays(); }
+                    } catch(e) { console.error('Mines refund error', e); }
+                    minesGame.cleaningUp = false;
+                    resetMinesGame();
+                } else {
+                    // Tiles revealed — auto-cashout
+                    await cashoutMines();
+                }
+            }
+            document.getElementById('minesOverlay').classList.remove('active');
+            if (!minesGame.active) {
+                resetMinesGame();
+            }
+        }
+
+        function setGridSize(size) {
+            if (minesGame.active) return;
+            minesGame.gridSize = size;
+            document.querySelectorAll('.grid-size-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.size) === size);
+            });
+            updateMinesSlider();
+            generateGrid();
+        }
+
+        function updateMinesSlider() {
+            const maxMines = (minesGame.gridSize * minesGame.gridSize) - 1;
+            const slider = document.getElementById('minesSlider');
+            slider.max = maxMines;
+            if (parseInt(slider.value) > maxMines) {
+                slider.value = Math.min(minesGame.minesCount, maxMines);
+            }
+            updateMinesCount();
+        }
+
+        function updateMinesCount() {
+            const slider = document.getElementById('minesSlider');
+            minesGame.minesCount = parseInt(slider.value);
+            const totalTiles = minesGame.gridSize * minesGame.gridSize;
+            const gems = totalTiles - minesGame.minesCount;
+            document.getElementById('minesCountDisplay').textContent = minesGame.minesCount;
+            document.getElementById('gemsCountDisplay').textContent = gems;
+            const infoMines = document.getElementById('mnInfoMines');
+            if (infoMines) infoMines.textContent = minesGame.minesCount;
+            const infoSafe = document.getElementById('mnInfoSafe');
+            if (infoSafe) infoSafe.textContent = gems;
+            updateMinesPreviewPayout();
+        }
+
+        function setBetMultiplier(mult) {
+            if (minesGame.active) return;
+            const input = document.getElementById('minesBet');
+            const current = parseAmount(input.value);
+            let newAmount = Math.floor(current * mult);
+            if (currentUser && newAmount > currentUser.balance) newAmount = currentUser.balance;
+            input.value = formatNumber(Math.max(newAmount, 20000000));
+            updateMinesPreviewPayout();
+        }
+
+        function setMaxBet() {
+            if (minesGame.active || !currentUser) return;
+            const input = document.getElementById('minesBet');
+            // Store exact value, not formatted (to avoid rounding issues)
+            input.value = currentUser.balance;
+            input.dataset.exactValue = currentUser.balance;
+        }
+
+        function updateMinesButtonState() {
+            const playBtn = document.getElementById('minesPlayBtn');
+            const cashoutBtn = document.getElementById('minesCashoutBtn');
+
+            if (minesGame.active && !minesGame.hasHitMine) {
+                playBtn.style.display = 'none';
+                cashoutBtn.style.display = 'flex';
+                const potentialWin = Math.floor(minesGame.betAmount * (minesGame.multiplier || 1));
+                const amtSpan = document.getElementById('cashoutAmount');
+                if (amtSpan) amtSpan.innerHTML = GEM_SVG + formatAmount(potentialWin);
+            } else {
+                cashoutBtn.style.display = 'none';
+                playBtn.style.display = 'block';
+                playBtn.disabled = minesGame.cleaningUp || minesGame.hasHitMine;
+                playBtn.textContent = 'PLAY NOW';
+            }
+        }
+
+        function generateGrid() {
+            const grid = document.getElementById('minesGrid');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < minesGame.gridSize * minesGame.gridSize; i++) {
+                const tile = document.createElement('div');
+                tile.className = 'mn-tile';
+                tile.dataset.index = i;
+                tile.onclick = () => revealTile(i);
+                grid.appendChild(tile);
+            }
+        }
+
+        async function startMinesGame() {
+            if (minesGame.active || minesGame.cashingOut || minesGame.cleaningUp) return;
+            if (!currentUser) { openModal(); return; }
+
+            const betInput = document.getElementById('minesBet');
+            const betAmount = parseAmount(betInput.value);
+
+            if (betAmount < 20000000) { showToast('Minimum bet is 20M gems', 'error'); return; }
+            if (betAmount > currentUser.balance) {
+                showToast('Insufficient balance!', 'error');
+                return;
+            }
+
+            const playBtn = document.getElementById('minesPlayBtn');
+            playBtn.disabled = true;
+            playBtn.textContent = 'Starting...';
+            playMinesSound('start');
+
+            try {
+                // Server generates mine positions — client never sees them
+                const { data, error } = await window.supabaseClient.rpc('start_mines_game', {
+                    p_username:    currentUser.roblox_username,
+                    p_bet_amount:  betAmount,
+                    p_mines_count: minesGame.minesCount
+                });
+
+                if (error || !data?.success) throw new Error(error?.message || data?.error || 'Failed to start game');
+
+                // Update balance locally (server already deducted)
+                currentUser.balance -= betAmount;
+                updateAllBalanceDisplays();
+                trackWager(currentUser.roblox_username, betAmount); // count wager for level + leaderboard
+
+                minesGame.gameId      = data.game_id;
+                minesGame.betAmount   = betAmount;
+                minesGame.revealedTiles = [];
+                minesGame.active      = true;
+                minesGame.revealed    = 0;
+                minesGame.multiplier  = 1.00;
+                minesGame.nextMultiplier = 1.00;
+                minesGame.hasHitMine  = false;
+                minesGame.cashingOut  = false;
+
+                const status = document.getElementById('minesStatus');
+                if (status) status.innerHTML = '';
+
+                updateMinesButtonState();
+                document.getElementById('minesSlider').disabled = true;
+                document.getElementById('minesBet').disabled = true;
+                generateGrid();
+
+            } catch (err) {
+                console.error('Error starting game:', err);
+                showToast(err.message, 'error');
+                playBtn.disabled = false;
+                playBtn.textContent = 'PLAY NOW';
+                minesGame.cleaningUp = false;
+            }
+        }
+
+        // Track tiles currently being revealed (for multi-tile click support)
+        const revealingTiles = new Set();
+
+        async function revealTile(index) {
+            if (!minesGame.active || minesGame.hasHitMine) return;
+
+            const tile = document.querySelector(`.mn-tile[data-index="${index}"]`);
+            if (!tile || tile.classList.contains('mn-revealed')) return;
+            if (revealingTiles.has(index)) return;
+            revealingTiles.add(index);
+            tile.style.opacity = '0.5';
+
+            try {
+                // Server decides: mine or safe — client cannot predict or manipulate
+                const { data, error } = await window.supabaseClient.rpc('reveal_mines_tile', {
+                    p_game_id:    minesGame.gameId,
+                    p_username:   currentUser.roblox_username,
+                    p_tile_index: index
+                });
+
+                tile.style.opacity = '1';
+                if (error || !data?.success) throw new Error(error?.message || data?.error || 'Error');
+
+                if (data.is_mine) {
+                    playMinesSound('bomb');
+                    minesGame.hasHitMine = true;
+                    minesGame.active = false;
+                    tile.innerHTML = MINES_ICONS.bomb;
+                    tile.classList.add('mn-bomb', 'mn-revealed');
+
+                    const status = document.getElementById('minesStatus');
+                    if (status) status.innerHTML = `<span style="color:#ef4444;font-weight:800;font-size:28px;text-shadow:0 0 15px rgba(239,68,68,0.5);">BOOM!</span>`;
+
+                    trackLoss(currentUser.roblox_username, minesGame.betAmount);
+                    logGameResult('mines', minesGame.betAmount, 0, false, null);
+                    minesGame.cleaningUp = true;
+                    updateMinesButtonState();
+
+                    setTimeout(() => {
+                        revealAllMines(data.bomb_positions || [index]);
+                        setTimeout(() => {
+                            resetMinesGame();
+                            minesGame.cleaningUp = false;
+                            updateMinesButtonState();
+                        }, 1000);
+                    }, 500);
+                } else {
+                    playMinesSound('gem');
+                    tile.innerHTML = MINES_ICONS.gem;
+                    tile.classList.add('mn-gem', 'mn-revealed');
+
+                    minesGame.revealedTiles.push(index);
+                    minesGame.revealed    = data.revealed_count;
+                    minesGame.multiplier  = data.multiplier;
+                    minesGame.nextMultiplier = (data.next_multiplier != null) ? data.next_multiplier : data.multiplier;
+                    updateMultiplierDisplay();
+
+                    const safeTiles = 25 - minesGame.minesCount;
+                    if (minesGame.revealed >= safeTiles) cashoutMines();
+                }
+            } catch (err) {
+                console.error('Error revealing tile:', err);
+                tile.style.opacity = '1';
+            } finally {
+                revealingTiles.delete(index);
+            }
+        }
+
+        function updateMultiplierDisplay() {
+            const potentialWin = Math.floor(minesGame.betAmount * minesGame.multiplier);
+            const amtSpan = document.getElementById('cashoutAmount');
+            if (amtSpan) amtSpan.innerHTML = GEM_SVG + formatAmount(potentialWin);
+            const multVal = document.getElementById('mnMultValue');
+            if (multVal) {
+                // CURRENT PAYOUT — exactly what you get if you cash out now (same as the button).
+                multVal.innerHTML = GEM_SVG + formatAmount(potentialWin);
+            }
+            const nextVal = document.getElementById('mnNextValue');
+            if (nextVal) {
+                // NEXT PAYOUT — what you'd have after revealing one more safe tile.
+                const nextMult = (minesGame.nextMultiplier != null) ? minesGame.nextMultiplier : minesGame.multiplier;
+                nextVal.innerHTML = GEM_SVG + formatAmount(Math.floor(minesGame.betAmount * nextMult));
+            }
+            const infoMult = document.getElementById('mnInfoMult');
+            if (infoMult) infoMult.textContent = minesGame.multiplier.toFixed(2) + '×';
+        }
+
+        function updateMinesPreviewPayout() {
+            if (minesGame.active) return;
+            const multVal = document.getElementById('mnMultValue');
+            const nextVal = document.getElementById('mnNextValue');
+            // No current payout before the game starts — it appears after the first tile.
+            if (multVal) multVal.innerHTML = '—';
+            if (!nextVal) return;
+            const betAmt = parseAmount(document.getElementById('minesBet')?.value || '0');
+            if (!betAmt || betAmt < 20000000) { nextVal.innerHTML = '—'; return; }
+            const totalTiles = minesGame.gridSize * minesGame.gridSize;
+            // Server's exact first-tile multiplier; fall back to estimate until it loads.
+            let nextMult = minesPreviewCache[minesGame.minesCount];
+            if (nextMult == null) {
+                nextMult = calculateMultiplier(1, minesGame.minesCount, totalTiles);
+                ensureMinesPreviewMult(minesGame.minesCount);
+            }
+            nextVal.innerHTML = GEM_SVG + formatAmount(Math.floor(betAmt * nextMult));
+        }
+
+        async function cashoutMines() {
+            if (!minesGame.active || minesGame.cashingOut || minesGame.cleaningUp || minesGame.revealed === 0) return;
+            minesGame.cashingOut = true;
+            minesGame.cleaningUp = true;
+
+            const cashoutBtn = document.getElementById('minesCashoutBtn');
+            cashoutBtn.disabled = true;
+            const label = cashoutBtn.querySelector('span:first-child');
+            if (label) label.textContent = 'Cashing out...';
+
+            try {
+                // Server calculates payout atomically
+                const { data, error } = await window.supabaseClient.rpc('cashout_mines_game', {
+                    p_game_id:  minesGame.gameId,
+                    p_username: currentUser.roblox_username
+                });
+
+                if (error || !data?.success) throw new Error(error?.message || data?.error || 'Cashout failed');
+
+                const payout = data.payout;
+                await fetchUserBalance();
+                updateAllBalanceDisplays();
+                playMinesSound('cashout');
+
+                const status = document.getElementById('minesStatus');
+                if (status) {
+                    status.innerHTML = `<span style="color:#10b981;font-weight:800;font-size:28px;text-shadow:0 0 15px rgba(16,185,129,0.5);animation:minePop 0.4s ease-out;">WIN! +${formatAmount(payout)}</span>`;
+                }
+
+                logWinToDiscord(currentUser.roblox_username, payout, 'Mines');
+                logGameResult('mines', minesGame.betAmount, payout, true, minesGame.multiplier);
+
+                // Fetch bomb positions from safe view (visible after game closes)
+                let bombPos = data.bomb_positions || [];
+                if (!bombPos.length) {
+                    try {
+                        const { data: gd } = await window.supabaseClient
+                            .from('mines_games_safe')
+                            .select('bomb_positions')
+                            .eq('id', minesGame.gameId)
+                            .single();
+                        bombPos = gd?.bomb_positions || [];
+                    } catch (_) {}
+                }
+                revealAllMines(bombPos);
+
+                setTimeout(() => {
+                    resetMinesGame();
+                    minesGame.cleaningUp = false;
+                    updateMinesButtonState();
+                }, 800);
+            } catch (err) {
+                console.error('Cashout error:', err);
+                minesGame.cashingOut = false;
+                minesGame.cleaningUp = false;
+                if (cashoutBtn) cashoutBtn.disabled = false;
+                showToast(err.message, "error");
+                updateMinesButtonState();
+            }
+        }
+
+        function revealAllMines(bombPositions) {
+            const bombs = bombPositions || [];
+            const totalTiles = minesGame.gridSize * minesGame.gridSize;
+            for (let pos = 0; pos < totalTiles; pos++) {
+                const tile = document.querySelector(`.mn-tile[data-index="${pos}"]`);
+                if (tile && !tile.classList.contains('mn-revealed')) {
+                    if (bombs.includes(pos)) {
+                        tile.innerHTML = MINES_ICONS.bomb;
+                        tile.classList.add('mn-bomb', 'mn-revealed');
+                    } else {
+                        tile.innerHTML = MINES_ICONS.gem;
+                        tile.classList.add('mn-gem', 'mn-revealed');
+                    }
+                }
+            }
+        }
+
+        function resetMinesGame() {
+            // Clean up any stuck active games in DB
+            if (currentUser) {
+                window.supabaseClient
+                    .from('mines_games')
+                    .update({ is_active: false, won: false })
+                    .eq('username', currentUser.roblox_username)
+                    .eq('is_active', true)
+                    .then(() => {}).catch(() => {});
+            }
+            minesGame.gameId = null;
+            minesGame.active = false;
+            minesGame.revealed = 0;
+            minesGame.multiplier = 1.00;
+            minesGame.hasHitMine = false;
+            minesGame.cashingOut = false;
+            minesGame.bombPositions = [];
+            minesGame.revealedTiles = [];
+            revealingTiles.clear(); // Clear the per-tile tracking Set
+
+            // Clear status message
+            const status = document.getElementById('minesStatus');
+            if (status) status.innerHTML = '';
+
+            const playBtn = document.getElementById('minesPlayBtn');
+            if (playBtn) {
+                playBtn.style.display = 'block';
+                playBtn.disabled = false;
+                playBtn.textContent = 'PLAY NOW';
+            }
+
+            const cashoutBtn = document.getElementById('minesCashoutBtn');
+            if (cashoutBtn) {
+                cashoutBtn.style.display = 'none';
+                cashoutBtn.disabled = false;
+            }
+
+            const infoMult = document.getElementById('mnInfoMult');
+            if (infoMult) infoMult.textContent = '1.00×';
+
+            // Re-enable controls
+            const slider = document.getElementById('minesSlider');
+            if (slider) slider.disabled = false;
+            const betInput = document.getElementById('minesBet');
+            if (betInput) betInput.disabled = false;
+
+            updateMinesPreviewPayout();
+            generateGrid();
+        }
+
+
+        function toggleGamesMenu(event) {
+            event.stopPropagation();
+            const menu = document.querySelector('.games-menu');
+            menu.classList.toggle('open');
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('gamesDropdown');
+            const menu = document.querySelector('.games-menu');
+            if (menu.classList.contains('open') && !dropdown.contains(e.target)) {
+                menu.classList.remove('open');
+            }
+        });
+
+        document.getElementById('minesBet').addEventListener('input', updateMinesPreviewPayout);
+    

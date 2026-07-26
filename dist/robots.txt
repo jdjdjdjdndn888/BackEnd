@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /profile
+Disallow: /trades
+Disallow: /discord/linked
+
+Sitemap: https://gemtide.win/sitemap.xml

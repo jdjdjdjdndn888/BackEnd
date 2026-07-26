@@ -1,0 +1,98 @@
+modules = ["nodejs-20", "python-3.11"]
+[nix]
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend API"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Discord Bot"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Backend API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd api && node server.js"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Discord Bot"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd api && node run-bot.js"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3000
+externalPort = 3001
+
+[[ports]]
+localPort = 3001
+externalPort = 3003
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3002
+
+[[ports]]
+localPort = 23636
+externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+DISCORD_CLIENT_ID = "1522604409669025793"
+DISCORD_REDIRECT_URI = "https://gemtide.win/discord/linked"
+VITE_DISCORD_CLIENT_ID = "1522604409669025793"
+VITE_DISCORD_REDIRECT_URI = "https://gemtide.win/discord/linked"
+TAXER_USER_ID = "4144534949"
+WEBHOOK_COINFLIP = "https://discord.com/api/webhooks/1523289316015734814/JWBT4NeOkxzC9D6nZGDiiTQwuT4VhyOIA8uz70AFojdlXeT83RxfNQyb39Et5iIMIg2d"
+WEBHOOK_DICE = "https://discord.com/api/webhooks/1523289209186549894/y-Jxh0apYnE--vKwHQ80ZM00elUBnrP25D8b_Y-wl0UH_StS3eVsUjxYCDJIIT5UPx1O"
+WEBHOOK_JACKPOT = "https://discord.com/api/webhooks/1523289391747956878/F5aQUgKxK6trjSf59O9TlnHt6IM6BgdcT-d35xa2IXm6eZD8loqKEuE8s1dFxh9eWt-K"
+ANNOUNCE_SECRET = "a09749e384be6656ca37cf5a85deb18a96252d7977db34c0"
+
+[deployment]
+deploymentTarget = "vm"
+run = ["bash", "-c", "cd api && node server.js & pnpm run dev"]

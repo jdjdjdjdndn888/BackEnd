@@ -1,0 +1,636 @@
+.blurbg {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  position: relative;
+  background: #0f1120;
+  border: 1px solid #1e2236;
+  border-radius: 14px;
+  padding: 24px 24px 20px;
+  width: 90%;
+  max-width: 580px;
+  max-height: 88vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: modalOpen 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  scrollbar-width: thin;
+  scrollbar-color: #252840 transparent;
+}
+
+.modal::-webkit-scrollbar { width: 5px; }
+.modal::-webkit-scrollbar-thumb { background: #252840; border-radius: 4px; }
+
+.closeButton {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: #1a1d2e;
+  border: 1px solid #252840;
+  color: #888;
+  font-size: 18px;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  z-index: 10;
+  line-height: 1;
+}
+.closeButton:hover { color: #fff; background: #252840; }
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.depositTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.tabRow {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 36px;
+}
+
+.tab {
+  padding: 5px 18px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.tabActive { background: #7c3aed; color: #fff; }
+.tabInactive { background: #161929; color: #555; }
+.tabInactive:hover { color: #999; }
+
+/* ── Trade code banner ── */
+.codeBanner {
+  background: linear-gradient(135deg, #161929 0%, #1a1d2e 100%);
+  border: 1px solid #252840;
+  border-left: 3px solid #7c3aed;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.codeBannerIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.codeBannerText {
+  flex: 1;
+}
+.codeBannerLabel {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 2px;
+}
+.codeBannerValue {
+  font-size: 15px;
+  font-weight: 700;
+  color: #a78bfa;
+  margin: 0;
+}
+.codeBannerHint {
+  font-size: 11px;
+  color: #555;
+  margin: 2px 0 0;
+}
+
+/* ── Bot list ── */
+.botListSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 6px;
+}
+
+/* ── Bot card ── */
+.botCard {
+  background: #131525;
+  border: 1px solid #1e2236;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.botCard:hover { border-color: #2a2e4a; }
+
+.botCardMain {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.botAvatarWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.botAvatar {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  border: 2px solid #252840;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  display: block;
+}
+.botAvatar:hover { border-color: #7c3aed; }
+
+.statusDot {
+  position: absolute;
+  bottom: 1px; right: 1px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid #131525;
+}
+.statusDotOnline     { background: #22c55e; }
+.statusDotNotInGame  { background: #fbbf24; }
+.statusDotOffline    { background: #ef4444; }
+
+.botInfo {
+  flex: 1;
+  min-width: 0;
+}
+.botNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.botName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.statusBadgeOnline {
+  background: rgba(34,197,94,0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34,197,94,0.25);
+}
+.statusBadgeNotInGame {
+  background: rgba(251,191,36,0.1);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.22);
+}
+.statusBadgeOffline {
+  background: rgba(239,68,68,0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,0.2);
+}
+
+.botMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.botMetaStat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+}
+.botMetaStatIcon { font-size: 11px; }
+.botMetaStatValue { color: #999; font-weight: 600; }
+.botMetaStatSep {
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: #333;
+}
+
+.botCardActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btnJoin {
+  padding: 7px 18px;
+  background: #7c3aed;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+.btnJoin:hover { background: #6d28d9; }
+.btnJoinOffline { background: #1e2236; color: #444; cursor: default; }
+.btnJoinOffline:hover { background: #1e2236; }
+.btnJoinNotInGame { background: #2a2310; color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); cursor: default; }
+.btnJoinNotInGame:hover { background: #2a2310; }
+
+.btnInventory {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid #252840;
+  border-radius: 8px;
+  color: #777;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  text-align: center;
+}
+.btnInventory:hover { border-color: #7c3aed; color: #a78bfa; }
+.btnInventoryOpen { border-color: #7c3aed; color: #a78bfa; background: rgba(124,58,237,0.07); }
+
+/* ── Inventory panel ── */
+.inventoryPanel {
+  border-top: 1px solid #1e2236;
+  background: #0d0f1d;
+  padding: 16px;
+  animation: slideDown 0.18s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.inventoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.inventoryTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0;
+}
+.inventoryLastSeen {
+  font-size: 10px;
+  color: #444;
+}
+
+.inventoryStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.inventoryStat {
+  background: #131525;
+  border: 1px solid #1e2236;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.inventoryStatIcon { font-size: 20px; margin-bottom: 2px; }
+.inventoryStatLabel { font-size: 10px; color: #555; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.inventoryStatValue { font-size: 18px; font-weight: 800; color: #e8e8f0; }
+.inventoryStatSub { font-size: 10px; color: #666; }
+
+.petGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #252840 transparent;
+}
+.petGrid::-webkit-scrollbar { width: 4px; }
+.petGrid::-webkit-scrollbar-thumb { background: #252840; border-radius: 4px; }
+
+.petChip {
+  background: #131525;
+  border: 1px solid #1e2236;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.petChipCount {
+  font-size: 16px;
+  font-weight: 800;
+  color: #a78bfa;
+  display: block;
+}
+.petChipName {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.3;
+  display: block;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.inventoryEmpty {
+  text-align: center;
+  padding: 20px 0;
+  color: #444;
+  font-size: 12px;
+}
+
+/* ── Not-in-game banner (amber) ── */
+.notInGameBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.15);
+  border-radius: 8px;
+  font-size: 11px;
+  color: #888;
+  margin-top: 8px;
+}
+.notInGameBannerDot  { color: #fbbf24; font-size: 14px; }
+.notInGameBannerText { flex: 1; }
+.notInGameBannerTime { color: #fbbf24; font-weight: 700; }
+
+/* ── Offline banner (red) ── */
+.offlineBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.06);
+  border: 1px solid rgba(239,68,68,0.15);
+  border-radius: 8px;
+  font-size: 11px;
+  color: #888;
+  margin-top: 8px;
+}
+.offlineBannerDot { color: #ef4444; font-size: 14px; }
+.offlineBannerText { flex: 1; }
+.offlineBannerTime { color: #ef4444; font-weight: 700; }
+
+/* ── No bots state ── */
+.noBots {
+  text-align: center;
+  padding: 40px 20px;
+  color: #555;
+}
+.noBotsTitle { font-size: 14px; color: #888; margin: 0 0 8px; font-weight: 600; }
+.noBotsText  { font-size: 12px; margin: 0 0 16px; line-height: 1.6; }
+
+/* ── Item search ── */
+.searchSection {
+  border-top: 1px solid #1a1d2e;
+  padding-top: 18px;
+  margin-top: 4px;
+}
+.searchLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 10px;
+}
+.searchInputWrap {
+  position: relative;
+  margin-bottom: 10px;
+}
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0d0f1d;
+  border: 1px solid #1e2236;
+  border-radius: 10px;
+  padding: 10px 36px 10px 14px;
+  font-size: 13px;
+  color: #e8e8f0;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.searchInput:focus { border-color: #7c3aed; }
+.searchInput::placeholder { color: #444; }
+.searchSpinner {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #555;
+}
+
+.itemGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #252840 transparent;
+}
+.itemGrid::-webkit-scrollbar { width: 4px; }
+.itemGrid::-webkit-scrollbar-thumb { background: #252840; border-radius: 4px; }
+
+.itemCard {
+  background: #0d0f1d;
+  border: 1px solid #1e2236;
+  border-radius: 9px;
+  padding: 10px 8px;
+  text-align: center;
+  transition: border-color 0.15s;
+}
+.itemCard:hover { border-color: #2a2e4a; }
+.itemCardImg { width: 36px; height: 36px; object-fit: contain; display: block; margin: 0 auto 4px; }
+.itemCardName { font-size: 10px; color: #ccc; line-height: 1.3; margin: 0 0 3px; }
+.itemCardValue { font-size: 10px; color: #a78bfa; font-weight: 700; margin: 0 0 3px; }
+.itemCardTag { font-size: 9px; color: #22c55e; font-weight: 600; }
+
+.noItemFound {
+  text-align: center;
+  padding: 16px 0;
+  color: #666;
+  font-size: 13px;
+}
+.btnRequest {
+  margin-top: 8px;
+  background: #7c3aed;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnRequest:hover { background: #6d28d9; }
+
+.requestForm {
+  margin-top: 12px;
+  background: #0d0f1d;
+  border: 1px solid #1e2236;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.requestFormTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ccc;
+  margin: 0 0 2px;
+}
+.requestInput {
+  background: #131525;
+  border: 1px solid #1e2236;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #e8e8f0;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.requestInput:focus { border-color: #7c3aed; }
+.requestInput::placeholder { color: #444; }
+
+.requestActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.btnSubmit {
+  flex: 1;
+  background: #7c3aed;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btnSubmit:hover:not(:disabled) { background: #6d28d9; }
+.btnSubmit:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnCancel {
+  background: transparent;
+  border: 1px solid #1e2236;
+  border-radius: 8px;
+  color: #666;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btnCancel:hover { border-color: #2a2e4a; color: #999; }
+
+/* ── Footer ── */
+.footerNote {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: #0d0f1d;
+  border: 1px solid #1a1d2e;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.footerNoteIcon { font-size: 13px; flex-shrink: 0; margin-top: 1px; color: #f59e0b; }
+.footerNoteText { font-size: 11px; color: #555; line-height: 1.6; margin: 0; }
+
+/* ── Loader ── */
+.loaderWrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0;
+}
+.loader {
+  border: 3px solid #1e2236;
+  border-top: 3px solid #7c3aed;
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  animation: spin 0.5s linear infinite;
+}
+
+/* ── Animations ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalOpen {
+  from { opacity: 0; transform: scale(0.96) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.shrinkOut {
+  animation: shrinkOut 0.18s ease-in forwards;
+}
+@keyframes shrinkOut {
+  to { transform: scale(0.94); opacity: 0; }
+}
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    padding: 20px 16px 16px;
+  }
+  .inventoryStats { grid-template-columns: 1fr 1fr; }
+  .itemGrid { grid-template-columns: repeat(2, 1fr); }
+  .petGrid  { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+}
