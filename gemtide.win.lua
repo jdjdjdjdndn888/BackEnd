@@ -592,12 +592,20 @@ end
 
 local function loadSupportedFromDirectory()
     supporteditems = {}
-    local dirs = {
-        replicatedStorage.__DIRECTORY.Pets.Huge,
-        replicatedStorage.__DIRECTORY.Pets.Titanic
-    }
+    local dirsOk, dirs = pcall(function()
+        return {
+            replicatedStorage.__DIRECTORY.Pets.Huge,
+            replicatedStorage.__DIRECTORY.Pets.Titanic
+        }
+    end)
+    if not dirsOk or not dirs then
+        warn("[GemTide.Win Trade Bot] loadSupportedFromDirectory: __DIRECTORY not accessible — " .. tostring(dirs))
+        return
+    end
     for _, dir in ipairs(dirs) do
-        for _, pet in next, dir:GetChildren() do
+        local ok2, children = pcall(function() return dir:GetChildren() end)
+        if not ok2 then continue end
+        for _, pet in next, children do
             local ok, petData = pcall(require, pet)
             if ok and petData and petData.name then
                 addSupportedVariant(petData.name)
@@ -671,13 +679,21 @@ local function rebuildPetDetectionData()
     hugesTitanicsIds = {}
     speciesIdToName = {}
 
-    local dirs = {
-        replicatedStorage.__DIRECTORY.Pets.Huge,
-        replicatedStorage.__DIRECTORY.Pets.Titanic
-    }
+    local dirsOk, dirs = pcall(function()
+        return {
+            replicatedStorage.__DIRECTORY.Pets.Huge,
+            replicatedStorage.__DIRECTORY.Pets.Titanic
+        }
+    end)
+    if not dirsOk or not dirs then
+        warn("[GemTide.Win Trade Bot] rebuildPetDetectionData: __DIRECTORY not accessible — " .. tostring(dirs))
+        return
+    end
 
     for _, dir in ipairs(dirs) do
-        for _, pet in next, dir:GetChildren() do
+        local ok2, children = pcall(function() return dir:GetChildren() end)
+        if not ok2 then continue end
+        for _, pet in next, children do
             local ok, petData = pcall(require, pet)
             if ok and petData and petData.name and petData._id then
                 if petData.thumbnail then
@@ -712,7 +728,13 @@ local function refreshSupportedNow(reason)
 end
 
 -- Huges / Titanics initial detection
-rebuildPetDetectionData()
+local rebuildOk, rebuildErr = pcall(rebuildPetDetectionData)
+if not rebuildOk then
+    warn("[GemTide.Win Trade Bot] rebuildPetDetectionData failed at startup: " .. tostring(rebuildErr))
+    pcall(function()
+        sendWebhookRaw("⚠️ Pet detection rebuild failed at startup: " .. tostring(rebuildErr) .. " — bot will still run but pet matching may be unavailable until a reload.")
+    end)
+end
 
 --// Trade ID setting
 spawn(function()
@@ -785,6 +807,20 @@ local function confirmDepositToBackend(depositUserId, depositUsername, depositIt
 
         lastStatus = response and tostring(response.StatusCode) or "nil"
         lastBody = response and tostring(response.Body) or "nil/no response"
+
+        -- Detect PENDING_WITHDRAWAL early — don't retry, it's an intentional block
+        if response and response.StatusCode == 400 then
+            local pwOk, pwDecoded = pcall(function()
+                return httpService:JSONDecode(tostring(response.Body or "{}"))
+            end)
+            if pwOk and type(pwDecoded) == "table" and pwDecoded.method == "PENDING_WITHDRAWAL" then
+                print("[GemTide.Win Trade Bot] deposit blocked (pending withdrawal) | userId=" .. tostring(depositUserId))
+                pcall(function()
+                    sendWebhookRaw("⚠️ Deposit blocked — user has a pending withdrawal. userId=" .. tostring(depositUserId) .. " (" .. tostring(depositUsername) .. "). If items were received in-game, manual credit is needed after withdrawal is confirmed.")
+                end)
+                return false
+            end
+        end
 
         if response and response.StatusCode and response.StatusCode >= 200 and response.StatusCode < 300 then
             local ok, decoded = pcall(function()
