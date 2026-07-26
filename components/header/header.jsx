@@ -255,7 +255,7 @@ const NormalWalletChip = ({ balance, onClick }) => (
     title="Normal Wallet — click to view"
     style={{ flexShrink: 0 }}
   >
-    <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>🎮</span>
+    <img src="/nav-wallet.svg" alt="wallet" style={{ width: 18, height: 18, flexShrink: 0, objectFit: "contain" }} />
     <span style={{ color: "#a78bfa" }}>{formatLargeNumber(balance)}</span>
   </button>
 );

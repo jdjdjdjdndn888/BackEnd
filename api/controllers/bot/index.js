@@ -166,6 +166,18 @@ exports.Deposit = asyncHandler(async (req, res) => {
     return res.status(400).json({ method: "USERNOTFOUND", message: `User '${req.body.userId}' not found` });
   }
 
+  // ── Block deposit if user has a pending withdrawal ────────────────────────
+  // Prevents the race where a bot confirmation of a withdrawal also triggers
+  // a deposit for the same user, causing double-crediting.
+  const pendingWithdrawCount = await withdraws.countDocuments({ userid: numUserId });
+  if (pendingWithdrawCount > 0) {
+    releaseLock(numUserId, "deposit");
+    return res.status(400).json({
+      method: "PENDING_WITHDRAWAL",
+      message: "User has a pending withdrawal — deposit blocked until withdrawal is confirmed",
+    });
+  }
+
   const depositResults = [];
   const itemValues = {};
   const itemCounts = {};

@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { label: "Coinflip",  href: "/coinflip",  icon: null,            img: "/nav-coinflip.png"   },
   { label: "Dice",      href: "/dice",      icon: null,            img: "/nav-dice.png"       },
   { label: "Jackpot",   href: "/jackpot",   icon: null,            img: "/nav-jackpot.png"    },
-  { label: "Blackjack", href: "/blackjack", icon: null,            img: "/nav-blackjack.png"  },
+  { label: "Blackjack", href: "/blackjack", icon: null,            img: "/nav-blackjack-1v1.svg" },
   { label: "Normal BJ",    href: "/normal-blackjack", icon: null, img: "/nav-blackjack.png", badge: "NEW" },
   { label: "Normal Mines", href: "/normal-mines",     icon: null, img: "/nav-mines.png",      badge: "NEW" },
   { label: "Mines",        href: "/mines",            icon: null, img: "/nav-mines.png"       },
@@ -22,8 +22,8 @@ const NAV_ITEMS = [
   { label: "Upgrader",  href: "/upgrader",  icon: null,            img: "/nav-upgrader.png"   },
   { label: "Trades",    href: "/trades",    icon: null,            img: "/nav-trades.png"     },
   { label: "Cases",     href: "/cases",     icon: null,            img: "/nav-cases.png",   badge: "NEW" },
-  { label: "Towers",    href: "/towers",    icon: null,            img: "/nav-mines.png",   badge: "NEW" },
-  { label: "HiLo",     href: "/hilo",      icon: null,            img: "/nav-blackjack.png", badge: "NEW" },
+  { label: "Towers",    href: "/towers",    icon: null,            img: "/nav-towers.svg",  badge: "NEW" },
+  { label: "HiLo",     href: "/hilo",      icon: null,            img: "/nav-hilo.svg",    badge: "NEW" },
 ];
 
 function NavIcon({ icon: Icon, img, active, size = 28 }) {

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- Wallet body -->
+  <rect x="5" y="14" width="36" height="24" rx="4" fill="#6366f1"/>
+  <!-- Wallet flap / card slot area -->
+  <rect x="5" y="14" width="36" height="8" rx="4" fill="#818cf8"/>
+  <rect x="5" y="18" width="36" height="4" fill="#818cf8"/>
+  <!-- Coin pocket -->
+  <rect x="28" y="22" width="13" height="12" rx="3" fill="#1e1b4b" stroke="#a5b4fc" stroke-width="1.2"/>
+  <!-- Gem coin inside pocket -->
+  <circle cx="34.5" cy="28" r="4" fill="#e879f9" opacity="0.9"/>
+  <polygon points="34.5,24.5 36.5,27.5 34.5,30.5 32.5,27.5" fill="white" opacity="0.25"/>
+  <circle cx="34.5" cy="28" r="1.5" fill="white" opacity="0.3"/>
+  <!-- Card lines on left side -->
+  <rect x="9" y="26" width="14" height="2" rx="1" fill="white" opacity="0.25"/>
+  <rect x="9" y="30" width="9" height="2" rx="1" fill="white" opacity="0.18"/>
+  <!-- Strap / binding line -->
+  <rect x="5" y="21" width="36" height="2" fill="#4f46e5" opacity="0.5"/>
+</svg>
