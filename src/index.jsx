@@ -27,16 +27,10 @@ import Admin from "../components/admin/Admin.jsx";
 import Trades from "../components/trades/Trades.jsx";
 import DicePage from "../components/dice/layout.jsx";
 import BlackjackPage from "../components/blackjack/layout.jsx";
-import NormalBlackjack from "../components/normalblackjack/NormalBlackjack.jsx";
-import NormalMines from "../components/normalmines/NormalMines.jsx";
-import NormalWallet from "../components/normalwallet/NormalWallet.jsx";
-import MinesPage from "../components/mines/layout.jsx";
-import RpsPage      from "../components/rps/layout.jsx";
-import SupportPage  from "../components/support/SupportPage.jsx";
-import CasesPage    from "../components/cases/layout.jsx";
-import Referral     from "../components/referral/Referral.jsx";
-import TowersPage   from "../components/towers/Towers.jsx";
-import HiLoPage     from "../components/hilo/HiLo.jsx";
+import RpsPage        from "../components/rps/layout.jsx";
+import SupportPage    from "../components/support/SupportPage.jsx";
+import Referral       from "../components/referral/Referral.jsx";
+import ColordiceLayout from "../components/colordice/layout.jsx";
 
 // Connect directly to the backend host — the frontend (Cloudflare Pages) is
 // hosted on a different origin from the API (api.gemtide.win), so there is no
@@ -233,15 +227,9 @@ function App() {
                         <Route path="/trades" element={<Trades />} />
                         <Route path="/dice" element={<DicePage />} />
                         <Route path="/blackjack" element={<BlackjackPage />} />
-                        <Route path="/normal-blackjack" element={<NormalBlackjack />} />
-                        <Route path="/normal-mines" element={<NormalMines />} />
-                        <Route path="/normal-wallet" element={<NormalWallet />} />
-                        <Route path="/mines" element={<MinesPage />} />
+                        <Route path="/colordice" element={<ColordiceLayout />} />
                         <Route path="/rps" element={<RpsPage />} />
                         <Route path="/support" element={<SupportPage />} />
-                        <Route path="/cases" element={<CasesPage />} />
-                        <Route path="/towers" element={<TowersPage />} />
-                        <Route path="/hilo" element={<HiLoPage />} />
                         <Route path="/refferal/:code" element={<Referral />} />
                         <Route path="/referral/:code" element={<Referral />} />
                       </Routes>

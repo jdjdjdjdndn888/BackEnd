@@ -12,13 +12,10 @@ const adminController = require("../controllers/admin/index.js");
 const tradesController = require("../controllers/trades/index.js");
 const diceController = require("../controllers/dice/index.js");
 const blackjackController = require("../controllers/blackjack/index.js");
-const normalWalletController = require("../controllers/normalwallet/index.js");
-const normalBlackjackController = require("../controllers/normalblackjack/index.js");
+const colordiceController = require("../controllers/colordice/index.js");
 const upgraderController = require("../controllers/upgrader/index.js");
-const minesController = require("../controllers/mines/index.js");
 const rpsController     = require("../controllers/rps/index.js");
 const supportController   = require("../controllers/support/index.js");
-const casesController     = require("../controllers/cases/index.js");
 const affiliateController = require("../controllers/affiliate/index.js");
 const {
   authLimiter,
@@ -144,51 +141,16 @@ router.post("/blackjack/stand", mutationLimiter, accountController.verifyToken, 
 router.post("/blackjack/cancel", mutationLimiter, accountController.verifyToken, blackjackController.cancelmatch);
 router.post("/blackjack/history/me", accountController.verifyToken, blackjackController.historyme);
 
-// ── Normal blackjack: item exchange wallet + player versus dealer ────────────
-router.get("/normal-wallet", accountController.verifyToken, normalWalletController.getWallet);
-router.get("/normal-wallet/inventory", accountController.verifyToken, normalWalletController.getInventory);
-router.get("/normal-wallet/house-inventory", accountController.verifyToken, normalWalletController.getHouseInventory);
-router.post("/normal-wallet/exchange", mutationLimiter, accountController.verifyToken, normalWalletController.exchange);
-router.post("/normal-wallet/redeem", mutationLimiter, accountController.verifyToken, normalWalletController.redeem);
-router.post("/normal-wallet/swap", mutationLimiter, accountController.verifyToken, normalWalletController.swap);
-router.get("/normal-blackjack/current", accountController.verifyToken, normalBlackjackController.getCurrent);
-router.get("/normal-blackjack/history", accountController.verifyToken, normalBlackjackController.history);
-router.post("/normal-blackjack/create", mutationLimiter, accountController.verifyToken, normalBlackjackController.create);
-router.post("/normal-blackjack/action", mutationLimiter, accountController.verifyToken, normalBlackjackController.action);
-router.post("/normal-blackjack/cancel", mutationLimiter, accountController.verifyToken, normalBlackjackController.cancel);
+// ── Color Dice PvP ────────────────────────────────────────────────────────────
+router.get("/colordice/games",            readLimiter, colordiceController.getGames);
+router.post("/colordice/create",          mutationLimiter, accountController.verifyToken, colordiceController.createGame);
+router.post("/colordice/join",            mutationLimiter, accountController.verifyToken, colordiceController.joinGame);
+router.post("/colordice/cancel",          mutationLimiter, accountController.verifyToken, colordiceController.cancelGame);
+router.post("/colordice/history/me",      accountController.verifyToken, colordiceController.historyMe);
 
-// ── Normal mines: solo player-vs-house using the normal wallet ───────────────
-const normalMinesController = require("../controllers/normalmines/index.js");
-router.get("/normal-mines/current", accountController.verifyToken, normalMinesController.getCurrent);
-router.get("/normal-mines/history", accountController.verifyToken, normalMinesController.history);
-router.post("/normal-mines/create",  mutationLimiter, accountController.verifyToken, normalMinesController.create);
-router.post("/normal-mines/reveal",  mutationLimiter, accountController.verifyToken, normalMinesController.reveal);
-router.post("/normal-mines/cashout", mutationLimiter, accountController.verifyToken, normalMinesController.cashout);
-
-// ── Towers: solo player-vs-house climb game using the normal wallet ───────────
-const towersController = require("../controllers/towers/index.js");
-router.get("/towers/current", accountController.verifyToken, towersController.getCurrent);
-router.get("/towers/history", accountController.verifyToken, towersController.history);
-router.post("/towers/create",  mutationLimiter, accountController.verifyToken, towersController.create);
-router.post("/towers/pick",    mutationLimiter, accountController.verifyToken, towersController.pick);
-router.post("/towers/cashout", mutationLimiter, accountController.verifyToken, towersController.cashout);
-
-// ── HiLo: solo card prediction game using the normal wallet ──────────────────
-const hiloController = require("../controllers/hilo/index.js");
-router.get("/hilo/current", accountController.verifyToken, hiloController.getCurrent);
-router.get("/hilo/history", accountController.verifyToken, hiloController.history);
-router.post("/hilo/create",  mutationLimiter, accountController.verifyToken, hiloController.create);
-router.post("/hilo/guess",   mutationLimiter, accountController.verifyToken, hiloController.guess);
-router.post("/hilo/cashout", mutationLimiter, accountController.verifyToken, hiloController.cashout);
 
 router.get("/stats/all", gamesController.getvalue);
 
-router.get("/mines/games", readLimiter, minesController.getgames);
-router.post("/mines/create", mutationLimiter, accountController.verifyToken, minesController.creatematch);
-router.post("/mines/join", mutationLimiter, accountController.verifyToken, minesController.joinmatch);
-router.post("/mines/reveal", mutationLimiter, accountController.verifyToken, minesController.revealtile);
-router.post("/mines/cancel", mutationLimiter, accountController.verifyToken, minesController.cancelmatch);
-router.post("/mines/history/me", accountController.verifyToken, minesController.historyme);
 
 router.use("/admin", adminLimiter);
 
@@ -294,18 +256,6 @@ router.get("/__seed-gems", bothandler.real, async (req, res) => {
   res.json({ ok: true, results });
 });
 
-// ── Cases ─────────────────────────────────────────────────────────────────────
-router.get("/cases",                   casesController.getCases);
-router.get("/cases/history",           casesController.getHistory);
-router.get("/cases/history/me",        accountController.verifyToken, casesController.getMyHistory);
-router.get("/cases/:id",               casesController.getCase);
-router.post("/cases/:id/open",         mutationLimiter, accountController.verifyToken, casesController.openCase);
-
-// Admin cases management
-router.get("/admin/cases",             accountController.verifyToken, adminController.isAdmin, casesController.adminGetCases);
-router.post("/admin/cases",            accountController.verifyToken, adminController.isAdmin, casesController.adminCreateCase);
-router.put("/admin/cases/:id",         accountController.verifyToken, adminController.isAdmin, casesController.adminUpdateCase);
-router.delete("/admin/cases/:id",      accountController.verifyToken, adminController.isAdmin, casesController.adminDeleteCase);
 
 // ── Support Tickets ───────────────────────────────────────────────────────────
 router.post("/support/tickets",                accountController.verifyToken, supportController.createTicket);
