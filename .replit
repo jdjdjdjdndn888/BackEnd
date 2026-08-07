@@ -94,7 +94,7 @@ WEBHOOK_JACKPOT = "https://discord.com/api/webhooks/1523289391747956878/F5aQUgKx
 ANNOUNCE_SECRET = "a09749e384be6656ca37cf5a85deb18a96252d7977db34c0"
 
 [deployment]
-deploymentTarget = "static"
-run = ["bash", "-c", "cd api && node server.js & pnpm run dev"]
+deploymentTarget = "vm"
+run = ["bash", "-c", "cd api && npm start"]
 build = ["pnpm", "run", "build"]
 publicDir = "dist"
