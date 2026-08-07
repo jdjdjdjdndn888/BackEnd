@@ -49,8 +49,9 @@ if (MONGO_URI) {
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 const { Schema } = mongoose;
+const getModel = (name, schema) => mongoose.models[name] || mongoose.model(name, schema);
 
-const users = mongoose.model("users", new Schema({
+const users = getModel("users", new Schema({
   userid: Number, username: String, discordid: String, discordusername: String,
   thumbnail: String, rank: String,
   balance:   { type: Number, default: 0 },
@@ -62,11 +63,11 @@ const users = mongoose.model("users", new Schema({
   banned:    { type: Boolean, default: false },
 }, { strict: false }));
 
-const items = mongoose.model("items", new Schema({
+const items = getModel("items", new Schema({
   itemid: Number, itemname: String, itemvalue: Number, itemimage: String, game: String,
 }));
 
-const bots = mongoose.model("bots", new Schema({
+const bots = getModel("bots", new Schema({
   name:   { type: String, required: true },
   pfp:    { type: String, required: true },
   userid: { type: Number, required: true },
@@ -75,35 +76,35 @@ const bots = mongoose.model("bots", new Schema({
   online: { type: Boolean, default: true },
 }));
 
-const withdraws = mongoose.model("withdraws", new Schema({
+const withdraws = getModel("withdraws", new Schema({
   userid: Number, itemid: String, itemname: String,
 }));
 
-const inventorys = mongoose.model("inventorys", new Schema({
+const inventorys = getModel("inventorys", new Schema({
   itemid: String, owner: Number, locked: { type: Boolean, default: false },
 }));
 
-const history = mongoose.model("history", new Schema({
+const history = getModel("history", new Schema({
   userid: { type: Number, required: true },
   type:   { type: String, required: true },
   amount: { type: String, required: true },
   date:   { type: Date,   required: true },
 }));
 
-const Coinflips = mongoose.model("Coinflips", new Schema({
+const Coinflips = getModel("Coinflips", new Schema({
   creatorid: Number, game: String, active: Boolean, crazyMode: Boolean,
   PlayerOne: { id: Number, username: String, value: Number, coin: String },
   PlayerTwo: { id: Number, username: String, value: Number, coin: String },
   winner: Number, start: Date, end: Date,
 }, { strict: false }));
 
-const Jackpot = mongoose.model("Jackpot", new Schema({
+const Jackpot = getModel("Jackpot", new Schema({
   value: Number, winnerusername: String, winnerid: Number,
   state: String, game: String, inactive: Boolean, endsAt: Date,
 }, { strict: false }));
 
 // ─── Invite System Models ──────────────────────────────────────────────────
-const inviteSettings = mongoose.model("inviteSettings", new Schema({
+const inviteSettings = getModel("inviteSettings", new Schema({
   guildId:        { type: String, required: true, unique: true },
   channelId:      { type: String, default: "" },
   logChannelId:   { type: String, default: "" },
@@ -113,7 +114,7 @@ const inviteSettings = mongoose.model("inviteSettings", new Schema({
   panelMessageId: { type: String, default: "" },
 }, { strict: false }));
 
-const inviteRecord = mongoose.model("inviteRecord", new Schema({
+const inviteRecord = getModel("inviteRecord", new Schema({
   guildId:   { type: String, required: true },
   inviterId: { type: String, required: true },
   inviteeId: { type: String, required: true },
@@ -125,7 +126,7 @@ const inviteRecord = mongoose.model("inviteRecord", new Schema({
   paid:      { type: Boolean, default: false },
 }, { strict: false }));
 
-const memberHistory = mongoose.model("memberHistory", new Schema({
+const memberHistory = getModel("memberHistory", new Schema({
   guildId:      { type: String, required: true },
   memberId:     { type: String, required: true },
   firstJoinedAt:{ type: Date, default: Date.now },
@@ -133,7 +134,7 @@ const memberHistory = mongoose.model("memberHistory", new Schema({
 }, { strict: false }));
 
 // ─── Auto-Mod Log Model ──────────────────────────────────────────────────────
-const modLogs = mongoose.model("modLogs", new Schema({
+const modLogs = getModel("modLogs", new Schema({
   userId:      { type: String, required: true },
   username:    { type: String, required: true },
   message:     { type: String, required: true },
@@ -145,7 +146,7 @@ const modLogs = mongoose.model("modLogs", new Schema({
 }, { strict: false }));
 
 // ─── Transaction Log Model ──────────────────────────────────────────────────
-const transactionLogs = mongoose.model("transactionLogs", new Schema({
+const transactionLogs = getModel("transactionLogs", new Schema({
   type:         { type: String, enum: ['invite_claim', 'inventory_transfer', 'admin_action', 'api_test'], required: true },
   fromUserId:   { type: Number, required: true },
   toUserId:     { type: Number, required: true },
