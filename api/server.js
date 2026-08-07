@@ -265,12 +265,6 @@ async function connectMongo(attempt = 1) {
     if (!_startupRan) {
       _startupRan = true;
       startup(io).catch((err) => console.error("Startup error (non-fatal):", err));
-      try {
-        require("./bot");
-        console.log("Discord bot loaded");
-      } catch (err) {
-        console.error("Discord bot failed to load:", err.message);
-      }
     }
   } catch (err) {
     const delaySec = Math.min(5 * attempt, 60);

@@ -21,10 +21,6 @@ args = "Start application"
 task = "workflow.run"
 args = "Backend API"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Discord Bot"
-
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -45,17 +41,6 @@ author = "agent"
 task = "shell.exec"
 args = "cd api && node server.js"
 waitForPort = 3001
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Discord Bot"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd api && node run-bot.js"
 
 [workflows.workflow.metadata]
 outputType = "console"
