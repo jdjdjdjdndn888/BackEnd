@@ -14,9 +14,12 @@ and edge proxy are no longer part of the application runtime.
 
 ## Current scope
 
-- The frontend is built into `dist/` and served by the same Worker.
-- Local preview uses `wrangler dev`, so it exercises the Worker/D1/Durable
-  Object runtime instead of a separate application server.
+- The default deployment is the backend Worker only; it does not upload or
+  serve the React frontend.
+- Local preview uses `wrangler dev` with `wrangler.jsonc`, so it exercises the
+  Worker/D1/Durable Object runtime instead of a separate application server.
+- The optional full-stack config is `wrangler.frontend.jsonc`; use it only
+  when the Worker should also serve a built `dist/` directory.
 - The native backend currently provides compatibility implementations for the
   migrated routes; game rules and settlement logic should be expanded in this
   Worker as additional Cloudflare-native functionality is required.
@@ -28,7 +31,7 @@ Create the production D1 database and apply the schema before deploying:
 ```bash
 npx wrangler d1 create gemtide-native
 npx wrangler d1 migrations apply gemtide-native --remote
-npm run cf:deploy
+pnpm run cf:deploy
 ```
 
 After creating the database, copy its generated `database_id` into

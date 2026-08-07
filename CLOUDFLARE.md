@@ -1,14 +1,14 @@
 # Cloudflare-only deployment
 
-The application is now a single Cloudflare Worker under
-`workers/native-api/index.js`. It serves:
+The backend is a Cloudflare Worker under
+`workers/native-api/index.js`. The default deployment serves:
 
-- the React/Vite build from `dist/`
 - the D1-backed `/api/*` routes
 - realtime WebSockets through the `RealtimeHub` Durable Object
 
-There is no Node API origin, Express server, MongoDB connection, Render
-service, or API proxy in the application runtime.
+The default backend deployment does not include the React frontend. The
+optional `wrangler.frontend.jsonc` config can be used for a deliberate
+full-stack Worker deployment.
 
 ## First-time Cloudflare setup
 
@@ -21,7 +21,7 @@ npx wrangler d1 migrations apply gemtide-native --remote
 pnpm run cf:deploy
 ```
 
-The local Worker can be tested without Cloudflare credentials:
+The local backend Worker can be tested without Cloudflare credentials:
 
 ```bash
 pnpm run cf:dev

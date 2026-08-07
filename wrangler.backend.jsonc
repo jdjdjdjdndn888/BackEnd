@@ -1,7 +1,6 @@
 {
-  // Default Cloudflare deployment config for the backend Worker.
-  // Keep this file API-only so Cloudflare's automatic config detection
-  // cannot accidentally deploy the React frontend.
+  // Legacy alias retained for local commands that explicitly select it.
+  // Cloudflare's default deployment config is wrangler.jsonc.
   "name": "gemtide",
   "compatibility_date": "2024-09-23",
   "main": "./workers/native-api/index.js",

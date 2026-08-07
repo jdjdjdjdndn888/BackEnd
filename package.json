@@ -8,9 +8,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "wrangler dev --local --ip 0.0.0.0 --port 5000",
-    "cf:dev": "pnpm run build && wrangler dev --local --ip 0.0.0.0 --port 5000",
-    "cf:deploy": "pnpm run build && wrangler deploy"
+    "start": "wrangler dev --config wrangler.jsonc --local --ip 0.0.0.0 --port 5000",
+    "cf:dev": "wrangler dev --config wrangler.jsonc --local --ip 0.0.0.0 --port 5000",
+    "cf:deploy": "wrangler deploy --config wrangler.jsonc",
+    "cf:deploy:full": "pnpm run build && wrangler deploy --config wrangler.frontend.jsonc"
   },
   "keywords": [],
   "author": "",

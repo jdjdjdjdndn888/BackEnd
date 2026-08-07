@@ -203,6 +203,7 @@ export default {
       const res = await route.h(env, request);
       return new Response(res.body, { status: res.status, headers: { ...Object.fromEntries(res.headers), ...CORS_HEADERS, 'cache-control': 'no-store' } });
     }
-    return env.ASSETS.fetch(request);
+    if (env.ASSETS) return env.ASSETS.fetch(request);
+    return json({ success: false, message: 'Backend API only' }, { status: 404 });
   }
 };
