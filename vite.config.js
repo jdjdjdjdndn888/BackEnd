@@ -29,7 +29,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
-      "/socket.io": {
+      "/realtime": {
         target: "http://localhost:3001",
         changeOrigin: true,
         ws: true,

@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { io } from "socket.io-client";
 import "./index.css";
 
 import UserContext from "../utils/user.js";
 import SocketContext from "../utils/socket.js";
 import { ModalProvider, useModal } from "../utils/ModalContext.jsx";
 import { NotificationsProvider } from "../utils/NotificationsContext.jsx";
-import { api } from "../config.js";
+import { api, realtimeUrl } from "../config.js";
 import { getauth } from "../utils/getauth.js";
+import { createNativeSocket } from "../utils/nativeSocket.js";
 
 import { FaCommentDots, FaTimes, FaBullhorn } from "react-icons/fa";
 
@@ -31,20 +31,6 @@ import RpsPage        from "../components/rps/layout.jsx";
 import SupportPage    from "../components/support/SupportPage.jsx";
 import Referral       from "../components/referral/Referral.jsx";
 import ColordiceLayout from "../components/colordice/layout.jsx";
-
-// Connect directly to the backend host — the frontend (Cloudflare Pages) is
-// hosted on a different origin from the API (api.gemtide.win), so there is no
-// same-origin proxy to route socket.io through. Direct connection also avoids
-// any edge-proxy WebSocket upgrade issues.
-const BACKEND_URL =
-  import.meta.env.VITE_SOCKET_URL || "https://api.gemtide.win";
-
-const socket = io(BACKEND_URL, {
-  path: "/socket.io",
-  transports: ["websocket", "polling"],
-  autoConnect: true,
-  auth: { token: getauth() },
-});
 
 function ModalRenderer() {
   const { modalState } = useModal();
@@ -148,6 +134,15 @@ function AnnouncementBanner({ message, onDismiss }) {
 }
 
 function App() {
+  const socketRef = useRef(null);
+  if (!socketRef.current) {
+    socketRef.current = createNativeSocket({
+      url: realtimeUrl,
+      tokenProvider: getauth,
+    });
+  }
+  const socket = socketRef.current;
+
   const [userData, setUserData] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
