@@ -1,8 +1,6 @@
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const CORS_HEADERS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,content-type', 'access-control-allow-methods': 'GET,POST,PUT,DELETE,OPTIONS', 'access-control-max-age': '86400' };
 const encoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
 function json(data, init = {}) { return new Response(JSON.stringify(data), { ...init, headers: { ...JSON_HEADERS, ...(init.headers || {}) } }); }
 function cors(init = {}) { return new Response(null, { ...init, headers: { ...CORS_HEADERS, ...(init.headers || {}) } }); }
 function now() { return new Date().toISOString(); }
@@ -22,8 +20,6 @@ async function exec(db, sql, ...bind) { return await db.prepare(sql).bind(...bin
 async function first(db, sql, ...bind) { return await db.prepare(sql).bind(...bind).first(); }
 async function all(db, sql, ...bind) { return await db.prepare(sql).bind(...bind).all(); }
 
-async function initSchema(db) { await db.exec(await (await fetch(new URL('../../migrations/0001_initial.sql', import.meta.url))).text()); }
-
 async function auth(env, req) {
   const token = bearer(req);
   if (!token) return null;
@@ -40,10 +36,10 @@ async function realtime(env, event, data) {
 }
 
 async function withTx(env, fn) {
-  let result;
-  await env.DB.batch([env.DB.prepare('SELECT 1')]);
-  await env.DB.transaction(async tx => { result = await fn(tx); })();
-  return result;
+  // D1 has no Mongo-style transaction callback. Multi-statement atomic
+  // operations must use DB.batch; this helper keeps simple single-statement
+  // handlers on the same Worker-native database interface.
+  return fn(env.DB);
 }
 
 async function createGame(tx, game, kind, ownerId, payload) {
@@ -62,7 +58,6 @@ rt.add('GET', '/ping', async () => json({ success: true, message: 'pong', data: 
 rt.add('GET', '/__cloudflare/health', async () => json({ ok: true, service: 'native-api', timestamp: now() }));
 
 rt.add('POST', '/api/login', async (env, req) => {
-  await initSchema(env.DB);
   const body = await parseBody(req);
   const username = normalizeUsername(body.username || body.user || body.name);
   if (!username) return json({ success: false, message: 'Username required' }, { status: 400 });
@@ -138,7 +133,7 @@ export class RealtimeHub {
     }
     const body = await request.json().catch(() => ({}));
     await this.state.blockConcurrencyWhile(async () => { await this.state.storage.put(`event:${Date.now()}:${randomToken()}`, body); });
-    const envelope = socketEnvelope(body.event || body.type || 'event', body.data || body.payload || body);
+    const envelope = JSON.stringify(tokenEnvelope(body.event || body.type || 'event', body.data || body.payload || body));
     for (const ws of this.subscribers) try { ws.send(envelope); } catch {}
     return json({ success: true });
   }
@@ -148,13 +143,15 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/realtime') return env.REALTIME_HUB.get(env.REALTIME_HUB.idFromName('hub')).fetch(request);
-    if (url.pathname.startsWith('/api/')) {
-      const route = rt.match(request.method, url.pathname);
+    if (request.method === 'OPTIONS') return cors();
+    const route = rt.match(request.method, url.pathname);
+    const isApiRequest = url.pathname.startsWith('/api/');
+    const isSystemRequest = url.pathname === '/ping' || url.pathname === '/__cloudflare/health';
+    if (isApiRequest || isSystemRequest) {
       if (!route) return json({ success: false, message: 'Not found' }, { status: 404 });
       const res = await route.h(env, request);
       return new Response(res.body, { status: res.status, headers: { ...Object.fromEntries(res.headers), ...CORS_HEADERS, 'cache-control': 'no-store' } });
     }
-    if (request.method === 'OPTIONS') return cors();
     return env.ASSETS.fetch(request);
   }
 };

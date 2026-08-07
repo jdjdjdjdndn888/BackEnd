@@ -23,18 +23,6 @@ export default defineConfig({
         "**/.agents/**",
       ],
     },
-    proxy: {
-      "/api": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
-      },
-      "/realtime": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-        ws: true,
-      },
-    },
   },
   assetsInclude: ["**/*.mov"],
   build: {

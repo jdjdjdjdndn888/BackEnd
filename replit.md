@@ -1,12 +1,15 @@
 # GemTide
 
-GemTide is a React/Vite frontend with a Node/Express/MongoDB API for PS99 item-backed games.
+GemTide is a React frontend and Cloudflare Worker application for PS99
+item-backed games. The Worker serves the frontend, D1-backed API, and
+Durable Object realtime channel.
 
 ## Current feature notes
 
 - `/blackjack` remains the existing PS99 item 1v1 game.
 - `/normal-blackjack` is the standalone dealer game with an item-funded normal wallet.
-- Normal-wallet item exchanges are taxed at 8%; wallet exchange and redemption operations use server-side idempotency and MongoDB transactions.
+- Normal-wallet item exchanges are taxed at 8%; wallet exchange and redemption
+  operations are implemented in the Worker/D1 backend.
 
 ## User preferences
 

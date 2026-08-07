@@ -1,19 +1,15 @@
 ---
-name: Cloudflare API boundary
-description: The deployment boundary between the MongoDB-backed Node API and Cloudflare Workers
+name: Cloudflare native backend
+description: The application now runs on a Cloudflare Worker with D1 and a Durable Object
 ---
 
-Cloudflare Workers should front this backend as an edge proxy rather than importing
-the Express/Mongoose application directly. The game controllers depend on
-MongoDB's Node TCP driver, Mongoose transactions, Socket.IO, and long-lived
-startup/scheduler behavior; a Worker cannot provide those runtime guarantees.
+The application runtime is Cloudflare-only: the Worker serves the SPA assets,
+D1-backed API routes, and Durable Object realtime channel. Node is retained
+only as local build tooling for Vite and Wrangler.
 
-**Why:** Replacing the data layer with a Workers-native database would be a
-large behavioral migration with atomic settlement and realtime compatibility
-risks. An edge proxy provides Cloudflare routing and protection without
-changing the game API contract.
+**Why:** The requested cutover removed the Express/Mongoose/MongoDB origin and
+the edge proxy rather than maintaining a hybrid deployment.
 
-**How to apply:** Keep the Node API as the database origin, deploy the Worker
-adapter on the public API hostname, set its `API_ORIGIN` to the non-Worker
-origin, and preserve WebSocket upgrade responses for Socket.IO. Do not point
-`API_ORIGIN` back at the Worker hostname.
+**How to apply:** Keep API URLs same-origin (`/api`) and realtime same-origin
+(`ws(s)://<host>/realtime`). Before production deploy, bind a real remote D1
+database ID in `wrangler.jsonc` and apply the migration remotely.

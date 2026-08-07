@@ -1,6 +1,8 @@
 # Cloudflare native backend notes
 
-This repository now includes a native Cloudflare Worker backend under `workers/native-api/` with a D1 schema in `migrations/0001_initial.sql`.
+This repository uses a native Cloudflare Worker backend under `workers/native-api/`
+with a D1 schema in `migrations/0001_initial.sql`. The legacy Node/Express API
+and edge proxy are no longer part of the application runtime.
 
 ## What is covered
 
@@ -10,14 +12,24 @@ This repository now includes a native Cloudflare Worker backend under `workers/n
 - Authentication via bearer token lookup against hashed D1 sessions
 - Clean-start login that can create a user without any hardcoded admin account
 
-## Limitations
+## Current scope
 
-- The new backend currently returns minimal compatibility payloads for many game/read endpoints.
-- Full parity with the legacy MongoDB backend is not complete yet; some endpoints are stubs or simplified.
-- Balance, inventory, and game rules still need project-specific business logic to match the old API exactly.
-- The existing `api/` code is intentionally left in place for now, per request.
-- No smoke test harness is wired into package scripts yet.
+- The frontend is built into `dist/` and served by the same Worker.
+- Local preview uses `wrangler dev`, so it exercises the Worker/D1/Durable
+  Object runtime instead of a separate application server.
+- The native backend currently provides compatibility implementations for the
+  migrated routes; game rules and settlement logic should be expanded in this
+  Worker as additional Cloudflare-native functionality is required.
 
 ## Deployment reminder
 
-Update the Wrangler D1 database id before deploying. The current config contains a placeholder value.
+Create the production D1 database and apply the schema before deploying:
+
+```bash
+npx wrangler d1 create gemtide-native
+npx wrangler d1 migrations apply gemtide-native --remote
+npm run cf:deploy
+```
+
+After creating the database, copy its generated `database_id` into
+`wrangler.jsonc`. Cloudflare requires that ID for a remote deployment.

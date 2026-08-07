@@ -1,52 +1,31 @@
-# Cloudflare API deployment
+# Cloudflare-only deployment
 
-## What is deployed
+The application is now a single Cloudflare Worker under
+`workers/native-api/index.js`. It serves:
 
-The API has two parts:
+- the React/Vite build from `dist/`
+- the D1-backed `/api/*` routes
+- realtime WebSockets through the `RealtimeHub` Durable Object
 
-1. `api/server.js` is the database-backed Node origin. It owns Express,
-   Mongoose, MongoDB transactions, scheduled game state, and Socket.IO.
-2. `workers/api-proxy.js` is a Cloudflare Worker edge adapter. It forwards
-   HTTP requests and Socket.IO upgrade requests to the Node origin, so the API
-   can be served through Cloudflare without rewriting the MongoDB data layer.
+There is no Node API origin, Express server, MongoDB connection, Render
+service, or API proxy in the application runtime.
 
-Cloudflare Workers cannot directly run this backend as written because
-Mongoose/MongoDB use a Node TCP connection and several controllers rely on
-MongoDB transactions. A full Workers-native migration would require replacing
-the database layer and the long-lived realtime/scheduler services.
+## First-time Cloudflare setup
 
-## Deploy the edge adapter
-
-1. Keep the Node API running on its existing host.
-2. Edit `wrangler.api.jsonc` and set `API_ORIGIN` to that host. Do not point it
-   at the Cloudflare Worker hostname or the Worker will proxy to itself.
-3. From the project root, run:
-
-   ```bash
-   npx wrangler deploy --config wrangler.api.jsonc
-   ```
-
-4. Attach the Worker to the API hostname in Cloudflare:
-   `api.your-domain.example/*`.
-5. Verify:
-
-   ```bash
-   curl https://api.your-domain.example/__cloudflare/health
-   ```
-
-The Worker intentionally uses `Cache-Control: no-store` for API responses so
-authenticated balances, inventories, game state, and admin responses are not
-cached at the edge.
-
-## Discord bot
-
-Discord is no longer loaded by `api/server.js`, and the Discord Bot workflow is
-removed from `.replit`. The bot remains available as an explicitly launched
-process when needed:
+Create a D1 database in the Cloudflare account and put its generated ID in
+`wrangler.jsonc`:
 
 ```bash
-cd api
-node run-bot.js
+npx wrangler d1 create gemtide-native
+npx wrangler d1 migrations apply gemtide-native --remote
+pnpm run cf:deploy
 ```
 
-It is not part of the API or Cloudflare startup path.
+The local Worker can be tested without Cloudflare credentials:
+
+```bash
+pnpm run cf:dev
+```
+
+API responses use `Cache-Control: no-store` because balances, inventories,
+authentication, and game state must not be cached.

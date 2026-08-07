@@ -30,7 +30,7 @@ export function createNativeSocket({ url, tokenProvider, reconnectDelay = 500, r
     if (reconnectTimer) clearTimeout(reconnectTimer);
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     const target = typeof url === "function" ? url() : url;
-    ws = new WebSocket(target, "json");
+    ws = new WebSocket(target);
     ws.onopen = () => {
       attempts = 0;
       send({ type: "auth", token: tokenProvider?.() || "" });
@@ -39,7 +39,7 @@ export function createNativeSocket({ url, tokenProvider, reconnectDelay = 500, r
     ws.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
-        if (msg?.type === "event" && msg.event) dispatch(msg.event, msg.payload);
+         if (msg?.event) dispatch(msg.event, msg.payload ?? msg.data);
         if (msg?.type === "connected") dispatch("connect");
       } catch {}
     };
