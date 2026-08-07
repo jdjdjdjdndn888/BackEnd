@@ -25,7 +25,7 @@ const BROWSER_HEADERS = {
 };
 
 const BASE_URL = "https://petsimulatorvalues.com";
-const API_BASE = "https://api.gemtide.win";
+const API_BASE = process.env.PUBLIC_API_URL || "https://api.gemtide.win";
 
 // Values treated as 0
 const ZERO_VALUES = new Set(["N/A", "SOON", "O/C", "PRICELESS"]);

@@ -830,7 +830,7 @@ exports.scrapeItems = asyncHandler(async (req, res) => {
     scraped = withImages.map((it) => ({
       itemname: it.itemname,
       itemvalue: typeof it.itemvalue === "number" ? it.itemvalue : 0,
-      itemimage: `https://api.gemtide.win/item-image?name=${encodeURIComponent(it.itemname)}`,
+      itemimage: `${process.env.PUBLIC_API_URL || "https://api.gemtide.win"}/item-image?name=${encodeURIComponent(it.itemname)}`,
       game: it.game,
     }));
   }

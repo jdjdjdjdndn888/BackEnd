@@ -1,6 +1,6 @@
 // Auto-generated PS99 pet data with Roblox asset URLs
 // Approximate values; images from Roblox catalog
-const API_IMG = (name) => `https://api.gemtide.win/item-image?name=${encodeURIComponent(name)}`;
+const API_IMG = (name) => `${process.env.PUBLIC_API_URL || "https://api.gemtide.win"}/item-image?name=${encodeURIComponent(name)}`;
 
 const PETS = [
   // -- Titanic Pets --

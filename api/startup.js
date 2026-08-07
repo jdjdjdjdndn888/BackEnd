@@ -3,7 +3,7 @@ const giveawayController = require("./controllers/giveaway/index");
 const users = require("./modules/users.js");
 const items = require("./modules/items.js");
 
-const API_BASE = "https://api.gemtide.win/item-image";
+const API_BASE = `${process.env.PUBLIC_API_URL || "https://api.gemtide.win"}/item-image`;
 
 // Gem denomination item IDs — these use a static Discord emoji image and must
 // never be sent through the PS99 catalog image endpoint (they are not pets).

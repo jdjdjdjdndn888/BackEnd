@@ -12,7 +12,7 @@ const REQUIRED_INVITE_ROLE = "1513016389139697698";
 const SAB_AUTO_CHANNEL_ID  = "1529813962185768990";
 
 // ─── API CONFIG ──────────────────────────────────────────────────────────────
-const API_BASE_URL      = "https://api.gemtide.win";
+const API_BASE_URL      = process.env.PUBLIC_API_URL || "https://api.gemtide.win";
 const API_JWT_TOKEN     = process.env.JWT_SECRET || "LoginToPs99BetFooorGemssz";
 const TRANSFER_ENDPOINT = "/admin/user-inventory/transfer";
 
@@ -520,7 +520,7 @@ async function processSABImage(message) {
     const filename = `sab_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
     const sabDir   = path.join(__dirname, "public", "sab-images");
     const savePath = path.join(sabDir, filename);
-    const imageUrl = `https://api.gemtide.win/sab-images/${filename}`;
+    const imageUrl = `${API_BASE_URL}/sab-images/${filename}`;
 
     if (!fs.existsSync(sabDir)) fs.mkdirSync(sabDir, { recursive: true });
 
