@@ -1,15 +1,11 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useModal } from "../../utils/ModalContext.jsx";
 import mobilechatstyle from "../chat/mobilechat.module.css";
+import { ENABLED_GAME_ROUTES } from "../../utils/gameAvailability.js";
 
 const GAMES = [
-  { label: "Home",      href: "/",          img: "/nav-home.png"       },
-  { label: "Coinflip",  href: "/coinflip",  img: "/nav-coinflip.png"   },
-  { label: "Dice",      href: "/dice",      img: "/nav-dice.png"       },
-  { label: "Jackpot",   href: "/jackpot",   img: "/jackpot-icon.png"   },
-  { label: "Blackjack", href: "/blackjack", img: "/nav-blackjack.png"  },
-  { label: "Mines",     href: "/mines",     img: "/mines-gem.png"      },
-  { label: "Upgrader",  href: "/upgrader",  img: "/upgrader-icon.png"  },
+  { label: "Home", href: "/", img: "/nav-home.png" },
+  ...ENABLED_GAME_ROUTES,
 ];
 
 export default function MobileGames() {

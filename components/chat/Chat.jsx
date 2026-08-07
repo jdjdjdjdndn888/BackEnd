@@ -3,7 +3,6 @@ import toast from "react-hot-toast";
 import SocketContext from "../../utils/socket";
 import { getauth } from "../../utils/getauth";
 import { api } from "../../config.js";
-import Giveaways from "./giveaway.jsx";
 import { getrole, getDisplayLevel } from "../../utils/getrole";
 import "./picker.css";
 import { Message } from "./Message";
@@ -140,7 +139,6 @@ export default function Chat() {
         />
       )}
 
-      <Giveaways />
       <Messages messages={messages} messagesEndRef={messagesEndRef} />
 
       {/* Input area */}

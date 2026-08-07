@@ -21,16 +21,14 @@ import Coinflip from "../components/coinflip/layout.jsx";
 import JackpotPage from "../components/jackpot/layout.jsx";
 import Account from "../components/account/account.jsx";
 import LinkDiscord from "../components/discord/linker.jsx";
-import Upgrader from "../components/upgrader/Upgrader.jsx";
 import Chat from "../components/chat/Chat.jsx";
 import Admin from "../components/admin/Admin.jsx";
-import Trades from "../components/trades/Trades.jsx";
 import DicePage from "../components/dice/layout.jsx";
-import BlackjackPage from "../components/blackjack/layout.jsx";
 import RpsPage        from "../components/rps/layout.jsx";
 import SupportPage    from "../components/support/SupportPage.jsx";
 import Referral       from "../components/referral/Referral.jsx";
 import ColordiceLayout from "../components/colordice/layout.jsx";
+import TemporaryClosed from "../components/TemporaryClosed.jsx";
 
 function ModalRenderer() {
   const { modalState } = useModal();
@@ -215,13 +213,14 @@ function App() {
                         <Route path="/" element={<Home />} />
                         <Route path="/coinflip" element={<Coinflip />} />
                         <Route path="/jackpot" element={<JackpotPage />} />
-                        <Route path="/upgrader" element={<Upgrader />} />
+                        <Route path="/upgrader" element={<TemporaryClosed gameName="Upgrader" />} />
                         <Route path="/profile" element={<Account />} />
                         <Route path="/discord/linked" element={<LinkDiscord />} />
                         <Route path="/admin" element={<Admin />} />
-                        <Route path="/trades" element={<Trades />} />
+                        <Route path="/trades" element={<TemporaryClosed gameName="Trades" />} />
+                        <Route path="/mines" element={<TemporaryClosed gameName="Mines" />} />
                         <Route path="/dice" element={<DicePage />} />
-                        <Route path="/blackjack" element={<BlackjackPage />} />
+                        <Route path="/blackjack" element={<TemporaryClosed gameName="Blackjack" />} />
                         <Route path="/colordice" element={<ColordiceLayout />} />
                         <Route path="/rps" element={<RpsPage />} />
                         <Route path="/support" element={<SupportPage />} />

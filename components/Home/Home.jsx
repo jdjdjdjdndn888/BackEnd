@@ -74,12 +74,10 @@ const TwitterIcon = ({ className }) => (
 
 const GAMES = [
   { name: "Coinflip",       desc: "A 50/50 chance to double your wager.",                 href: "/coinflip",         banner: "/bg-coinflip.jpg"  },
-  { name: "Jackpot",        desc: "Deposit items into the pool to win it all.",             href: "/jackpot",          banner: "/bg-jackpot.jpg"   },
   { name: "Dice Roll",      desc: "Roll the dice to hit your target multiplier.",           href: "/dice",             banner: "/bg-dice.jpg"      },
-  { name: "Blackjack",      desc: "Play against the dealer. Get closer to 21.",             href: "/blackjack",        banner: "/bg-blackjack.jpg" },
-  { name: "Mines",          desc: "Navigate the minefield in a 1v1 showdown.",             href: "/mines",            banner: "/bg-mines.jpg"     },
-  { name: "Upgrader",       desc: "Risk your current pets to upgrade to a higher tier.",   href: "/upgrader",         banner: "/bg-upgrader.jpg"  },
-  { name: "Trades",         desc: "P2P betting. Propose a wager and negotiate.",           href: "/trades",           banner: "/bg-trades.jpg"    },
+  { name: "Jackpot",        desc: "Deposit items into the pool to win it all.",             href: "/jackpot",          banner: "/bg-jackpot.jpg"   },
+  { name: "Color Dice",     desc: "Pick your colors and roll for the win.",                 href: "/colordice",        banner: "/bg-rps.jpg"      },
+  { name: "RPS",            desc: "Challenge another player to rock paper scissors.",      href: "/rps",              banner: "/bg-rps.jpg"      },
 ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -88,7 +86,7 @@ export const Home = () => {
   useSeo({
     title: "GemTide | Pet Simulator 99 Betting - Big Games, PS99 Values & More",
     description:
-      "GemTide is a Pet Simulator 99 (PS99) betting site. Wager Pet Sim 99 pets, gems, and items in big games like Coinflip, Jackpot, Dice, Blackjack, Mines, and Upgrader, backed by real PS99 values.",
+      "GemTide is a Pet Simulator 99 (PS99) betting site. Wager Pet Sim 99 pets, gems, and items across Coinflip, RPS, Dice, Jackpot, and Color Dice.",
     path: "/",
   });
   const socket = useContext(SocketContext);
@@ -213,8 +211,8 @@ export const Home = () => {
   const tickerItems = liveWins.length > 0 ? liveWins : [
     { user: "xXDragonSlayer", game: "Coinflip",  amount: 4200  },
     { user: "PetGod99",       game: "Jackpot",   amount: 12500 },
-    { user: "RBX_Hunter",     game: "Upgrader",  amount: 8900  },
-    { user: "GemKing",        game: "Blackjack", amount: 28000 },
+    { user: "RBX_Hunter",     game: "Color Dice", amount: 8900  },
+    { user: "GemKing",        game: "RPS",        amount: 28000 },
     { user: "Speedster_77",   game: "Dice",      amount: 42000 },
     { user: "TitanGamer",     game: "Coinflip",  amount: 7200  },
   ];
@@ -341,8 +339,8 @@ export const Home = () => {
       <div style={{ maxWidth: 1152, margin: "0 auto", padding: "0 24px 56px" }}>
         <p style={{ color: "#666", fontSize: 13, lineHeight: 1.8, maxWidth: 820 }}>
           GemTide is a Pet Simulator 99 (PS99) betting site built for players who love big games and bigger wins.
-          Deposit your Pet Sim 99 pets and gems, then wager them across Coinflip, Jackpot, Dice Roll, Blackjack,
-          Mines, and our pet Upgrader — every match is provably fair and priced against real PS99 values, so
+          Deposit your Pet Sim 99 pets and gems, then wager them across Coinflip, RPS, Dice Roll, Jackpot,
+          and Color Dice — every match is designed for fast, fair PS99 gameplay, so
           every trade feels honest.
         </p>
       </div>

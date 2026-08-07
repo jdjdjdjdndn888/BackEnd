@@ -8,17 +8,11 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Leaderboard from "@/components/popup/leaderboard";
+import { ENABLED_GAME_ROUTES } from "@/utils/gameAvailability";
 
 const NAV_ITEMS = [
-  { label: "Home",         href: "/",           icon: null, img: "/nav-home.png"          },
-  { label: "Coinflip",     href: "/coinflip",   icon: null, img: "/nav-coinflip.png"      },
-  { label: "Dice",         href: "/dice",       icon: null, img: "/nav-dice.png"          },
-  { label: "Jackpot",      href: "/jackpot",    icon: null, img: "/nav-jackpot.png"       },
-  { label: "Blackjack",    href: "/blackjack",  icon: null, img: "/nav-blackjack-1v1.svg" },
-  { label: "Color Dice",   href: "/colordice",  icon: null, img: "/nav-colordice.svg", badge: "NEW" },
-  { label: "RPS",          href: "/rps",        icon: null, img: "/nav-rps.png"           },
-  { label: "Upgrader",     href: "/upgrader",   icon: null, img: "/nav-upgrader.png"      },
-  { label: "Trades",       href: "/trades",     icon: null, img: "/nav-trades.png"        },
+  { label: "Home", href: "/", icon: null, img: "/nav-home.png" },
+  ...ENABLED_GAME_ROUTES,
 ];
 
 function NavIcon({ icon: Icon, img, active, size = 28 }) {

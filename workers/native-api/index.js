@@ -52,6 +52,25 @@ async function listGames(db, game) {
   return r.results.map(x => ({ id: x.id, game: x.game, kind: x.kind, status: x.status, ownerId: x.owner_id, payload: safeJson(x.payload_json, '{}'), createdAt: x.created_at }));
 }
 
+// Hiding a game in the React app is not enough because old clients and direct
+// requests can still reach Worker routes.
+const ENABLED_GAMES = new Set(['coinflips', 'rps', 'dice', 'jackpot', 'colordice']);
+const GAME_PATH_NAMES = new Set([
+  'coinflip', 'coinflips', 'rps', 'dice', 'jackpot', 'colordice',
+  'blackjack', 'mines', 'upgrader', 'trades', 'roulette', 'crash',
+  'giveaways', 'normal-blackjack',
+]);
+const DISABLED_GAME_MESSAGE = 'This game is currently disabled on the Cloudflare backend.';
+
+function gameNameFromPath(pathname) {
+  const firstSegment = pathname.replace(/^\/api\/?/, '').split('/')[0].toLowerCase();
+  return GAME_PATH_NAMES.has(firstSegment) ? firstSegment : null;
+}
+
+function disabledGameResponse(game) {
+  return json({ success: false, gameDisabled: true, game, message: DISABLED_GAME_MESSAGE }, { status: 503 });
+}
+
 const rt = router();
 rt.add('OPTIONS', '*', async () => cors());
 rt.add('GET', '/ping', async () => json({ success: true, message: 'pong', data: { timestamp: now() } }));
@@ -93,7 +112,7 @@ rt.add('POST', '/api/chat/send', async (env, req) => {
   return json({ success: true, message: 'OK' });
 });
 
-for (const game of ['coinflips', 'rps', 'dice', 'blackjack']) {
+for (const game of ['coinflips', 'rps', 'dice']) {
   rt.add('GET', `/api/${game}/games`, async env => json({ success: true, data: await listGames(env.DB, game) }));
   rt.add('POST', `/api/${game}/create`, async (env, req) => {
     const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 });
@@ -105,12 +124,42 @@ for (const game of ['coinflips', 'rps', 'dice', 'blackjack']) {
   rt.add('POST', `/api/${game}/join`, async (env, req) => { const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 }); const body = await parseBody(req); await withTx(env, async tx => exec(tx, `INSERT INTO realtime_events (event_type, payload_json) VALUES (?,?)`, `${game}.join`, JSON.stringify({ user: toUser(u), body })) ); await realtime(env, `${game}.join`, tokenEnvelope(`${game}.join`, { user: toUser(u), body })); return json({ success: true, data: { joined: true } }); });
   rt.add('POST', `/api/${game}/cancel`, async (env, req) => { const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 }); const body = await parseBody(req); await withTx(env, async tx => exec(tx, `INSERT INTO realtime_events (event_type, payload_json) VALUES (?,?)`, `${game}.cancel`, JSON.stringify({ user: toUser(u), body })) ); await realtime(env, `${game}.cancel`, tokenEnvelope(`${game}.cancel`, { user: toUser(u), body })); return json({ success: true, data: { cancelled: true } }); });
 }
-rt.add('POST', '/api/blackjack/hit', async (env, req) => { const u = await authOrFail(env, req); return u ? json({ success: true }) : json({ success: false, message: 'Unauthorized' }, { status: 401 }); });
-rt.add('POST', '/api/blackjack/stand', async (env, req) => { const u = await authOrFail(env, req); return u ? json({ success: true }) : json({ success: false, message: 'Unauthorized' }, { status: 401 }); });
+rt.add('GET', '/api/coinflips/flips', async env => json({ success: true, data: await listGames(env.DB, 'coinflips') }));
+rt.add('GET', '/api/rps/matches', async env => json({ success: true, data: await listGames(env.DB, 'rps') }));
+rt.add('POST', '/api/coinflips/history/me', async (env, req) => {
+  const u = await authOrFail(env, req);
+  return u ? json({ success: true, data: await listGames(env.DB, 'coinflips') }) : json({ success: false, message: 'Unauthorized' }, { status: 401 });
+});
+rt.add('POST', '/api/rps/history/me', async (env, req) => {
+  const u = await authOrFail(env, req);
+  return u ? json({ success: true, data: await listGames(env.DB, 'rps') }) : json({ success: false, message: 'Unauthorized' }, { status: 401 });
+});
+rt.add('GET', '/api/dice/history/me', async (env, req) => {
+  const u = await authOrFail(env, req);
+  return u ? json({ success: true, data: await listGames(env.DB, 'dice') }) : json({ success: false, message: 'Unauthorized' }, { status: 401 });
+});
 rt.add('GET', '/api/jackpot', async env => json({ success: true, data: (await all(env.DB, `SELECT * FROM game_matches WHERE game='jackpot' ORDER BY id DESC LIMIT 1`)).results[0] || null }));
 rt.add('POST', '/api/jackpot/join', async (env, req) => { const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 }); await withTx(env, async tx => exec(tx, `INSERT INTO realtime_events (event_type, payload_json) VALUES (?,?)`, 'jackpot.join', JSON.stringify({ user: toUser(u) })) ); return json({ success: true }); });
-rt.add('GET', '/api/giveaways/latest', async env => json({ success: true, data: (await all(env.DB, `SELECT * FROM game_matches WHERE game='giveaway' ORDER BY id DESC LIMIT 1`)).results[0] || null }));
-rt.add('POST', '/api/giveaways/join', async (env, req) => { const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 }); return json({ success: true }); });
+rt.add('GET', '/api/colordice/games', async env => json({ success: true, data: await listGames(env.DB, 'colordice') }));
+rt.add('POST', '/api/colordice/history/me', async (env, req) => {
+  const u = await authOrFail(env, req);
+  return u ? json({ success: true, history: await listGames(env.DB, 'colordice') }) : json({ success: false, message: 'Unauthorized' }, { status: 401 });
+});
+rt.add('POST', '/api/colordice/create', async (env, req) => {
+  const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  const body = await parseBody(req);
+  const id = await withTx(env, async tx => createGame(tx, 'colordice', 'create', u.id, body));
+  await realtime(env, 'colordice.created', tokenEnvelope('colordice.created', { id }));
+  return json({ success: true, data: { id } });
+});
+rt.add('POST', '/api/colordice/join', async (env, req) => {
+  const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  const body = await parseBody(req);
+  await withTx(env, async tx => exec(tx, `INSERT INTO realtime_events (event_type, payload_json) VALUES (?,?)`, 'colordice.join', JSON.stringify({ user: toUser(u), body })));
+  return json({ success: true, game: body });
+});
+rt.add('GET', '/api/giveaways/latest', async () => disabledGameResponse('giveaways'));
+rt.add('POST', '/api/giveaways/join', async () => disabledGameResponse('giveaways'));
 rt.add('GET', '/api/trades', async env => json({ success: true, data: (await all(env.DB, `SELECT * FROM trades WHERE status='open' ORDER BY id DESC`)).results }));
 rt.add('GET', '/api/trades/mine', async (env, req) => { const u = await authOrFail(env, req); return u ? json({ success: true, data: (await all(env.DB, `SELECT * FROM trades WHERE owner_id=? ORDER BY id DESC`, u.id)).results } ) : json({ success: false, message: 'Unauthorized' }, { status: 401 }); });
 rt.add('POST', '/api/trades/create', async (env, req) => { const u = await authOrFail(env, req); if (!u) return json({ success: false, message: 'Unauthorized' }, { status: 401 }); const body = await parseBody(req); const id = await withTx(env, async tx => { const r = await tx.prepare(`INSERT INTO trades (owner_id, payload_json) VALUES (?,?)`).bind(u.id, JSON.stringify(body)).run(); return r.meta.last_row_id; }); return json({ success: true, data: { id } }); });
@@ -144,6 +193,8 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/realtime') return env.REALTIME_HUB.get(env.REALTIME_HUB.idFromName('hub')).fetch(request);
     if (request.method === 'OPTIONS') return cors();
+    const game = gameNameFromPath(url.pathname);
+    if (game && !ENABLED_GAMES.has(game)) return disabledGameResponse(game);
     const route = rt.match(request.method, url.pathname);
     const isApiRequest = url.pathname.startsWith('/api/');
     const isSystemRequest = url.pathname === '/ping' || url.pathname === '/__cloudflare/health';

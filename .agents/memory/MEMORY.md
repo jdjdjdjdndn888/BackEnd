@@ -13,3 +13,4 @@
 - [Normal blackjack wallet](normal-blackjack-wallet.md) — separate item-backed wallet, fixed 8% exchange fee, and transaction-guarded dealer settlement
 - [Clean PS99 images](clean-ps99-images.md) — use the catalog-backed renderer; never store or serve values-site images with embedded Cosmic branding
 - [Cloudflare API boundary](cloudflare-api-boundary.md) — keep Mongo/Mongoose game logic on Node; use a Worker edge proxy until the data layer is migrated
+- [Cloudflare workflow tooling](cloudflare-workflow-tooling.md) — keep Wrangler installed locally so preview startup never pauses for an interactive npx install
